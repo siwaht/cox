@@ -149,8 +149,8 @@ function transformCode(input: string, runtime: RuntimeType): TransformResult {
   if (!hasFastAPI) newImports.push('from fastapi import FastAPI');
   if (!hasCORS) newImports.push('from fastapi.middleware.cors import CORSMiddleware');
   if (!hasCopilotKit) {
-    newImports.push('from copilotkit.integrations.fastapi import CopilotKitSDK, CopilotKitSDKRoute');
-    newImports.push('from copilotkit import LangGraphAgent');
+    newImports.push('from copilotkit.integrations.fastapi import add_fastapi_endpoint');
+    newImports.push('from copilotkit import CopilotKitSDK, LangGraphAgent');
   }
   if (!hasUvicorn) newImports.push('import uvicorn');
 
@@ -169,16 +169,42 @@ function transformCode(input: string, runtime: RuntimeType): TransformResult {
     lines.splice(insertAt, 0, '', '# --- Added by CopilotKit Transformer ---', ...newImports, '');
   }
 
-  // Ensure load_dotenv() call
-  if (!code.includes('load_dotenv()')) {
-    const dotenvIdx = lines.findIndex(l => l.includes('load_dotenv'));
-    const insertAfter = dotenvIdx >= 0 ? dotenvIdx + 1 : lines.findIndex(l => !l.trim().startsWith('#') && !l.trim().startsWith('import') && !l.trim().startsWith('from') && l.trim() !== '');
-    if (insertAfter >= 0 && !lines.some(l => l.trim() === 'load_dotenv()')) {
-      lines.splice(insertAfter, 0, 'load_dotenv()');
+  // Ensure load_dotenv() call exists (check against the updated lines to avoid duplicates)
+  const alreadyHasCall = lines.some(l => l.trim() === 'load_dotenv()');
+  if (!alreadyHasCall) {
+    // Insert after the last dotenv-related import line
+    const dotenvImportIdx = (() => {
+      for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].includes('from dotenv') || lines[i].includes('import dotenv')) return i;
+      }
+      return -1;
+    })();
+    if (dotenvImportIdx >= 0) {
+      lines.splice(dotenvImportIdx + 1, 0, 'load_dotenv()');
+    } else {
+      // No dotenv import found — insert after the imports block
+      const firstCodeIdx = lines.findIndex(l => {
+        const t = l.trim();
+        return t !== '' && !t.startsWith('#') && !t.startsWith('import') && !t.startsWith('from');
+      });
+      if (firstCodeIdx >= 0) {
+        lines.splice(firstCodeIdx, 0, 'load_dotenv()', '');
+      }
     }
   }
 
   code = lines.join('\n');
+
+  // --- Deduplicate import lines ---
+  const seenImports = new Set<string>();
+  code = code.split('\n').filter(line => {
+    const trimmed = line.trim();
+    if (trimmed.startsWith('from ') || trimmed.startsWith('import ')) {
+      if (seenImports.has(trimmed)) return false;
+      seenImports.add(trimmed);
+    }
+    return true;
+  }).join('\n');
 
   // --- Migrate deprecated imports ---
   // Replace old langgraph.prebuilt.create_react_agent with langchain.agents.create_agent
@@ -229,11 +255,10 @@ sdk = CopilotKitSDK(
             name="agent",
             description="AI Agent",
             agent=${agentVar},
-        )
+        ),
     ],
 )
 
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 `;
     code += '\n' + sdkBlock;
