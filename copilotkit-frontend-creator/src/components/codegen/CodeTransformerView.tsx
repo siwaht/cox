@@ -20,7 +20,7 @@ import type { WorkspaceConfig } from '@/types/workspace';
 import { generateProjectFiles, downloadProject, getProjectCodePreview } from '@/utils/project-generator';
 
 type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
-type DeployPath = 'choose' | 'sandbox' | 'selfhost';
+type DeployPath = 'choose' | 'sandbox' | 'selfhost' | 'runhere';
 type CodeTab = 'backend' | 'frontend';
 
 interface TransformResult {
@@ -372,6 +372,9 @@ export const CodeTransformerView: React.FC = () => {
 
               <div className="border-t border-border bg-surface-raised overflow-y-auto max-h-[55%]">
                 {deployPath === 'choose' && <PathChooser onChoose={setDeployPath} />}
+                {deployPath === 'runhere' && (
+                  <RunHerePanel result={result} onConnect={handleConnect} onBack={() => setDeployPath('choose')} />
+                )}
                 {deployPath === 'sandbox' && (
                   <SandboxPanel result={result} onDeploy={handleSandboxDeploy}
                     onConnect={handleConnect} onBack={() => setDeployPath('choose')} />
@@ -647,7 +650,14 @@ const BlockCompatibilityPanel: React.FC<{
 const PathChooser: React.FC<{ onChoose: (p: DeployPath) => void }> = ({ onChoose }) => (
   <div className="p-3 space-y-2">
     <p className="text-2xs text-txt-muted font-medium">How do you want to run this agent?</p>
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-3 gap-2">
+      <button onClick={() => onChoose('runhere')}
+        className="flex flex-col items-center gap-2 p-3 rounded-lg border-2 border-accent/50
+                   bg-accent-soft hover:bg-accent-soft/80 transition-all text-left">
+        <Rocket size={18} className="text-accent" />
+        <span className="text-xs font-medium text-txt-primary">Run Here</span>
+        <span className="text-2xs text-txt-faint text-center">Deploy to this app. One click.</span>
+      </button>
       <button onClick={() => onChoose('sandbox')}
         className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border
                    hover:border-accent/50 hover:bg-accent-soft transition-all text-left">
@@ -666,6 +676,101 @@ const PathChooser: React.FC<{ onChoose: (p: DeployPath) => void }> = ({ onChoose
   </div>
 );
 
+
+// ─── Run Here Panel ───
+const RunHerePanel: React.FC<{
+  result: TransformResult;
+  onConnect: (url: string) => void;
+  onBack: () => void;
+}> = ({ result, onConnect, onBack }) => {
+  const [status, setStatus] = useState<'idle' | 'deploying' | 'done' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+
+  const handleDeploy = async () => {
+    setStatus('deploying');
+    setMessage('');
+    try {
+      const res = await fetch('/api/deploy-agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: result.code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus('error');
+        setMessage(data.error || 'Deploy failed');
+        return;
+      }
+      if (data.warning) {
+        setStatus('error');
+        setMessage(data.warning);
+        return;
+      }
+      setStatus('done');
+      setMessage(data.message || 'Agent deployed');
+    } catch (err) {
+      setStatus('error');
+      setMessage(err instanceof Error ? err.message : 'Network error');
+    }
+  };
+
+  return (
+    <div className="p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Rocket size={13} className="text-accent" />
+          <span className="text-xs font-medium text-txt-primary">Run Here</span>
+        </div>
+        <button onClick={onBack} className="text-2xs text-txt-faint hover:text-txt-secondary transition-colors">
+          ← Back
+        </button>
+      </div>
+
+      <p className="text-2xs text-txt-secondary">
+        This saves the agent code to this app and connects it to the frontend. You may need to restart the server for changes to take full effect.
+      </p>
+
+      {status === 'idle' && (
+        <button onClick={handleDeploy}
+          className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg w-full justify-center
+                     bg-accent hover:bg-accent-hover text-white transition-colors">
+          <Rocket size={13} /> Deploy Agent
+        </button>
+      )}
+
+      {status === 'deploying' && (
+        <div className="flex items-center gap-2 text-xs text-accent justify-center py-2">
+          <Loader2 size={13} className="animate-spin" /> Deploying...
+        </div>
+      )}
+
+      {status === 'error' && (
+        <div className="space-y-2">
+          <div className="flex items-start gap-1.5 text-2xs text-danger bg-danger/10 rounded-lg p-2">
+            <AlertTriangle size={10} className="mt-0.5 shrink-0" /><span>{message}</span>
+          </div>
+          <button onClick={() => setStatus('idle')}
+            className="flex items-center gap-1.5 text-2xs text-txt-muted hover:text-accent transition-colors">
+            <RotateCcw size={10} /> Try again
+          </button>
+        </div>
+      )}
+
+      {status === 'done' && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-success">
+            <Check size={13} /> {message}
+          </div>
+          <button onClick={() => onConnect(window.location.origin)}
+            className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg w-full justify-center
+                       bg-success hover:bg-success/90 text-white transition-colors">
+            <Plug size={12} /> Connect to Frontend
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ─── Self-Host Panel ───
 const SelfHostPanel: React.FC<{

@@ -12,7 +12,7 @@ HOW TO USE:
 import os
 import importlib
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -44,6 +44,32 @@ async def health():
 @app.get("/ok")
 async def ok():
     return {"status": "ok"}
+
+
+# ─── Deploy agent code from the frontend ───
+@app.post("/api/deploy-agent")
+async def deploy_agent(request: Request):
+    """Receive agent code from the Code Transformer and write it to agent.py."""
+    body = await request.json()
+    code = body.get("code", "")
+    if not code.strip():
+        return JSONResponse({"error": "No code provided"}, status_code=400)
+
+    agent_path = os.path.join(os.path.dirname(__file__), "agent.py")
+    with open(agent_path, "w", encoding="utf-8") as f:
+        f.write(code)
+
+    # Re-mount the agent by reloading
+    try:
+        mod = importlib.import_module("agent")
+        importlib.reload(mod)
+    except Exception as e:
+        return JSONResponse({
+            "ok": True,
+            "warning": f"Code saved but agent failed to load: {e}. Fix the code and try again.",
+        })
+
+    return {"ok": True, "message": "Agent deployed. Restart the server to activate."}
 
 
 # ─── Mount your agent ───
