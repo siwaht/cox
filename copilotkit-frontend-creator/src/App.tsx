@@ -9,12 +9,16 @@ import { ToastContainer } from '@/components/layout/ToastContainer';
 import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts';
 import { useToastStore } from '@/store/toast-store';
 import { decodeWorkspaceFromUrl } from '@/utils/share-url';
+import { useLocalAgent } from '@/hooks/useLocalAgent';
 
 export const App: React.FC = () => {
   const { mode, workspace, loadWorkspace } = useWorkspaceStore();
   const theme = useThemeStore((s) => s.theme);
   const addToast = useToastStore((s) => s.addToast);
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Auto-connect to the co-hosted agent
+  useLocalAgent();
 
   // Dynamic page title
   useEffect(() => {

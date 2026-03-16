@@ -1,4 +1,4 @@
-modules = ["nodejs-20", "web"]
+modules = ["nodejs-20", "python-3.11", "web"]
 [agent]
 expertMode = true
 
@@ -23,7 +23,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd copilotkit-frontend-creator && npm run dev"
+args = "python server.py"
 waitForPort = 5000
 
 [workflows.workflow.metadata]
@@ -34,6 +34,6 @@ localPort = 5000
 externalPort = 80
 
 [deployment]
-deploymentTarget = "static"
+deploymentTarget = "autoscale"
+run = ["python", "server.py"]
 build = ["bash", "build.sh"]
-publicDir = "copilotkit-frontend-creator/dist"
