@@ -11,7 +11,7 @@ export const TableBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
     return (
       <div className="flex flex-col h-full">
         <BlockHeader label={block.label} />
-        <div className="flex-1 p-3 text-zinc-600 text-xs text-center mt-4">
+        <div className="flex-1 p-3 text-txt-faint text-xs text-center mt-4">
           Structured data from the agent will render as a table
         </div>
       </div>
@@ -28,7 +28,7 @@ export const TableBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
           <thead>
             <tr className="border-b border-border">
               {columns.map((col) => (
-                <th key={col} className="text-left px-2 py-1.5 text-zinc-500 font-medium">{col}</th>
+                <th key={col} className="text-left px-2 py-1.5 text-txt-muted font-medium">{col}</th>
               ))}
             </tr>
           </thead>
@@ -36,7 +36,7 @@ export const TableBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
             {data.map((row, i) => (
               <tr key={i} className="border-b border-border/30 hover:bg-surface-overlay/50">
                 {columns.map((col) => (
-                  <td key={col} className="px-2 py-1.5 text-zinc-400">
+                  <td key={col} className="px-2 py-1.5 text-txt-secondary">
                     {String((row as Record<string, unknown>)[col] ?? '')}
                   </td>
                 ))}

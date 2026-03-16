@@ -16,7 +16,7 @@ export const TemplatePicker: React.FC = () => {
     <div className="animate-fade-in">
       <div className="flex items-center gap-2 mb-3">
         <Sparkles size={13} className="text-accent" />
-        <span className="text-xs font-semibold text-zinc-400">Quick Start Templates</span>
+        <span className="text-xs font-semibold text-txt-secondary">Quick Start Templates</span>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
         {WORKSPACE_TEMPLATES.map((t) => {
@@ -33,10 +33,10 @@ export const TemplatePicker: React.FC = () => {
                 <Icon size={16} className="text-accent" />
               </div>
               <div className="min-w-0">
-                <div className="text-sm text-zinc-200 font-medium">{t.name}</div>
-                <div className="text-2xs text-zinc-500 mt-0.5">{t.description}</div>
+                <div className="text-sm text-txt-primary font-medium">{t.name}</div>
+                <div className="text-2xs text-txt-muted mt-0.5">{t.description}</div>
                 {t.blocks.length > 0 && (
-                  <div className="text-2xs text-zinc-600 mt-1">
+                  <div className="text-2xs text-txt-faint mt-1">
                     {t.blocks.length} blocks
                   </div>
                 )}

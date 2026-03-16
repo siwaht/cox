@@ -8,7 +8,7 @@ export const PanelBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
   return (
     <div className="flex flex-col h-full">
       <BlockHeader label={title} />
-      <div className="flex-1 p-3 text-zinc-600 text-xs text-center mt-4">
+      <div className="flex-1 p-3 text-txt-faint text-xs text-center mt-4">
         Generic panel — connect an agent to populate
       </div>
     </div>

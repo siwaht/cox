@@ -5,11 +5,13 @@ import { useToastStore } from '@/store/toast-store';
 import { ConnectionModal } from '@/components/connections/ConnectionModal';
 import { ExportModal } from '@/components/publish/ExportModal';
 import { encodeWorkspaceToUrl } from '@/utils/share-url';
-import { Zap, Plug, Rocket, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle } from 'lucide-react';
+import { useThemeStore } from '@/store/theme-store';
+import { Zap, Plug, Rocket, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon } from 'lucide-react';
 
 export const TopBar: React.FC = () => {
   const { mode, setMode, workspace, updateWorkspace, savedWorkspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace } = useWorkspaceStore();
   const { activeConnectionId, connections, connectionStatus } = useConnectionStore();
+  const { theme, toggleTheme } = useThemeStore();
   const addToast = useToastStore((s) => s.addToast);
   const [showConnModal, setShowConnModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -24,7 +26,7 @@ export const TopBar: React.FC = () => {
   const statusColor =
     connectionStatus === 'connected' ? 'bg-success' :
     connectionStatus === 'error' ? 'bg-danger' :
-    connectionStatus === 'validating' ? 'bg-warning animate-pulse' : 'bg-zinc-600';
+    connectionStatus === 'validating' ? 'bg-warning animate-pulse' : 'bg-txt-faint';
 
   useEffect(() => {
     if (isEditingName && nameRef.current) {
@@ -89,12 +91,12 @@ export const TopBar: React.FC = () => {
                 if (e.key === 'Enter') commitName();
                 if (e.key === 'Escape') { setNameValue(workspace.name); setIsEditingName(false); }
               }}
-              className="font-semibold text-sm text-zinc-100 bg-transparent border-b border-accent
+              className="font-semibold text-sm text-txt-primary bg-transparent border-b border-accent
                          outline-none px-0 py-0 max-w-[200px]"
             />
           ) : (
             <span
-              className="font-semibold text-sm sm:text-base text-zinc-100 tracking-tight truncate cursor-text"
+              className="font-semibold text-sm sm:text-base text-txt-primary tracking-tight truncate cursor-text"
               onDoubleClick={() => { setNameValue(workspace.name); setIsEditingName(true); }}
               title="Double-click to rename workspace"
             >
@@ -110,17 +112,17 @@ export const TopBar: React.FC = () => {
           {/* Save / Load / Share */}
           <div className="relative flex items-center gap-0.5">
             <button onClick={handleSave}
-              className="p-1.5 text-zinc-500 hover:text-accent rounded-lg hover:bg-accent-soft transition-all"
+              className="p-1.5 text-txt-muted hover:text-accent rounded-lg hover:bg-accent-soft transition-all"
               title="Save workspace (persists to browser)">
               <Save size={14} />
             </button>
             <button onClick={() => setShowWorkspaces(!showWorkspaces)}
-              className="p-1.5 text-zinc-500 hover:text-accent rounded-lg hover:bg-accent-soft transition-all"
+              className="p-1.5 text-txt-muted hover:text-accent rounded-lg hover:bg-accent-soft transition-all"
               title="Saved workspaces">
               <FolderOpen size={14} />
             </button>
             <button onClick={handleShare}
-              className="p-1.5 text-zinc-500 hover:text-accent rounded-lg hover:bg-accent-soft transition-all"
+              className="p-1.5 text-txt-muted hover:text-accent rounded-lg hover:bg-accent-soft transition-all"
               title="Copy share link">
               <Share2 size={14} />
             </button>
@@ -140,8 +142,8 @@ export const TopBar: React.FC = () => {
             className="flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg border border-border
                        hover:border-accent/50 hover:bg-accent-soft transition-all">
             <span className={`w-2 h-2 rounded-full ${statusColor}`} />
-            <Plug size={13} className="text-zinc-500" />
-            <span className="text-zinc-300">{activeConn ? activeConn.name : 'Connect Agent'}</span>
+            <Plug size={13} className="text-txt-muted" />
+            <span className="text-txt-secondary">{activeConn ? activeConn.name : 'Connect Agent'}</span>
           </button>
 
           <button onClick={() => setShowExportModal(true)}
@@ -151,15 +153,21 @@ export const TopBar: React.FC = () => {
           </button>
 
           <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}
-            className="p-1.5 text-zinc-600 hover:text-zinc-400 rounded-lg hover:bg-surface-overlay transition-all"
+            className="p-1.5 text-txt-faint hover:text-txt-secondary rounded-lg hover:bg-surface-overlay transition-all"
             title="Keyboard shortcuts (?)">
             <HelpCircle size={14} />
+          </button>
+
+          <button onClick={toggleTheme}
+            className="p-1.5 text-txt-faint hover:text-txt-secondary rounded-lg hover:bg-surface-overlay transition-all"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           </button>
         </div>
 
         {/* Mobile hamburger */}
         <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden p-2 text-zinc-400 hover:text-white" aria-label="Toggle menu">
+          className="md:hidden p-2 text-txt-secondary hover:text-txt-primary" aria-label="Toggle menu">
           {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </header>
@@ -184,13 +192,18 @@ export const TopBar: React.FC = () => {
           <div className="flex gap-2">
             <button onClick={() => { handleSave(); setMobileMenuOpen(false); }}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg
-                         border border-border text-zinc-400 hover:text-accent hover:border-accent/50 transition-all">
+                         border border-border text-txt-muted hover:text-accent hover:border-accent/50 transition-all">
               <Save size={12} /> Save
             </button>
             <button onClick={() => { handleShare(); setMobileMenuOpen(false); }}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg
-                         border border-border text-zinc-400 hover:text-accent hover:border-accent/50 transition-all">
+                         border border-border text-txt-muted hover:text-accent hover:border-accent/50 transition-all">
               <Share2 size={12} /> Share
+            </button>
+            <button onClick={() => { toggleTheme(); setMobileMenuOpen(false); }}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg
+                         border border-border text-txt-muted hover:text-accent hover:border-accent/50 transition-all">
+              {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
             </button>
           </div>
         </div>
@@ -219,7 +232,7 @@ const ModeToggle: React.FC<{
         className={`flex-1 md:flex-none px-3 py-1.5 text-xs rounded-md transition-all font-medium ${
           mode === m.key
             ? 'bg-accent text-white shadow-sm shadow-accent/20'
-            : 'text-zinc-500 hover:text-zinc-300 hover:bg-surface-overlay'
+            : 'text-txt-muted hover:text-txt-secondary hover:bg-surface-overlay'
         }`}
       >
         {m.label}
@@ -240,7 +253,7 @@ const WorkspaceDropdown: React.FC<{
     <div className="absolute right-0 top-full mt-1 z-40 w-56 bg-surface-raised border border-border
                     rounded-xl shadow-xl overflow-hidden animate-scale-in">
       {savedWorkspaces.length === 0 ? (
-        <p className="text-2xs text-zinc-600 p-3 text-center">No saved workspaces yet</p>
+        <p className="text-2xs text-txt-faint p-3 text-center">No saved workspaces yet</p>
       ) : (
         <div className="max-h-48 overflow-y-auto">
           {savedWorkspaces.map((w) => (
@@ -250,13 +263,13 @@ const WorkspaceDropdown: React.FC<{
                 w.id === currentId ? 'bg-accent-soft' : ''
               }`}
             >
-              <button onClick={() => onLoad(w.id)} className="text-xs text-zinc-300 truncate flex-1 text-left">
+              <button onClick={() => onLoad(w.id)} className="text-xs text-txt-secondary truncate flex-1 text-left">
                 {w.name}
                 {w.id === currentId && <span className="text-2xs text-accent ml-1.5">(current)</span>}
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); onDelete(w.id); }}
-                className="p-1 text-zinc-600 hover:text-danger shrink-0"
+                className="p-1 text-txt-faint hover:text-danger shrink-0"
               >
                 <Trash2 size={11} />
               </button>

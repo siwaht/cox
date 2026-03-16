@@ -60,14 +60,14 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
     <form onSubmit={handleSubmit} className="border border-accent/30 rounded-xl p-4 bg-surface animate-scale-in">
       <div className="flex items-center gap-2 mb-4">
         <Zap size={14} className="text-accent" />
-        <h3 className="text-xs font-semibold text-zinc-300">{initialValues ? 'Edit Connection' : 'Connect an Agent'}</h3>
+        <h3 className="text-xs font-semibold text-txt-secondary">{initialValues ? 'Edit Connection' : 'Connect an Agent'}</h3>
       </div>
 
       {!initialValues && (
         <div className="mb-4">
           <div className="flex items-center gap-1.5 mb-2">
             <Sparkles size={11} className="text-accent" />
-            <span className="text-2xs text-zinc-500 font-medium">Quick Start</span>
+            <span className="text-2xs text-txt-muted font-medium">Quick Start</span>
           </div>
           <div className="grid grid-cols-2 gap-1.5">
             {PRESETS.map((p) => (
@@ -75,10 +75,10 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
                 className={`text-left px-2.5 py-2 rounded-lg border transition-all text-2xs ${
                   runtime === p.runtime && baseUrl === p.baseUrl
                     ? 'border-accent/50 bg-accent-soft text-accent'
-                    : 'border-border text-zinc-400 hover:border-zinc-600 hover:text-zinc-300'
+                    : 'border-border text-txt-secondary hover:border-txt-faint hover:text-txt-secondary'
                 }`}>
                 <div className="font-medium">{p.label}</div>
-                <div className="text-zinc-600 mt-0.5">{p.description}</div>
+                <div className="text-txt-faint mt-0.5">{p.description}</div>
               </button>
             ))}
           </div>
@@ -111,7 +111,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
         </Row>
 
         <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
-          className="text-2xs text-zinc-600 hover:text-zinc-400 transition-colors">
+          className="text-2xs text-txt-faint hover:text-txt-secondary transition-colors">
           {showAdvanced ? '▾ Hide' : '▸ Show'} authentication settings
         </button>
 
@@ -149,8 +149,8 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
 
       <div className="flex gap-2 mt-4">
         <button type="button" onClick={onCancel}
-          className="flex-1 px-3 py-2.5 text-xs text-zinc-400 hover:text-zinc-200 rounded-lg
-                     border border-border hover:border-zinc-600 transition-colors">
+          className="flex-1 px-3 py-2.5 text-xs text-txt-secondary hover:text-txt-primary rounded-lg
+                     border border-border hover:border-txt-faint transition-colors">
           Cancel
         </button>
         <button type="submit"
@@ -166,8 +166,8 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
 const Row: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
   <div>
     <div className="flex items-baseline justify-between mb-1">
-      <label className="text-2xs text-zinc-400 font-medium">{label}</label>
-      {hint && <span className="text-2xs text-zinc-700">{hint}</span>}
+      <label className="text-2xs text-txt-secondary font-medium">{label}</label>
+      {hint && <span className="text-2xs text-txt-ghost">{hint}</span>}
     </div>
     {children}
   </div>

@@ -70,7 +70,7 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
         ${isDragging ? 'z-10 drag-overlay' : ''}
         ${isSelected
           ? 'border-accent bg-accent/5 shadow-lg shadow-accent/5'
-          : 'border-border/60 bg-surface-raised hover:border-zinc-600'}
+          : 'border-border/60 bg-surface-raised hover:border-txt-faint'}
         ${!block.visible ? 'opacity-40' : ''}
       `}
     >
@@ -80,8 +80,8 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
           <button
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded text-zinc-600
-                       hover:text-zinc-300 hover:bg-surface-overlay touch-manipulation"
+            className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded text-txt-faint
+                       hover:text-txt-secondary hover:bg-surface-overlay touch-manipulation"
             aria-label="Drag to reorder"
           >
             <GripVertical size={14} />
@@ -98,12 +98,12 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
                 if (e.key === 'Escape') { setRenameValue(block.label); setIsRenaming(false); }
               }}
               onClick={(e) => e.stopPropagation()}
-              className="text-xs font-medium text-zinc-200 bg-transparent border-b border-accent
+              className="text-xs font-medium text-txt-primary bg-transparent border-b border-accent
                          outline-none px-0 py-0 w-24"
             />
           ) : (
             <span
-              className="text-xs font-medium text-zinc-300 truncate cursor-text"
+              className="text-xs font-medium text-txt-secondary truncate cursor-text"
               onDoubleClick={(e) => { e.stopPropagation(); setRenameValue(block.label); setIsRenaming(true); }}
               title="Double-click to rename"
             >
@@ -116,15 +116,15 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
         <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
             onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.max(3, block.w - 1), block.h); }}
-            className="p-1 text-zinc-600 hover:text-zinc-300 rounded hover:bg-surface-overlay"
+            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
             title="Narrower"
           >
             <ChevronLeft size={12} />
           </button>
-          <span className="text-2xs text-zinc-600 w-4 text-center tabular-nums">{block.w}</span>
+          <span className="text-2xs text-txt-faint w-4 text-center tabular-nums">{block.w}</span>
           <button
             onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.min(12, block.w + 1), block.h); }}
-            className="p-1 text-zinc-600 hover:text-zinc-300 rounded hover:bg-surface-overlay"
+            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
             title="Wider"
           >
             <ChevronRight size={12} />
@@ -134,21 +134,21 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
 
           <button
             onClick={(e) => { e.stopPropagation(); duplicateBlock(block.id); }}
-            className="p-1 text-zinc-600 hover:text-zinc-300 rounded hover:bg-surface-overlay"
+            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
             title="Duplicate"
           >
             <Copy size={12} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); updateBlock(block.id, { visible: !block.visible }); }}
-            className="p-1 text-zinc-600 hover:text-zinc-300 rounded hover:bg-surface-overlay"
+            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
             title={block.visible ? 'Hide' : 'Show'}
           >
             {block.visible ? <Eye size={12} /> : <EyeOff size={12} />}
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="p-1 text-zinc-600 hover:text-danger rounded hover:bg-danger-soft"
+            className="p-1 text-txt-faint hover:text-danger rounded hover:bg-danger-soft"
             title="Remove"
           >
             <X size={12} />
@@ -172,8 +172,8 @@ const BlockMiniPreview: React.FC<{ type: string }> = ({ type }) => {
         <div className="flex gap-1.5 items-start">
           <div className="w-4 h-4 rounded-full bg-accent/30 shrink-0 mt-0.5" />
           <div className="space-y-0.5 flex-1">
-            <div className="h-1.5 rounded bg-zinc-700 w-full" />
-            <div className="h-1.5 rounded bg-zinc-700 w-3/4" />
+            <div className="h-1.5 rounded bg-txt-ghost w-full" />
+            <div className="h-1.5 rounded bg-txt-ghost w-3/4" />
           </div>
         </div>
         <div className="flex gap-1.5 items-start justify-end">
@@ -181,10 +181,10 @@ const BlockMiniPreview: React.FC<{ type: string }> = ({ type }) => {
             <div className="h-1.5 rounded bg-accent/25 w-4/5" />
             <div className="h-1.5 rounded bg-accent/25 w-1/2" />
           </div>
-          <div className="w-4 h-4 rounded-full bg-zinc-700 shrink-0 mt-0.5" />
+          <div className="w-4 h-4 rounded-full bg-txt-ghost shrink-0 mt-0.5" />
         </div>
         <div className="flex gap-1.5 items-center mt-1">
-          <div className="h-5 rounded-lg bg-zinc-800 flex-1" />
+          <div className="h-5 rounded-lg bg-surface flex-1" />
           <div className="w-5 h-5 rounded-lg bg-accent/20" />
         </div>
       </div>
@@ -193,41 +193,41 @@ const BlockMiniPreview: React.FC<{ type: string }> = ({ type }) => {
       <div className="w-full max-w-[140px] space-y-2 opacity-50">
         <div className="flex items-center gap-1.5">
           <div className="w-2.5 h-2.5 rounded-full bg-success" />
-          <div className="h-1.5 rounded bg-zinc-700 w-12" />
+          <div className="h-1.5 rounded bg-txt-ghost w-12" />
         </div>
-        <div className="h-2 rounded-full bg-zinc-800 w-full overflow-hidden">
+        <div className="h-2 rounded-full bg-surface w-full overflow-hidden">
           <div className="h-full rounded-full bg-accent/40 w-3/4" />
         </div>
       </div>
     ),
     results: (
       <div className="w-full max-w-[160px] space-y-1.5 opacity-50">
-        <div className="h-8 rounded-lg bg-zinc-800 border border-zinc-700/50 p-1.5">
-          <div className="h-1 rounded bg-zinc-700 w-full mb-1" />
-          <div className="h-1 rounded bg-zinc-700 w-2/3" />
+        <div className="h-8 rounded-lg bg-surface border border-txt-ghost/50 p-1.5">
+          <div className="h-1 rounded bg-txt-ghost w-full mb-1" />
+          <div className="h-1 rounded bg-txt-ghost w-2/3" />
         </div>
-        <div className="h-8 rounded-lg bg-zinc-800 border border-zinc-700/50 p-1.5">
-          <div className="h-1 rounded bg-zinc-700 w-4/5 mb-1" />
-          <div className="h-1 rounded bg-zinc-700 w-1/2" />
+        <div className="h-8 rounded-lg bg-surface border border-txt-ghost/50 p-1.5">
+          <div className="h-1 rounded bg-txt-ghost w-4/5 mb-1" />
+          <div className="h-1 rounded bg-txt-ghost w-1/2" />
         </div>
       </div>
     ),
     toolActivity: (
       <div className="w-full max-w-[160px] space-y-1 opacity-50">
         {['bg-success', 'bg-success', 'bg-accent animate-pulse'].map((c, i) => (
-          <div key={i} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-zinc-800">
+          <div key={i} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-surface">
             <div className={`w-1.5 h-1.5 rounded-full ${c}`} />
-            <div className="h-1 rounded bg-zinc-700 flex-1" />
-            <div className="h-1 rounded bg-zinc-700/50 w-4" />
+            <div className="h-1 rounded bg-txt-ghost flex-1" />
+            <div className="h-1 rounded bg-txt-ghost/50 w-4" />
           </div>
         ))}
       </div>
     ),
     approvals: (
       <div className="w-full max-w-[160px] opacity-50">
-        <div className="rounded-lg bg-zinc-800 border border-warning/20 p-2 space-y-1.5">
-          <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-warning/40" /><div className="h-1 rounded bg-zinc-700 w-16" /></div>
-          <div className="h-1 rounded bg-zinc-700/50 w-full" />
+        <div className="rounded-lg bg-surface border border-warning/20 p-2 space-y-1.5">
+          <div className="flex items-center gap-1"><div className="w-2 h-2 rounded bg-warning/40" /><div className="h-1 rounded bg-txt-ghost w-16" /></div>
+          <div className="h-1 rounded bg-txt-ghost/50 w-full" />
           <div className="flex gap-1 mt-1">
             <div className="h-3 rounded bg-success/20 flex-1" />
             <div className="h-3 rounded bg-danger/20 flex-1" />
@@ -239,8 +239,8 @@ const BlockMiniPreview: React.FC<{ type: string }> = ({ type }) => {
       <div className="w-full max-w-[200px] space-y-0.5 font-mono opacity-50">
         {[0.8, 0.6, 0.9, 0.5, 0.7].map((w, i) => (
           <div key={i} className="flex items-center gap-1">
-            <div className="h-1 rounded bg-zinc-700/50 w-6 shrink-0" />
-            <div className="h-1 rounded bg-zinc-700" style={{ width: `${w * 100}%` }} />
+            <div className="h-1 rounded bg-txt-ghost/50 w-6 shrink-0" />
+            <div className="h-1 rounded bg-txt-ghost" style={{ width: `${w * 100}%` }} />
           </div>
         ))}
       </div>
@@ -248,11 +248,11 @@ const BlockMiniPreview: React.FC<{ type: string }> = ({ type }) => {
     table: (
       <div className="w-full max-w-[180px] opacity-50">
         <div className="flex gap-0.5 mb-0.5">
-          {[1, 1, 1].map((_, i) => <div key={i} className="h-2 rounded bg-zinc-600 flex-1" />)}
+          {[1, 1, 1].map((_, i) => <div key={i} className="h-2 rounded bg-txt-faint flex-1" />)}
         </div>
         {[0, 1].map((r) => (
           <div key={r} className="flex gap-0.5 mb-0.5">
-            {[1, 1, 1].map((_, i) => <div key={i} className="h-2 rounded bg-zinc-800 flex-1" />)}
+            {[1, 1, 1].map((_, i) => <div key={i} className="h-2 rounded bg-surface flex-1" />)}
           </div>
         ))}
       </div>
@@ -267,51 +267,51 @@ const BlockMiniPreview: React.FC<{ type: string }> = ({ type }) => {
     dashboard: (
       <div className="w-full max-w-[180px] grid grid-cols-3 gap-1 opacity-50">
         {['$4.2M', '23%', '47'].map((v, i) => (
-          <div key={i} className="rounded-lg bg-zinc-800 p-1.5 text-center">
-            <div className="text-[7px] text-zinc-600 mb-0.5">metric</div>
-            <div className="text-[8px] text-zinc-400 font-medium">{v}</div>
+          <div key={i} className="rounded-lg bg-surface p-1.5 text-center">
+            <div className="text-[7px] text-txt-faint mb-0.5">metric</div>
+            <div className="text-[8px] text-txt-secondary font-medium">{v}</div>
           </div>
         ))}
       </div>
     ),
     form: (
       <div className="w-full max-w-[140px] space-y-1.5 opacity-50">
-        <div className="h-1 rounded bg-zinc-700 w-8" />
-        <div className="h-4 rounded-md bg-zinc-800 border border-zinc-700/50 w-full" />
-        <div className="h-1 rounded bg-zinc-700 w-10" />
-        <div className="h-4 rounded-md bg-zinc-800 border border-zinc-700/50 w-full" />
+        <div className="h-1 rounded bg-txt-ghost w-8" />
+        <div className="h-4 rounded-md bg-surface border border-txt-ghost/50 w-full" />
+        <div className="h-1 rounded bg-txt-ghost w-10" />
+        <div className="h-4 rounded-md bg-surface border border-txt-ghost/50 w-full" />
         <div className="h-4 rounded-md bg-accent/20 w-12 mt-1" />
       </div>
     ),
     cards: (
       <div className="w-full max-w-[140px] grid grid-cols-2 gap-1 opacity-50">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-8 rounded-lg bg-zinc-800 border border-zinc-700/50 p-1">
-            <div className="h-1 rounded bg-zinc-700 w-full mb-0.5" />
-            <div className="h-1 rounded bg-zinc-700/50 w-2/3" />
+          <div key={i} className="h-8 rounded-lg bg-surface border border-txt-ghost/50 p-1">
+            <div className="h-1 rounded bg-txt-ghost w-full mb-0.5" />
+            <div className="h-1 rounded bg-txt-ghost/50 w-2/3" />
           </div>
         ))}
       </div>
     ),
     markdown: (
       <div className="w-full max-w-[160px] space-y-1 opacity-50">
-        <div className="h-2 rounded bg-zinc-700 w-1/3" />
-        <div className="h-1 rounded bg-zinc-700/50 w-full" />
-        <div className="h-1 rounded bg-zinc-700/50 w-4/5" />
-        <div className="h-1 rounded bg-zinc-700/50 w-full" />
-        <div className="h-1 rounded bg-zinc-700/50 w-2/3" />
+        <div className="h-2 rounded bg-txt-ghost w-1/3" />
+        <div className="h-1 rounded bg-txt-ghost/50 w-full" />
+        <div className="h-1 rounded bg-txt-ghost/50 w-4/5" />
+        <div className="h-1 rounded bg-txt-ghost/50 w-full" />
+        <div className="h-1 rounded bg-txt-ghost/50 w-2/3" />
       </div>
     ),
     panel: (
       <div className="w-full max-w-[140px] opacity-50">
-        <div className="h-12 rounded-lg bg-zinc-800 border border-zinc-700/50 flex items-center justify-center">
-          <div className="text-[8px] text-zinc-600">Content area</div>
+        <div className="h-12 rounded-lg bg-surface border border-txt-ghost/50 flex items-center justify-center">
+          <div className="text-[8px] text-txt-faint">Content area</div>
         </div>
       </div>
     ),
   };
 
   return previews[type] || (
-    <div className="text-2xs text-zinc-600 opacity-50">Block content</div>
+    <div className="text-2xs text-txt-faint opacity-50">Block content</div>
   );
 };

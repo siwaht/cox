@@ -28,15 +28,15 @@ export const DashboardBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
       <BlockHeader label={block.label} />
       <div className="flex-1 p-3">
         {displayMetrics.length === 0 ? (
-          <div className="text-zinc-600 text-xs text-center mt-4">
+          <div className="text-txt-faint text-xs text-center mt-4">
             Dashboard metrics will appear when data is available
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             {displayMetrics.map((m, i) => (
               <div key={i} className="bg-surface rounded-lg p-3 border border-border/50">
-                <div className="text-[10px] text-zinc-500 mb-1">{m.label}</div>
-                <div className="text-lg font-semibold text-zinc-200">{String(m.value)}</div>
+                <div className="text-[10px] text-txt-muted mb-1">{m.label}</div>
+                <div className="text-lg font-semibold text-txt-primary">{String(m.value)}</div>
               </div>
             ))}
           </div>

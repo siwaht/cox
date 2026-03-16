@@ -15,7 +15,7 @@ export const ChartBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
     return (
       <div className="flex flex-col h-full">
         <BlockHeader label={block.label} />
-        <div className="flex-1 p-3 text-zinc-600 text-xs text-center mt-4">
+        <div className="flex-1 p-3 text-txt-faint text-xs text-center mt-4">
           Chart data will render here when available
         </div>
       </div>
@@ -36,12 +36,12 @@ export const ChartBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
           const pct = (val / maxVal) * 100;
           return (
             <div key={i} className="flex-1 flex flex-col items-center gap-1">
-              <div className="text-[9px] text-zinc-500">{val}</div>
+              <div className="text-[9px] text-txt-muted">{val}</div>
               <div
                 className="w-full bg-accent/60 rounded-t transition-all"
                 style={{ height: `${Math.max(4, pct)}%` }}
               />
-              <div className="text-[8px] text-zinc-600 truncate w-full text-center">
+              <div className="text-[8px] text-txt-faint truncate w-full text-center">
                 {String(d[labelKey] ?? '')}
               </div>
             </div>

@@ -24,8 +24,8 @@ export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
         {messages.length === 0 && (
           <div className="text-center py-8">
-            <Bot size={24} className="text-zinc-700 mx-auto mb-2" />
-            <p className="text-xs text-zinc-600">Send a message to start</p>
+            <Bot size={24} className="text-txt-ghost mx-auto mb-2" />
+            <p className="text-xs text-txt-faint">Send a message to start</p>
           </div>
         )}
         {messages.map((msg, i) => (
@@ -33,12 +33,12 @@ export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
             <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
               msg.role === 'user' ? 'bg-accent/20' : 'bg-surface-overlay'
             }`}>
-              {msg.role === 'user' ? <User size={13} className="text-accent" /> : <Bot size={13} className="text-zinc-400" />}
+              {msg.role === 'user' ? <User size={13} className="text-accent" /> : <Bot size={13} className="text-txt-secondary" />}
             </div>
             <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
               msg.role === 'user'
                 ? 'bg-accent text-white rounded-br-md'
-                : 'bg-surface-overlay text-zinc-300 rounded-bl-md'
+                : 'bg-surface-overlay text-txt-secondary rounded-bl-md'
             }`}>
               {msg.content}
             </div>
@@ -51,9 +51,9 @@ export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
             </div>
             <div className="bg-surface-overlay rounded-2xl rounded-bl-md px-3.5 py-2.5">
               <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                <span className="w-1.5 h-1.5 bg-txt-muted rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <span className="w-1.5 h-1.5 bg-txt-muted rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <span className="w-1.5 h-1.5 bg-txt-muted rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
           </div>
@@ -84,7 +84,7 @@ export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
 };
 
 export const BlockHeader: React.FC<{ label: string }> = ({ label }) => (
-  <div className="px-3.5 py-2.5 border-b border-border/40 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+  <div className="px-3.5 py-2.5 border-b border-border/40 text-xs font-medium text-txt-muted uppercase tracking-wider">
     {label}
   </div>
 );

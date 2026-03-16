@@ -27,10 +27,10 @@ export class BlockErrorBoundary extends React.Component<Props, State> {
       return (
         <div className="flex flex-col items-center justify-center p-4 text-center h-full min-h-[80px]">
           <AlertTriangle size={18} className="text-warning mb-2" />
-          <p className="text-xs text-zinc-400 mb-1">
-            <span className="text-zinc-300 font-medium">{this.props.blockLabel}</span> failed to render
+          <p className="text-xs text-txt-secondary mb-1">
+            <span className="text-txt-secondary font-medium">{this.props.blockLabel}</span> failed to render
           </p>
-          <p className="text-2xs text-zinc-600 mb-3 max-w-xs">
+          <p className="text-2xs text-txt-faint mb-3 max-w-xs">
             {this.state.error?.message || 'Unknown error'}
           </p>
           <button

@@ -23,10 +23,10 @@ export const DragPreview: React.FC<{ block: BlockConfig }> = ({ block }) => {
       <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40">
         <GripVertical size={14} className="text-accent" />
         <Icon size={14} className="text-accent" />
-        <span className="text-xs font-medium text-zinc-200">{block.label}</span>
+        <span className="text-xs font-medium text-txt-primary">{block.label}</span>
       </div>
       <div className="px-3 py-3 text-center">
-        <div className="text-2xs text-zinc-500">{def?.description}</div>
+        <div className="text-2xs text-txt-muted">{def?.description}</div>
       </div>
     </div>
   );

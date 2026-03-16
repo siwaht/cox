@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useWorkspaceStore } from '@/store/workspace-store';
+import { useThemeStore } from '@/store/theme-store';
 import { EditorView } from '@/components/editor/EditorView';
 import { PreviewView } from '@/components/preview/PreviewView';
 import { TopBar } from '@/components/layout/TopBar';
@@ -10,6 +11,7 @@ import { decodeWorkspaceFromUrl } from '@/utils/share-url';
 
 export const App: React.FC = () => {
   const { mode, workspace, loadWorkspace } = useWorkspaceStore();
+  const theme = useThemeStore((s) => s.theme);
   const addToast = useToastStore((s) => s.addToast);
   const [showShortcuts, setShowShortcuts] = useState(false);
 
@@ -57,7 +59,7 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden">
+    <div data-theme={theme} className="flex flex-col h-screen w-screen overflow-hidden bg-surface text-txt-primary transition-colors duration-200">
       <TopBar />
       <main className="flex-1 overflow-hidden transition-opacity duration-200">
         {mode === 'editor' && <EditorView />}

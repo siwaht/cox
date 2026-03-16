@@ -14,7 +14,7 @@ const FALLBACK_BLOCKS: BlockConfig[] = [
 export const FallbackWorkspace: React.FC = () => (
   <div className="flex-1 overflow-y-auto p-3 sm:p-6">
     <div className="max-w-6xl mx-auto">
-      <p className="text-xs text-zinc-600 text-center mb-4">
+      <p className="text-xs text-txt-faint text-center mb-4">
         Default workspace — add blocks in the editor or connect an agent
       </p>
       <div className="grid grid-cols-6 sm:grid-cols-12 gap-2.5 auto-rows-min">

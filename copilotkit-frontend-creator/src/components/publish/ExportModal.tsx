@@ -208,9 +208,9 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
         <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2.5">
             <Rocket size={16} className="text-accent" />
-            <h2 className="text-sm font-semibold text-zinc-200">Publish & Deploy</h2>
+            <h2 className="text-sm font-semibold text-txt-primary">Publish & Deploy</h2>
           </div>
-          <button onClick={onClose} className="p-1 text-zinc-500 hover:text-zinc-300 rounded-lg hover:bg-surface-overlay">
+          <button onClick={onClose} className="p-1 text-txt-muted hover:text-txt-secondary rounded-lg hover:bg-surface-overlay">
             <X size={16} />
           </button>
         </div>
@@ -218,7 +218,7 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-5">
           {/* Readiness checklist */}
           <div className="bg-surface rounded-xl p-3.5 space-y-2">
-            <h3 className="text-xs font-semibold text-zinc-300 mb-2">Publish Checklist</h3>
+            <h3 className="text-xs font-semibold text-txt-secondary mb-2">Publish Checklist</h3>
             <CheckItem ok={blockCount > 0} label={`${blockCount} block(s) configured`} fail="Add at least one block" />
             <CheckItem ok={connectionStatus === 'connected'} label={activeConn ? `Connected to ${activeConn.name}` : 'Agent connected'} fail="Connect an agent first" />
             <CheckItem ok={true} label="Frontend builds successfully" />
@@ -247,23 +247,23 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
             <div className="flex flex-wrap gap-2 mb-2">
               <button onClick={downloadConfig}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border
-                           hover:border-accent/50 hover:bg-accent-soft text-zinc-400 hover:text-accent transition-all">
+                           hover:border-accent/50 hover:bg-accent-soft text-txt-secondary hover:text-accent transition-all">
                 <Download size={12} /> Download
               </button>
               <button onClick={() => copyToClipboard(workspaceConfig, 'config')}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border
-                           hover:border-accent/50 hover:bg-accent-soft text-zinc-400 hover:text-accent transition-all">
+                           hover:border-accent/50 hover:bg-accent-soft text-txt-secondary hover:text-accent transition-all">
                 {copied === 'config' ? <Check size={12} className="text-success" /> : <Copy size={12} />}
                 {copied === 'config' ? 'Copied' : 'Copy'}
               </button>
               <button onClick={() => fileInputRef.current?.click()}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border
-                           hover:border-accent/50 hover:bg-accent-soft text-zinc-400 hover:text-accent transition-all">
+                           hover:border-accent/50 hover:bg-accent-soft text-txt-secondary hover:text-accent transition-all">
                 <Upload size={12} /> Import
               </button>
               <button onClick={handleShareLink}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border
-                           hover:border-accent/50 hover:bg-accent-soft text-zinc-400 hover:text-accent transition-all">
+                           hover:border-accent/50 hover:bg-accent-soft text-txt-secondary hover:text-accent transition-all">
                 {copied === 'share' ? <Check size={12} className="text-success" /> : <Link size={12} />}
                 {copied === 'share' ? 'Copied' : 'Share Link'}
               </button>
@@ -275,7 +275,7 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
                 {importWarnings.length > 0 && (
                   <ul className="mt-1 space-y-0.5">
                     {importWarnings.map((w, i) => (
-                      <li key={i} className="text-2xs text-zinc-500">• {w}</li>
+                      <li key={i} className="text-2xs text-txt-muted">• {w}</li>
                     ))}
                   </ul>
                 )}
@@ -286,15 +286,15 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
 
           {/* .env.example */}
           <Section title="Environment Template" icon={<FileCode size={14} />}>
-            <p className="text-2xs text-zinc-500 mb-2">
-              Create a <code className="text-zinc-400">.env</code> file with these variables for your agent connection.
+            <p className="text-2xs text-txt-muted mb-2">
+              Create a <code className="text-txt-secondary">.env</code> file with these variables for your agent connection.
             </p>
             <CodeBlock id="env" code={envTemplate} copied={copied} onCopy={copyToClipboard} />
           </Section>
 
           {/* Standalone project */}
           <Section title="Download Standalone Project" icon={<FolderArchive size={14} />}>
-            <p className="text-2xs text-zinc-500 mb-2">
+            <p className="text-2xs text-txt-muted mb-2">
               Generate a ready-to-run React project with your current workspace config baked in.
             </p>
             <button onClick={downloadStandaloneProject}
@@ -302,7 +302,7 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
                          text-white transition-colors font-medium">
               <FolderArchive size={13} /> Download Project (.html)
             </button>
-            <p className="text-2xs text-zinc-600 mt-1.5">
+            <p className="text-2xs text-txt-faint mt-1.5">
               Single-file HTML app — open directly in a browser or deploy anywhere.
             </p>
           </Section>
@@ -315,7 +315,7 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
 const CheckItem: React.FC<{ ok: boolean; label: string; fail?: string }> = ({ ok, label, fail }) => (
   <div className="flex items-center gap-2">
     {ok ? <CheckCircle size={13} className="text-success shrink-0" /> : <AlertTriangle size={13} className="text-warning shrink-0" />}
-    <span className={`text-xs ${ok ? 'text-zinc-300' : 'text-warning'}`}>{ok ? label : (fail || label)}</span>
+    <span className={`text-xs ${ok ? 'text-txt-secondary' : 'text-warning'}`}>{ok ? label : (fail || label)}</span>
   </div>
 );
 
@@ -323,7 +323,7 @@ const Section: React.FC<{ title: string; icon: React.ReactNode; children: React.
   <div>
     <div className="flex items-center gap-2 mb-2">
       <span className="text-accent">{icon}</span>
-      <h3 className="text-xs font-semibold text-zinc-300">{title}</h3>
+      <h3 className="text-xs font-semibold text-txt-secondary">{title}</h3>
     </div>
     {children}
   </div>
@@ -334,13 +334,13 @@ const CodeBlock: React.FC<{
   onCopy: (text: string, id: string) => void;
 }> = ({ id, code, copied, onCopy }) => (
   <div className="relative group">
-    <pre className="bg-surface rounded-xl p-3.5 text-xs text-zinc-400 font-mono overflow-x-auto max-h-48 overflow-y-auto leading-relaxed">
+    <pre className="bg-surface rounded-xl p-3.5 text-xs text-txt-secondary font-mono overflow-x-auto max-h-48 overflow-y-auto leading-relaxed">
       {code}
     </pre>
     <button
       onClick={() => onCopy(code, id)}
       className="absolute top-2 right-2 p-1.5 rounded-lg bg-surface-overlay/80 hover:bg-accent/20
-                 text-zinc-500 hover:text-accent transition-all opacity-0 group-hover:opacity-100"
+                 text-txt-muted hover:text-accent transition-all opacity-0 group-hover:opacity-100"
     >
       {copied === id ? <Check size={13} className="text-success" /> : <Copy size={13} />}
     </button>

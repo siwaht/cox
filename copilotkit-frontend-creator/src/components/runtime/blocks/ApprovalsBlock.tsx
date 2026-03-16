@@ -12,7 +12,7 @@ export const ApprovalsBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
       <BlockHeader label={block.label} />
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {approvals.length === 0 ? (
-          <div className="text-zinc-600 text-xs text-center mt-4">
+          <div className="text-txt-faint text-xs text-center mt-4">
             Approval requests will appear here
           </div>
         ) : (
@@ -22,9 +22,9 @@ export const ApprovalsBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
             }`}>
               <div className="flex items-center gap-2 mb-1">
                 <ShieldCheck size={12} className="text-warning" />
-                <span className="text-xs font-medium text-zinc-300">{a.title}</span>
+                <span className="text-xs font-medium text-txt-secondary">{a.title}</span>
               </div>
-              <div className="text-[10px] text-zinc-400 mb-2">{a.description}</div>
+              <div className="text-[10px] text-txt-secondary mb-2">{a.description}</div>
               {a.status === 'pending' && (
                 <div className="flex gap-2">
                   <button

@@ -50,13 +50,13 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2">
           <Palette size={14} className="text-accent" />
-          <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Theme</h2>
+          <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">Theme</h2>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={reset} className="p-1.5 text-zinc-500 hover:text-accent rounded-lg hover:bg-accent-soft" title="Reset to defaults">
+          <button onClick={reset} className="p-1.5 text-txt-muted hover:text-accent rounded-lg hover:bg-accent-soft" title="Reset to defaults">
             <RotateCcw size={13} />
           </button>
-          <button onClick={onClose} className="p-1.5 text-zinc-500 hover:text-white rounded-lg hover:bg-surface-overlay">
+          <button onClick={onClose} className="p-1.5 text-txt-muted hover:text-txt-primary rounded-lg hover:bg-surface-overlay">
             <X size={14} />
           </button>
         </div>
@@ -65,18 +65,18 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
       <div className="flex-1 overflow-y-auto p-4 space-y-5">
         {/* Accent color */}
         <div>
-          <label className="text-[10px] text-zinc-500 uppercase tracking-wider block mb-2">Accent Color</label>
+          <label className="text-[10px] text-txt-muted uppercase tracking-wider block mb-2">Accent Color</label>
           <div className="grid grid-cols-4 gap-2 mb-2">
             {ACCENT_PRESETS.map((p) => (
               <button
                 key={p.value}
                 onClick={() => update({ accentColor: p.value })}
                 className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
-                  theme.accentColor === p.value ? 'border-accent bg-accent-soft' : 'border-border hover:border-zinc-600'
+                  theme.accentColor === p.value ? 'border-accent bg-accent-soft' : 'border-border hover:border-txt-faint'
                 }`}
               >
                 <div className="w-5 h-5 rounded-full" style={{ backgroundColor: p.value }} />
-                <span className="text-[9px] text-zinc-500">{p.label}</span>
+                <span className="text-[9px] text-txt-muted">{p.label}</span>
               </button>
             ))}
           </div>
@@ -99,7 +99,7 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
 
         {/* Background color */}
         <div>
-          <label className="text-[10px] text-zinc-500 uppercase tracking-wider block mb-2">Background</label>
+          <label className="text-[10px] text-txt-muted uppercase tracking-wider block mb-2">Background</label>
           <div className="flex items-center gap-2">
             <input
               type="color"
@@ -118,7 +118,7 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
 
         {/* Surface color */}
         <div>
-          <label className="text-[10px] text-zinc-500 uppercase tracking-wider block mb-2">Surface</label>
+          <label className="text-[10px] text-txt-muted uppercase tracking-wider block mb-2">Surface</label>
           <div className="flex items-center gap-2">
             <input
               type="color"
@@ -137,7 +137,7 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
 
         {/* Border radius */}
         <div>
-          <label className="text-[10px] text-zinc-500 uppercase tracking-wider block mb-2">Border Radius</label>
+          <label className="text-[10px] text-txt-muted uppercase tracking-wider block mb-2">Border Radius</label>
           <div className="flex gap-1">
             {RADIUS_OPTIONS.map((r) => (
               <button
@@ -146,7 +146,7 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
                 className={`flex-1 px-2 py-1.5 text-[10px] rounded-md border transition-all ${
                   theme.borderRadius === r.value
                     ? 'border-accent bg-accent-soft text-accent'
-                    : 'border-border text-zinc-500 hover:border-zinc-600'
+                    : 'border-border text-txt-muted hover:border-txt-faint'
                 }`}
               >
                 {r.label}
@@ -157,7 +157,7 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
 
         {/* Font family */}
         <div>
-          <label className="text-[10px] text-zinc-500 uppercase tracking-wider block mb-2">Font</label>
+          <label className="text-[10px] text-txt-muted uppercase tracking-wider block mb-2">Font</label>
           <div className="flex gap-1">
             {FONT_OPTIONS.map((f) => (
               <button
@@ -166,7 +166,7 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
                 className={`flex-1 px-2 py-1.5 text-[10px] rounded-md border transition-all ${
                   theme.fontFamily === f.value
                     ? 'border-accent bg-accent-soft text-accent'
-                    : 'border-border text-zinc-500 hover:border-zinc-600'
+                    : 'border-border text-txt-muted hover:border-txt-faint'
                 }`}
               >
                 {f.label}
@@ -177,7 +177,7 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
 
         {/* Live preview swatch */}
         <div>
-          <label className="text-[10px] text-zinc-500 uppercase tracking-wider block mb-2">Preview</label>
+          <label className="text-[10px] text-txt-muted uppercase tracking-wider block mb-2">Preview</label>
           <div
             className="rounded-xl border border-border overflow-hidden"
             style={{ backgroundColor: theme.bgColor }}
@@ -185,7 +185,7 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
             <div className="px-3 py-2 border-b border-border/50" style={{ backgroundColor: theme.surfaceColor }}>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full" style={{ backgroundColor: theme.accentColor }} />
-                <span className="text-[10px] text-zinc-400">Sample Block</span>
+                <span className="text-[10px] text-txt-secondary">Sample Block</span>
               </div>
             </div>
             <div className="p-3 space-y-2">

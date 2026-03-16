@@ -33,14 +33,14 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
   return (
     <aside className="h-full bg-surface-raised border-l border-border flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">Properties</h2>
+        <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">Properties</h2>
         <div className="flex items-center gap-1">
           {onOpenTheme && (
-            <button onClick={onOpenTheme} className="hidden lg:block p-1 text-zinc-500 hover:text-accent rounded-lg hover:bg-accent-soft" title="Theme settings">
+            <button onClick={onOpenTheme} className="hidden lg:block p-1 text-txt-muted hover:text-accent rounded-lg hover:bg-accent-soft" title="Theme settings">
               <Palette size={14} />
             </button>
           )}
-          <button onClick={() => onSelectBlock(null)} className="lg:hidden p-1 text-zinc-500 hover:text-white">
+          <button onClick={() => onSelectBlock(null)} className="lg:hidden p-1 text-txt-muted hover:text-txt-primary">
             <X size={16} />
           </button>
         </div>
@@ -49,7 +49,7 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
       <div className="flex-1 overflow-y-auto p-4">
         {/* Block selector */}
         <div className="mb-4">
-          <label className="text-2xs text-zinc-500 block mb-1.5">Select Block</label>
+          <label className="text-2xs text-txt-muted block mb-1.5">Select Block</label>
           <select value={selectedBlockId || ''} onChange={(e) => onSelectBlock(e.target.value || null)} className="ck-input text-xs">
             <option value="">— Choose a block —</option>
             {workspace.blocks.map((b) => (
@@ -65,26 +65,26 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
             {/* Quick actions */}
             <div className="flex gap-1.5 mt-4 pt-4 border-t border-border">
               <button onClick={() => moveBlock(block.id, -1)}
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-zinc-500
-                           hover:text-zinc-300 rounded-lg border border-border hover:border-zinc-600 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-txt-muted
+                           hover:text-txt-secondary rounded-lg border border-border hover:border-txt-faint transition-colors"
                 title="Move up">
                 <ChevronUp size={11} /> Up
               </button>
               <button onClick={() => moveBlock(block.id, 1)}
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-zinc-500
-                           hover:text-zinc-300 rounded-lg border border-border hover:border-zinc-600 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-txt-muted
+                           hover:text-txt-secondary rounded-lg border border-border hover:border-txt-faint transition-colors"
                 title="Move down">
                 <ChevronDown size={11} /> Down
               </button>
               <button onClick={() => duplicateBlock(block.id)}
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-zinc-500
-                           hover:text-zinc-300 rounded-lg border border-border hover:border-zinc-600 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-txt-muted
+                           hover:text-txt-secondary rounded-lg border border-border hover:border-txt-faint transition-colors"
                 title="Duplicate">
                 <Copy size={11} /> Clone
               </button>
               <button onClick={() => copyBlockCode(block)}
-                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-zinc-500
-                           hover:text-zinc-300 rounded-lg border border-border hover:border-zinc-600 transition-colors"
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-txt-muted
+                           hover:text-txt-secondary rounded-lg border border-border hover:border-txt-faint transition-colors"
                 title="Copy as JSX">
                 <Code2 size={11} /> JSX
               </button>
@@ -92,23 +92,23 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
 
             {/* Block order list */}
             <div className="mt-4 pt-4 border-t border-border">
-              <label className="text-2xs text-zinc-500 block mb-2 font-medium">Block Order</label>
+              <label className="text-2xs text-txt-muted block mb-2 font-medium">Block Order</label>
               <div className="space-y-1">
                 {workspace.blocks.map((b) => (
                   <div key={b.id}
                     onClick={() => onSelectBlock(b.id)}
                     className={`flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer text-2xs transition-colors ${
-                      b.id === selectedBlockId ? 'bg-accent-soft text-accent' : 'text-zinc-500 hover:bg-surface-overlay hover:text-zinc-300'
+                      b.id === selectedBlockId ? 'bg-accent-soft text-accent' : 'text-txt-muted hover:bg-surface-overlay hover:text-txt-secondary'
                     }`}>
                     <span className="truncate">{b.label}</span>
-                    <span className="text-zinc-700 shrink-0 ml-2">{b.w}col</span>
+                    <span className="text-txt-ghost shrink-0 ml-2">{b.w}col</span>
                   </div>
                 ))}
               </div>
             </div>
           </>
         ) : (
-          <div className="text-zinc-600 text-xs text-center mt-8 leading-relaxed">
+          <div className="text-txt-faint text-xs text-center mt-8 leading-relaxed">
             Select a block on the canvas<br />to edit its properties
           </div>
         )}
@@ -135,7 +135,7 @@ const BlockProperties: React.FC<{
         <input type="range" min={2} max={12} value={block.w}
           onChange={(e) => onResize(block.id, Number(e.target.value), block.h)}
           className="w-full accent-accent h-1.5 cursor-pointer" />
-        <div className="flex justify-between text-2xs text-zinc-700 mt-1">
+        <div className="flex justify-between text-2xs text-txt-ghost mt-1">
           <span>2</span><span>6</span><span>12</span>
         </div>
       </Field>
@@ -144,7 +144,7 @@ const BlockProperties: React.FC<{
         <input type="range" min={1} max={8} value={block.h}
           onChange={(e) => onResize(block.id, block.w, Number(e.target.value))}
           className="w-full accent-accent h-1.5 cursor-pointer" />
-        <div className="flex justify-between text-2xs text-zinc-700 mt-1">
+        <div className="flex justify-between text-2xs text-txt-ghost mt-1">
           <span>1</span><span>4</span><span>8</span>
         </div>
       </Field>
@@ -153,13 +153,13 @@ const BlockProperties: React.FC<{
         <label className="flex items-center gap-2.5 cursor-pointer">
           <div onClick={() => onUpdate(block.id, { visible: !block.visible })}
             className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
-              block.visible ? 'bg-accent' : 'bg-zinc-700'
+              block.visible ? 'bg-accent' : 'bg-txt-ghost'
             }`}>
             <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
               block.visible ? 'translate-x-4' : 'translate-x-0'
             }`} />
           </div>
-          <span className="text-xs text-zinc-400">{block.visible ? 'Visible' : 'Hidden'}</span>
+          <span className="text-xs text-txt-secondary">{block.visible ? 'Visible' : 'Hidden'}</span>
         </label>
       </Field>
 
@@ -170,7 +170,7 @@ const BlockProperties: React.FC<{
       <div>
         <button
           onClick={() => setShowRawJson(!showRawJson)}
-          className="text-2xs text-zinc-600 hover:text-zinc-400 transition-colors"
+          className="text-2xs text-txt-faint hover:text-txt-secondary transition-colors"
         >
           {showRawJson ? '▾ Hide' : '▸ Show'} advanced (JSON)
         </button>
@@ -256,10 +256,10 @@ const FriendlyBlockProps: React.FC<{
 
 const ToggleField: React.FC<{ label: string; checked: boolean; onChange: (v: boolean) => void }> = ({ label, checked, onChange }) => (
   <label className="flex items-center justify-between cursor-pointer group">
-    <span className="text-2xs text-zinc-500 font-medium">{label}</span>
+    <span className="text-2xs text-txt-muted font-medium">{label}</span>
     <div onClick={() => onChange(!checked)}
       className={`relative w-8 h-4.5 rounded-full transition-colors cursor-pointer ${
-        checked ? 'bg-accent' : 'bg-zinc-700'
+        checked ? 'bg-accent' : 'bg-txt-ghost'
       }`}
       style={{ width: '32px', height: '18px' }}>
       <div className={`absolute top-[2px] left-[2px] w-[14px] h-[14px] rounded-full bg-white transition-transform ${
@@ -271,7 +271,7 @@ const ToggleField: React.FC<{ label: string; checked: boolean; onChange: (v: boo
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div>
-    <label className="text-2xs text-zinc-500 block mb-1.5 font-medium">{label}</label>
+    <label className="text-2xs text-txt-muted block mb-1.5 font-medium">{label}</label>
     {children}
   </div>
 );

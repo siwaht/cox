@@ -26,8 +26,8 @@ export const ToastContainer: React.FC = () => {
           className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border shadow-xl animate-slide-up ${BG[t.type]}`}
         >
           {ICONS[t.type]}
-          <span className="text-xs text-zinc-200 flex-1">{t.message}</span>
-          <button onClick={() => removeToast(t.id)} className="p-0.5 text-zinc-500 hover:text-zinc-300">
+          <span className="text-xs text-txt-primary flex-1">{t.message}</span>
+          <button onClick={() => removeToast(t.id)} className="p-0.5 text-txt-muted hover:text-txt-secondary">
             <X size={12} />
           </button>
         </div>

@@ -4,12 +4,41 @@ export default {
   theme: {
     extend: {
       colors: {
-        surface: { DEFAULT: '#0f1117', raised: '#161922', overlay: '#1e2130' },
-        border: { DEFAULT: '#262940', active: '#5b5fc7' },
-        accent: { DEFAULT: '#5b5fc7', hover: '#6e72d4', muted: '#3d4076', soft: '#5b5fc714' },
-        success: { DEFAULT: '#2ea043', soft: '#2ea04318' },
-        warning: { DEFAULT: '#d29922', soft: '#d2992218' },
-        danger: { DEFAULT: '#f85149', soft: '#f8514918' },
+        surface: {
+          DEFAULT: 'var(--color-surface)',
+          raised: 'var(--color-surface-raised)',
+          overlay: 'var(--color-surface-overlay)',
+        },
+        border: {
+          DEFAULT: 'var(--color-border)',
+          active: 'var(--color-border-active)',
+        },
+        accent: {
+          DEFAULT: 'var(--color-accent)',
+          hover: 'var(--color-accent-hover)',
+          muted: 'var(--color-accent-muted)',
+          soft: 'var(--color-accent-soft)',
+        },
+        success: {
+          DEFAULT: 'var(--color-success)',
+          soft: 'var(--color-success-soft)',
+        },
+        warning: {
+          DEFAULT: 'var(--color-warning)',
+          soft: 'var(--color-warning-soft)',
+        },
+        danger: {
+          DEFAULT: 'var(--color-danger)',
+          soft: 'var(--color-danger-soft)',
+        },
+        // Semantic text colors that flip with theme
+        txt: {
+          primary: 'var(--color-txt-primary)',
+          secondary: 'var(--color-txt-secondary)',
+          muted: 'var(--color-txt-muted)',
+          faint: 'var(--color-txt-faint)',
+          ghost: 'var(--color-txt-ghost)',
+        },
       },
       fontSize: {
         '2xs': ['0.625rem', { lineHeight: '0.875rem' }],

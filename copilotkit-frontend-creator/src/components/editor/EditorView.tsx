@@ -18,7 +18,7 @@ export const EditorView: React.FC = () => {
         <button
           onClick={() => { setShowPalette(!showPalette); setShowInspector(false); setShowTheme(false); }}
           className={`p-2 rounded-lg border transition-all ${
-            showPalette ? 'bg-accent text-white border-accent' : 'bg-surface-raised text-zinc-400 border-border'
+            showPalette ? 'bg-accent text-white border-accent' : 'bg-surface-raised text-txt-secondary border-border'
           }`}
           aria-label="Toggle block palette"
         >
@@ -27,7 +27,7 @@ export const EditorView: React.FC = () => {
         <button
           onClick={() => { setShowInspector(!showInspector); setShowPalette(false); setShowTheme(false); }}
           className={`p-2 rounded-lg border transition-all ${
-            showInspector ? 'bg-accent text-white border-accent' : 'bg-surface-raised text-zinc-400 border-border'
+            showInspector ? 'bg-accent text-white border-accent' : 'bg-surface-raised text-txt-secondary border-border'
           }`}
           aria-label="Toggle inspector"
         >
@@ -36,7 +36,7 @@ export const EditorView: React.FC = () => {
         <button
           onClick={() => { setShowTheme(!showTheme); setShowPalette(false); setShowInspector(false); }}
           className={`p-2 rounded-lg border transition-all ${
-            showTheme ? 'bg-accent text-white border-accent' : 'bg-surface-raised text-zinc-400 border-border'
+            showTheme ? 'bg-accent text-white border-accent' : 'bg-surface-raised text-txt-secondary border-border'
           }`}
           aria-label="Toggle theme panel"
         >

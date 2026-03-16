@@ -34,16 +34,16 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
   return (
     <aside className="h-full bg-surface-raised border-r border-border flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+        <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">
           Add Blocks
         </h2>
         <div className="flex items-center gap-1">
           <button onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-            className="p-1 text-zinc-500 hover:text-accent rounded" title="Toggle view">
+            className="p-1 text-txt-muted hover:text-accent rounded" title="Toggle view">
             {viewMode === 'list' ? <Grid3X3 size={13} /> : <List size={13} />}
           </button>
           {onClose && (
-            <button onClick={onClose} className="lg:hidden p-1 text-zinc-500 hover:text-white">
+            <button onClick={onClose} className="lg:hidden p-1 text-txt-muted hover:text-txt-primary">
               <X size={16} />
             </button>
           )}
@@ -53,7 +53,7 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
       {/* Search */}
       <div className="px-2.5 pt-2.5">
         <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-600" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-txt-faint" />
           <input
             type="text"
             value={search}
@@ -66,7 +66,7 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
 
       <div className={`flex-1 overflow-y-auto p-2.5 ${viewMode === 'grid' ? 'grid grid-cols-2 gap-2 auto-rows-min content-start' : 'space-y-1'}`}>
         {filtered.length === 0 && (
-          <p className="text-2xs text-zinc-600 text-center py-4 col-span-2">No blocks match "{search}"</p>
+          <p className="text-2xs text-txt-faint text-center py-4 col-span-2">No blocks match "{search}"</p>
         )}
         {filtered.map((def) => {
           const Icon = ICON_MAP[def.icon] || FileText;
@@ -79,7 +79,7 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
                            hover:border-accent/50 hover:bg-accent-soft transition-all group active:scale-[0.97]"
               >
                 <BlockThumbnail type={def.type} Icon={Icon} />
-                <span className="text-[10px] text-zinc-300 text-center leading-tight">{def.label}</span>
+                <span className="text-[10px] text-txt-secondary text-center leading-tight">{def.label}</span>
               </button>
             );
           }
@@ -95,12 +95,12 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
                 <Icon size={15} className="text-accent" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm text-zinc-200 leading-tight">{def.label}</div>
-                <div className="text-2xs text-zinc-500 leading-tight mt-0.5 truncate">
+                <div className="text-sm text-txt-primary leading-tight">{def.label}</div>
+                <div className="text-2xs text-txt-muted leading-tight mt-0.5 truncate">
                   {def.description}
                 </div>
               </div>
-              <Plus size={14} className="text-zinc-600 group-hover:text-accent shrink-0 transition-colors" />
+              <Plus size={14} className="text-txt-faint group-hover:text-accent shrink-0 transition-colors" />
             </button>
           );
         })}
@@ -115,35 +115,35 @@ const BlockThumbnail: React.FC<{ type: string; Icon: React.FC<{ size?: number; c
     chat: (
       <div className="w-full space-y-1">
         <div className="flex gap-1"><div className="w-2 h-2 rounded-full bg-accent/40" /><div className="h-2 rounded bg-accent/20 flex-1" /></div>
-        <div className="flex gap-1 justify-end"><div className="h-2 rounded bg-zinc-700 w-3/4" /><div className="w-2 h-2 rounded-full bg-zinc-600" /></div>
+        <div className="flex gap-1 justify-end"><div className="h-2 rounded bg-txt-ghost w-3/4" /><div className="w-2 h-2 rounded-full bg-txt-faint" /></div>
         <div className="flex gap-1"><div className="w-2 h-2 rounded-full bg-accent/40" /><div className="h-2 rounded bg-accent/20 w-2/3" /></div>
       </div>
     ),
     status: (
       <div className="w-full space-y-1.5">
-        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-success" /><div className="h-1.5 rounded bg-zinc-700 w-1/2" /></div>
-        <div className="h-1.5 rounded-full bg-zinc-800 w-full"><div className="h-1.5 rounded-full bg-accent/50 w-3/4" /></div>
+        <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-success" /><div className="h-1.5 rounded bg-txt-ghost w-1/2" /></div>
+        <div className="h-1.5 rounded-full bg-surface w-full"><div className="h-1.5 rounded-full bg-accent/50 w-3/4" /></div>
       </div>
     ),
     results: (
       <div className="w-full space-y-1">
-        <div className="h-2 rounded bg-zinc-700/60 w-full" />
-        <div className="h-2 rounded bg-zinc-700/40 w-4/5" />
-        <div className="h-2 rounded bg-zinc-700/30 w-3/5" />
+        <div className="h-2 rounded bg-txt-ghost/60 w-full" />
+        <div className="h-2 rounded bg-txt-ghost/40 w-4/5" />
+        <div className="h-2 rounded bg-txt-ghost/30 w-3/5" />
       </div>
     ),
     toolActivity: (
       <div className="w-full space-y-1">
-        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-success" /><div className="h-1.5 rounded bg-zinc-700 flex-1" /></div>
-        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-success" /><div className="h-1.5 rounded bg-zinc-700 flex-1" /></div>
-        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" /><div className="h-1.5 rounded bg-zinc-700 w-2/3" /></div>
+        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-success" /><div className="h-1.5 rounded bg-txt-ghost flex-1" /></div>
+        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-success" /><div className="h-1.5 rounded bg-txt-ghost flex-1" /></div>
+        <div className="flex items-center gap-1"><div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" /><div className="h-1.5 rounded bg-txt-ghost w-2/3" /></div>
       </div>
     ),
     table: (
       <div className="w-full space-y-0.5">
-        <div className="flex gap-0.5"><div className="h-1.5 rounded bg-zinc-600 flex-1" /><div className="h-1.5 rounded bg-zinc-600 flex-1" /><div className="h-1.5 rounded bg-zinc-600 flex-1" /></div>
-        <div className="flex gap-0.5"><div className="h-1.5 rounded bg-zinc-800 flex-1" /><div className="h-1.5 rounded bg-zinc-800 flex-1" /><div className="h-1.5 rounded bg-zinc-800 flex-1" /></div>
-        <div className="flex gap-0.5"><div className="h-1.5 rounded bg-zinc-800 flex-1" /><div className="h-1.5 rounded bg-zinc-800 flex-1" /><div className="h-1.5 rounded bg-zinc-800 flex-1" /></div>
+        <div className="flex gap-0.5"><div className="h-1.5 rounded bg-txt-faint flex-1" /><div className="h-1.5 rounded bg-txt-faint flex-1" /><div className="h-1.5 rounded bg-txt-faint flex-1" /></div>
+        <div className="flex gap-0.5"><div className="h-1.5 rounded bg-surface flex-1" /><div className="h-1.5 rounded bg-surface flex-1" /><div className="h-1.5 rounded bg-surface flex-1" /></div>
+        <div className="flex gap-0.5"><div className="h-1.5 rounded bg-surface flex-1" /><div className="h-1.5 rounded bg-surface flex-1" /><div className="h-1.5 rounded bg-surface flex-1" /></div>
       </div>
     ),
     chart: (
@@ -156,9 +156,9 @@ const BlockThumbnail: React.FC<{ type: string; Icon: React.FC<{ size?: number; c
     ),
     dashboard: (
       <div className="w-full grid grid-cols-2 gap-0.5">
-        <div className="h-3 rounded bg-zinc-700/50 flex items-center justify-center"><span className="text-[5px] text-zinc-500">42</span></div>
-        <div className="h-3 rounded bg-zinc-700/50 flex items-center justify-center"><span className="text-[5px] text-zinc-500">18%</span></div>
-        <div className="h-3 rounded bg-zinc-700/50" /><div className="h-3 rounded bg-zinc-700/50" />
+        <div className="h-3 rounded bg-txt-ghost/50 flex items-center justify-center"><span className="text-[5px] text-txt-muted">42</span></div>
+        <div className="h-3 rounded bg-txt-ghost/50 flex items-center justify-center"><span className="text-[5px] text-txt-muted">18%</span></div>
+        <div className="h-3 rounded bg-txt-ghost/50" /><div className="h-3 rounded bg-txt-ghost/50" />
       </div>
     ),
   };

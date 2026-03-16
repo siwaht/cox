@@ -17,7 +17,7 @@ export const FormBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
     return (
       <div className="flex flex-col h-full">
         <BlockHeader label={block.label} />
-        <div className="flex-1 p-3 text-zinc-600 text-xs text-center mt-4">
+        <div className="flex-1 p-3 text-txt-faint text-xs text-center mt-4">
           Configure form fields in the block inspector
         </div>
       </div>
@@ -30,12 +30,12 @@ export const FormBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
       <form onSubmit={handleSubmit} className="flex-1 p-3 space-y-2">
         {fields.map((f) => (
           <div key={f.name}>
-            <label className="text-[10px] text-zinc-500 block mb-1">{f.label || f.name}</label>
+            <label className="text-[10px] text-txt-muted block mb-1">{f.label || f.name}</label>
             <input
               type={f.type || 'text'}
               value={values[f.name] || ''}
               onChange={(e) => setValues({ ...values, [f.name]: e.target.value })}
-              className="w-full bg-surface border border-border rounded-lg px-2 py-1.5 text-xs text-zinc-300 focus:outline-none focus:border-accent"
+              className="w-full bg-surface border border-border rounded-lg px-2 py-1.5 text-xs text-txt-secondary focus:outline-none focus:border-accent"
             />
           </div>
         ))}

@@ -69,16 +69,16 @@ export const PreviewView: React.FC = () => {
           {isConnected ? (
             <>
               <Wifi size={12} className="text-success" />
-              <span className="text-zinc-400">
-                <span className="text-zinc-200 font-medium">{activeConn.name}</span>
-                <span className="text-zinc-600 ml-1.5">({activeConn.runtime})</span>
+              <span className="text-txt-secondary">
+                <span className="text-txt-primary font-medium">{activeConn.name}</span>
+                <span className="text-txt-faint ml-1.5">({activeConn.runtime})</span>
               </span>
             </>
           ) : (
             <>
               <Eye size={12} className="text-accent" />
               <span className="text-accent font-medium">Preview with sample data</span>
-              <span className="text-zinc-600 ml-1">— connect an agent for real responses</span>
+              <span className="text-txt-faint ml-1">— connect an agent for real responses</span>
             </>
           )}
         </div>
@@ -156,7 +156,7 @@ const ViewportToggle: React.FC<{
         onClick={() => setViewport(key)}
         title={label}
         className={`p-1.5 rounded transition-all ${
-          viewport === key ? 'bg-accent text-white' : 'text-zinc-500 hover:text-zinc-300'
+          viewport === key ? 'bg-accent text-white' : 'text-txt-muted hover:text-txt-secondary'
         }`}
       >
         <Icon size={12} />

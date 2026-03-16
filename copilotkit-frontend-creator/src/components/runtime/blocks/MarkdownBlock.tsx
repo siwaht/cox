@@ -12,11 +12,11 @@ export const MarkdownBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
       <BlockHeader label={block.label} />
       <div className="flex-1 overflow-y-auto p-3">
         {content ? (
-          <div className="text-xs text-zinc-300 whitespace-pre-wrap leading-relaxed">
+          <div className="text-xs text-txt-secondary whitespace-pre-wrap leading-relaxed">
             {content}
           </div>
         ) : (
-          <div className="text-zinc-600 text-xs text-center mt-4">
+          <div className="text-txt-faint text-xs text-center mt-4">
             Markdown content will render here
           </div>
         )}

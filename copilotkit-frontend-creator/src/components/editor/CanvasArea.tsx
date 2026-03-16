@@ -141,8 +141,8 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
       {lastRemoved && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-slide-up">
           <div className="flex items-center gap-3 bg-surface-raised border border-border rounded-xl px-4 py-2.5 shadow-xl">
-            <span className="text-xs text-zinc-400">
-              Removed <span className="text-zinc-200">{lastRemoved.label}</span>
+            <span className="text-xs text-txt-secondary">
+              Removed <span className="text-txt-primary">{lastRemoved.label}</span>
             </span>
             <button
               onClick={handleUndo}
@@ -164,10 +164,10 @@ const EmptyCanvas: React.FC = () => (
         <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-5">
           <Layers size={28} className="text-accent" />
         </div>
-        <h2 className="text-lg font-semibold text-zinc-200 mb-2">
+        <h2 className="text-lg font-semibold text-txt-primary mb-2">
           Build your AI frontend
         </h2>
-        <p className="text-sm text-zinc-500 leading-relaxed max-w-sm mx-auto">
+        <p className="text-sm text-txt-muted leading-relaxed max-w-sm mx-auto">
           Pick a template to get started, or add blocks one by one from the palette on the left.
         </p>
       </div>
@@ -179,7 +179,7 @@ const EmptyCanvas: React.FC = () => (
           { step: '2', label: 'Connect agent', icon: <Plug size={12} /> },
           { step: '3', label: 'Preview & publish', icon: <Eye size={12} /> },
         ].map((s, i) => (
-          <div key={i} className="flex items-center gap-2 text-2xs text-zinc-500">
+          <div key={i} className="flex items-center gap-2 text-2xs text-txt-muted">
             <div className="w-5 h-5 rounded-full bg-accent/15 flex items-center justify-center text-accent">
               {s.icon}
             </div>
