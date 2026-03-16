@@ -57,18 +57,34 @@ async def deploy_agent(request: Request):
     if not code.strip():
         return JSONResponse({"error": "No code provided"}, status_code=400)
 
+    # Known pip package name mappings (import name → pip name)
+    PIP_ALIASES = {
+        "dotenv": "python-dotenv",
+        "cv2": "opencv-python",
+        "sklearn": "scikit-learn",
+        "yaml": "pyyaml",
+        "bs4": "beautifulsoup4",
+        "PIL": "pillow",
+        "gi": "pygobject",
+    }
+
     # 1. Install dependencies first
-    if deps:
-        import subprocess
+    import subprocess
+    all_deps = list(deps) if deps else []
+    # Always ensure python-dotenv if code uses it
+    if "dotenv" in code and "python-dotenv" not in all_deps:
+        all_deps.append("python-dotenv")
+
+    if all_deps:
         try:
             subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "--quiet"] + deps,
+                [sys.executable, "-m", "pip", "install", "--quiet"] + all_deps,
                 timeout=120,
             )
         except Exception as e:
             return JSONResponse({
                 "ok": False,
-                "warning": f"Failed to install dependencies ({', '.join(deps)}): {e}",
+                "warning": f"Failed to install dependencies ({', '.join(all_deps)}): {e}",
             })
 
     # 2. Write agent code
@@ -76,16 +92,31 @@ async def deploy_agent(request: Request):
     with open(agent_path, "w", encoding="utf-8") as f:
         f.write(code)
 
-    # 3. Try loading the module to catch import errors early
-    try:
-        if "agent" in sys.modules:
-            del sys.modules["agent"]
-        importlib.import_module("agent")
-    except Exception as e:
-        return JSONResponse({
-            "ok": True,
-            "warning": f"Code saved but agent failed to load: {e}. Fix the code and try again.",
-        })
+    # 3. Try loading — if a module is missing, auto-install and retry (up to 3 rounds)
+    for attempt in range(3):
+        try:
+            if "agent" in sys.modules:
+                del sys.modules["agent"]
+            importlib.import_module("agent")
+            break
+        except ModuleNotFoundError as e:
+            missing = e.name or ""
+            pip_name = PIP_ALIASES.get(missing, missing)
+            try:
+                subprocess.check_call(
+                    [sys.executable, "-m", "pip", "install", "--quiet", pip_name],
+                    timeout=120,
+                )
+            except Exception:
+                return JSONResponse({
+                    "ok": True,
+                    "warning": f"Code saved but missing package '{pip_name}' could not be installed.",
+                })
+        except Exception as e:
+            return JSONResponse({
+                "ok": True,
+                "warning": f"Code saved but agent failed to load: {e}. Fix the code and try again.",
+            })
 
     return {"ok": True, "message": "Agent deployed. Restart the server to activate."}
 
