@@ -41,6 +41,20 @@ export function buildRuntimeConfig(profile: ConnectionProfile): RuntimeConfig {
         ...(profile.env || {}),
       },
     }),
+    tambo: () => ({
+      // Tambo connects to the same backend via MCP client-side connection.
+      // The runtimeUrl points to the agent's /mcp endpoint for MCP transport,
+      // while Tambo's own API handles the generative UI orchestration.
+      runtimeUrl: `${base}/mcp`,
+      headers,
+      properties: {
+        runtime: 'tambo',
+        'tambo-api-key': profile.env?.TAMBO_API_KEY || '',
+        'tambo-url': profile.env?.TAMBO_URL || 'https://api.tambo.co',
+        'mcp-server-url': `${base}/mcp`,
+        ...(profile.env || {}),
+      },
+    }),
   };
 
   return builders[profile.runtime]();

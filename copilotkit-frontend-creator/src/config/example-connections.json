@@ -19,6 +19,16 @@
       "baseUrl": "https://agent.example.com",
       "agentId": "deep-agent",
       "auth": { "mode": "bearer", "tokenEnv": "AGENT_API_TOKEN" }
+    },
+    {
+      "name": "Tambo + LangChain Backend",
+      "runtime": "tambo",
+      "baseUrl": "http://localhost:8000",
+      "auth": { "mode": "none" },
+      "env": {
+        "TAMBO_API_KEY": "",
+        "TAMBO_URL": "https://api.tambo.co"
+      }
     }
   ],
   "frontend": {

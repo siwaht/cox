@@ -15,6 +15,7 @@ const PRESETS: Array<{
   { label: 'LangGraph Local', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Default LangGraph dev server' },
   { label: 'LangChain Local', runtime: 'langchain', baseUrl: 'http://localhost:8000', agentId: '', description: 'Default LangChain serve' },
   { label: 'Deep Agent Local', runtime: 'deepagents', baseUrl: 'http://localhost:3001', agentId: 'default', description: 'Local deep agent server' },
+  { label: 'Tambo + Backend', runtime: 'tambo', baseUrl: 'http://localhost:8000', agentId: '', description: 'Tambo generative UI via MCP' },
   { label: 'Custom Remote', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
 ];
 
@@ -27,6 +28,8 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
   const [tokenEnv, setTokenEnv] = useState(initialValues?.auth?.tokenEnv || '');
   const [tokenValue, setTokenValue] = useState(initialValues?.auth?.tokenValue || '');
   const [headerName, setHeaderName] = useState(initialValues?.auth?.headerName || '');
+  const [tamboApiKey, setTamboApiKey] = useState(initialValues?.env?.TAMBO_API_KEY || '');
+  const [tamboUrl, setTamboUrl] = useState(initialValues?.env?.TAMBO_URL || '');
   const [showAdvanced, setShowAdvanced] = useState(authMode !== 'none');
   const [urlError, setUrlError] = useState('');
 
@@ -53,6 +56,12 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
         ...(tokenValue ? { tokenValue } : {}),
         ...(headerName ? { headerName } : {}),
       },
+      ...(runtime === 'tambo' ? {
+        env: {
+          ...(tamboApiKey ? { TAMBO_API_KEY: tamboApiKey } : {}),
+          ...(tamboUrl ? { TAMBO_URL: tamboUrl } : {}),
+        },
+      } : {}),
     });
   };
 
@@ -95,6 +104,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
             <option value="langchain">LangChain</option>
             <option value="langgraph">LangGraph</option>
             <option value="deepagents">Deep Agents</option>
+            <option value="tambo">Tambo (Generative UI)</option>
           </select>
         </Row>
         <Row label="Agent URL" hint="Where your agent is running">
@@ -105,10 +115,32 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
             className={`ck-input text-xs font-mono ${urlError ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`} />
           {urlError && <p className="text-2xs text-danger mt-1">{urlError}</p>}
         </Row>
-        <Row label="Agent / Graph ID" hint={runtime === 'langchain' ? 'Optional for LangChain' : 'Required'}>
+        <Row label="Agent / Graph ID" hint={runtime === 'langchain' ? 'Optional for LangChain' : runtime === 'tambo' ? 'Not used for Tambo' : 'Required'}>
           <input type="text" value={agentId} onChange={(e) => setAgentId(e.target.value)}
-                 placeholder="agent" className="ck-input text-xs font-mono" />
+                 placeholder="agent" className="ck-input text-xs font-mono"
+                 disabled={runtime === 'tambo'} />
         </Row>
+
+        {runtime === 'tambo' && (
+          <div className="space-y-3 pl-3 border-l-2 border-purple-500/30 animate-fade-in">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Sparkles size={11} className="text-purple-400" />
+              <span className="text-2xs text-txt-muted font-medium">Tambo Configuration</span>
+            </div>
+            <Row label="Tambo API Key" hint="From console.tambo.co">
+              <input type="password" value={tamboApiKey} onChange={(e) => setTamboApiKey(e.target.value)}
+                     placeholder="tb_..." className="ck-input text-xs font-mono" />
+            </Row>
+            <Row label="Tambo API URL" hint="Leave blank for Tambo Cloud">
+              <input type="text" value={tamboUrl} onChange={(e) => setTamboUrl(e.target.value)}
+                     placeholder="https://api.tambo.co (default)" className="ck-input text-xs font-mono" />
+            </Row>
+            <p className="text-2xs text-txt-ghost">
+              Tambo connects to your backend via MCP. The Agent URL above should point to your
+              LangChain/LangGraph/DeepAgents server — Tambo will use it as an MCP server.
+            </p>
+          </div>
+        )}
 
         <button type="button" onClick={() => setShowAdvanced(!showAdvanced)}
           className="text-2xs text-txt-faint hover:text-txt-secondary transition-colors">

@@ -1,6 +1,6 @@
 // ─── Agent Connection Types ───
 
-export type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
+export type RuntimeType = 'langchain' | 'langgraph' | 'deepagents' | 'tambo';
 
 export type AuthMode = 'none' | 'bearer' | 'api-key' | 'custom-header';
 

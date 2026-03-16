@@ -224,6 +224,8 @@ function getHealthEndpoint(profile: ConnectionProfile): string {
       return `${base}/ok`;
     case 'deepagents':
       return `${base}/health`;
+    case 'tambo':
+      return `${base}/health`;
     case 'langchain':
     default:
       return `${base}/health`;
@@ -267,6 +269,11 @@ function probeCapabilities(body: Record<string, unknown>, runtime: string): stri
   if (runtime === 'deepagents') {
     if (!caps.includes('subagents')) caps.push('subagents');
     if (!caps.includes('progress')) caps.push('progress');
+  }
+  if (runtime === 'tambo') {
+    // Tambo supports generative UI via MCP — it inherits the backend's capabilities
+    if (!caps.includes('toolCalls')) caps.push('toolCalls');
+    if (!caps.includes('structuredOutput')) caps.push('structuredOutput');
   }
 
   return [...new Set(caps)];

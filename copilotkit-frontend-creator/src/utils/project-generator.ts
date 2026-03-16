@@ -206,8 +206,23 @@ function uniqueBlockTypes(blocks: BlockConfig[]): BlockType[] {
 
 // ─── File generators ───
 
-function genPackageJson(name: string): string {
+function genPackageJson(name: string, connection?: ConnectionProfile | null): string {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent-frontend';
+  const isTambo = connection?.runtime === 'tambo';
+
+  const deps: Record<string, string> = isTambo
+    ? {
+        '@tambo-ai/react': '^1.0.0',
+        react: '^18.3.1',
+        'react-dom': '^18.3.1',
+      }
+    : {
+        '@copilotkit/react-core': '^1.8.0',
+        '@copilotkit/react-ui': '^1.8.0',
+        react: '^18.3.1',
+        'react-dom': '^18.3.1',
+      };
+
   return JSON.stringify({
     name: slug,
     private: true,
@@ -218,12 +233,7 @@ function genPackageJson(name: string): string {
       build: 'vite build',
       preview: 'vite preview',
     },
-    dependencies: {
-      '@copilotkit/react-core': '^1.8.0',
-      '@copilotkit/react-ui': '^1.8.0',
-      react: '^18.3.1',
-      'react-dom': '^18.3.1',
-    },
+    dependencies: deps,
     devDependencies: {
       '@types/react': '^18.3.0',
       '@types/react-dom': '^18.3.0',
@@ -345,6 +355,65 @@ function genAppTsx(
     (t) => `import { ${blockComponentName(t)} } from './components/${blockComponentName(t)}';`,
   ).join('\n');
 
+  const isTambo = connection?.runtime === 'tambo';
+
+  if (isTambo) {
+    const backendUrl = connection
+      ? `'${connection.baseUrl.replace(/\/+$/, '')}/mcp'`
+      : `import.meta.env.VITE_MCP_SERVER_URL || 'http://localhost:8000/mcp'`;
+
+    const blockElements = visible.map((b) => {
+      const comp = blockComponentName(b.type);
+      return `        <div style={{ gridColumn: 'span ${b.w}', minHeight: '${b.h * 50}px' }}>
+          <${comp} />
+        </div>`;
+    }).join('\n');
+
+    const title = visible.length > 0 ? (visible[0].label || 'Agent Frontend') : 'Agent Frontend';
+
+    return `import { TamboProvider } from '@tambo-ai/react';
+${imports}
+
+// Tambo components registered for generative UI
+const tamboComponents = [
+  // Register your components here with Zod schemas
+  // See: https://docs.tambo.co/concepts/generative-interfaces/generative-components
+];
+
+export function App() {
+  const mcpServerUrl = ${backendUrl};
+  const tamboApiKey = import.meta.env.VITE_TAMBO_API_KEY || '';
+
+  return (
+    <TamboProvider
+      apiKey={tamboApiKey}
+      userKey="default-user"
+      components={tamboComponents}
+      mcpServers={[{
+        url: mcpServerUrl,
+        serverKey: 'agent-backend',
+      }]}
+    >
+      <div className="min-h-screen bg-zinc-950 text-zinc-200">
+        <header className="flex items-center justify-between px-5 py-3 bg-zinc-900 border-b border-zinc-800">
+          <h1 className="text-sm font-semibold">${title}</h1>
+          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+            <span className="w-2 h-2 rounded-full bg-purple-500" />
+            Tambo + MCP
+          </div>
+        </header>
+        <main className="p-4 sm:p-6">
+          <div className="max-w-6xl mx-auto grid grid-cols-12 gap-3 auto-rows-min">
+${blockElements}
+          </div>
+        </main>
+      </div>
+    </TamboProvider>
+  );
+}
+`;
+  }
+
   const runtimeUrl = connection
     ? `'${connection.baseUrl.replace(/\/+$/, '')}/copilotkit'`
     : `import.meta.env.VITE_RUNTIME_URL || 'http://localhost:8000/copilotkit'`;
@@ -389,6 +458,18 @@ ${blockElements}
 
 function genEnvExample(connection?: ConnectionProfile | null): string {
   const base = connection?.baseUrl || 'http://localhost:8000';
+  const isTambo = connection?.runtime === 'tambo';
+
+  if (isTambo) {
+    return `# Tambo Configuration
+VITE_TAMBO_API_KEY=your_tambo_api_key_here
+VITE_MCP_SERVER_URL=${base.replace(/\/+$/, '')}/mcp
+
+# Backend Agent URL (same server Tambo connects to via MCP)
+VITE_AGENT_URL=${base.replace(/\/+$/, '')}
+`;
+  }
+
   return `# Agent Runtime
 VITE_RUNTIME_URL=${base.replace(/\/+$/, '')}/copilotkit
 VITE_AGENT_ID=${connection?.agentId || 'agent'}
@@ -447,7 +528,7 @@ export function generateProjectFiles(opts: ProjectGenOptions): GeneratedFile[] {
   const files: GeneratedFile[] = [];
 
   // Root config files
-  files.push({ path: 'package.json', content: genPackageJson(workspace.name) });
+  files.push({ path: 'package.json', content: genPackageJson(workspace.name, connection) });
   files.push({ path: 'vite.config.ts', content: genViteConfig() });
   files.push({ path: 'tsconfig.json', content: genTsConfig() });
   files.push({ path: 'tailwind.config.js', content: genTailwindConfig() });
