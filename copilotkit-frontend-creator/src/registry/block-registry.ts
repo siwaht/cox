@@ -1,6 +1,9 @@
 import type { BlockDefinition } from '@/types/blocks';
 
-export const BLOCK_REGISTRY: BlockDefinition[] = [
+// ─── CopilotKit Blocks ───
+// These blocks use CopilotKit's React SDK for chat, tool calls, and streaming.
+
+const COPILOTKIT_BLOCKS: BlockDefinition[] = [
   {
     type: 'chat',
     label: 'Chat',
@@ -10,6 +13,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 4,
     defaultProps: { showTimestamps: true, showAvatars: true },
     requiredCapabilities: ['chat', 'streaming'],
+    frontend: 'copilotkit',
   },
   {
     type: 'results',
@@ -20,6 +24,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 3,
     defaultProps: { format: 'auto' },
     requiredCapabilities: ['structuredOutput'],
+    frontend: 'copilotkit',
   },
   {
     type: 'toolActivity',
@@ -30,6 +35,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 3,
     defaultProps: { showArgs: true, showResults: true },
     requiredCapabilities: ['toolCalls', 'toolResults'],
+    frontend: 'copilotkit',
   },
   {
     type: 'approvals',
@@ -40,6 +46,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 2,
     defaultProps: {},
     requiredCapabilities: ['approvals'],
+    frontend: 'copilotkit',
   },
   {
     type: 'logs',
@@ -50,6 +57,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 2,
     defaultProps: { level: 'info', autoScroll: true },
     requiredCapabilities: ['logs'],
+    frontend: 'copilotkit',
   },
   {
     type: 'status',
@@ -60,7 +68,42 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 1,
     defaultProps: {},
     requiredCapabilities: ['progress'],
+    frontend: 'copilotkit',
   },
+];
+
+// ─── Tambo Blocks ───
+// These blocks use Tambo's generative UI model via MCP transport.
+
+const TAMBO_BLOCKS: BlockDefinition[] = [
+  {
+    type: 'cards',
+    label: 'Cards',
+    description: 'Generative card grid rendered by Tambo',
+    icon: 'Layers',
+    defaultW: 6,
+    defaultH: 3,
+    defaultProps: {},
+    requiredCapabilities: ['structuredOutput'],
+    frontend: 'tambo',
+  },
+  {
+    type: 'dashboard',
+    label: 'Dashboard',
+    description: 'Tambo-driven dashboard with KPI cards and metrics',
+    icon: 'LayoutDashboard',
+    defaultW: 12,
+    defaultH: 2,
+    defaultProps: { metrics: [] },
+    requiredCapabilities: ['structuredOutput'],
+    frontend: 'tambo',
+  },
+];
+
+// ─── Shared Blocks ───
+// These work with both CopilotKit and Tambo frontends.
+
+const SHARED_BLOCKS: BlockDefinition[] = [
   {
     type: 'form',
     label: 'Form',
@@ -70,6 +113,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 3,
     defaultProps: { fields: [] },
     requiredCapabilities: [],
+    frontend: 'both',
   },
   {
     type: 'table',
@@ -80,6 +124,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 3,
     defaultProps: { columns: [], pagination: true },
     requiredCapabilities: ['structuredOutput'],
+    frontend: 'both',
   },
   {
     type: 'chart',
@@ -90,26 +135,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 3,
     defaultProps: { chartType: 'bar' },
     requiredCapabilities: ['structuredOutput'],
-  },
-  {
-    type: 'dashboard',
-    label: 'Dashboard',
-    description: 'Composite panel with KPI cards and metrics',
-    icon: 'LayoutDashboard',
-    defaultW: 12,
-    defaultH: 2,
-    defaultProps: { metrics: [] },
-    requiredCapabilities: ['structuredOutput'],
-  },
-  {
-    type: 'cards',
-    label: 'Cards',
-    description: 'Card grid for structured items',
-    icon: 'Layers',
-    defaultW: 6,
-    defaultH: 3,
-    defaultProps: {},
-    requiredCapabilities: ['structuredOutput'],
+    frontend: 'both',
   },
   {
     type: 'panel',
@@ -120,6 +146,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 2,
     defaultProps: { title: 'Panel' },
     requiredCapabilities: [],
+    frontend: 'both',
   },
   {
     type: 'markdown',
@@ -130,9 +157,29 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultH: 3,
     defaultProps: { content: '' },
     requiredCapabilities: [],
+    frontend: 'both',
   },
 ];
 
+// ─── Combined R
+egistry ───
+
+export const BLOCK_REGISTRY: BlockDefinition[] = [
+  ...COPILOTKIT_BLOCKS,
+  ...TAMBO_BLOCKS,
+  ...SHARED_BLOCKS,
+];
+
+export const COPILOTKIT_BLOCK_TYPES = COPILOTKIT_BLOCKS.map((b) => b.type);
+export const TAMBO_BLOCK_TYPES = TAMBO_BLOCKS.map((b) => b.type);
+export const SHARED_BLOCK_TYPES = SHARED_BLOCKS.map((b) => b.type);
+
 export function getBlockDefinition(type: string): BlockDefinition | undefined {
   return BLOCK_REGISTRY.find((b) => b.type === type);
+}
+
+export function getBlocksForFrontend(frontend: 'copilotkit' | 'tambo'): BlockDefinition[] {
+  return BLOCK_REGISTRY.filter(
+    (b) => b.frontend === frontend || b.frontend === 'both'
+  );
 }
