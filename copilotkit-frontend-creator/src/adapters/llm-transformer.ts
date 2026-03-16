@@ -71,22 +71,33 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 - Simple agents should use \`langchain.agents.create_agent\` instead
 - \`create_react_agent\` in langgraph.prebuilt is DEPRECATED
 
-### CopilotKit Python SDK (copilotkit >= 0.1.79, 2025+)
-- CURRENT API: \`from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent\`
+### CopilotKit Python SDK (copilotkit >= 0.1.x, 2025+)
+- CURRENT API: \`from copilotkit import CopilotKitSDK, LangGraphAGUIAgent\`
 - \`from copilotkit.integrations.fastapi import add_fastapi_endpoint\`
-- DEPRECATED: \`CopilotKitSDK\` — use \`CopilotKitRemoteEndpoint\` instead
-- DEPRECATED: \`LangGraphAGUIAgent\` — use \`LangGraphAgent\` instead
-- LangGraphAgent wraps ANY agent (LangChain, LangGraph, Deep Agents, or custom):
+- NOTE: \`LangGraphAgent\` is REJECTED by the SDK at runtime — always use \`LangGraphAGUIAgent\`
+- NOTE: There is a known bug in copilotkit 0.1.79 where \`LangGraphAGUIAgent.dict_repr()\` fails.
+  You MUST include this monkey-patch AFTER the import and BEFORE creating the SDK:
   \`\`\`
-  LangGraphAgent(name="agent", description="...", graph=my_agent)
+  # Fix dict_repr bug in copilotkit 0.1.x
+  _original_dict_repr = LangGraphAGUIAgent.dict_repr
+  def _patched_dict_repr(self):
+      try:
+          return _original_dict_repr(self)
+      except AttributeError:
+          return {'name': self.name, 'description': self.description or '', 'type': 'langgraph_agui'}
+  LangGraphAGUIAgent.dict_repr = _patched_dict_repr
+  \`\`\`
+- LangGraphAGUIAgent wraps ANY agent (LangChain, LangGraph, Deep Agents, or custom):
+  \`\`\`
+  LangGraphAGUIAgent(name="agent", description="...", graph=my_agent)
   \`\`\`
   NOTE: The parameter is \`graph=\`, not \`agent=\`
-- CopilotKitRemoteEndpoint takes a list of agents:
+- CopilotKitSDK takes a list of agents:
   \`\`\`
-  sdk = CopilotKitRemoteEndpoint(agents=[LangGraphAgent(...)])
+  sdk = CopilotKitSDK(agents=[LangGraphAGUIAgent(...)])
   \`\`\`
 - Endpoint: \`add_fastapi_endpoint(app, sdk, "/copilotkit")\`
-- NEVER import or use \`CopilotKitSDK\` or \`LangGraphAGUIAgent\` — they are deprecated and will error
+- NEVER import or use bare \`LangGraphAgent\` — it will raise: ValueError: LangGraphAgent should be instantiated using LangGraphAGUIAgent
 
 ### Deep Agents
 - \`from deepagents import create_deep_agent\`
@@ -96,14 +107,15 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 The output file MUST have:
 1. \`from dotenv import load_dotenv\` + \`load_dotenv()\` at the top (only ONCE — never duplicate)
 2. All necessary imports (no duplicates)
-3. CopilotKit import MUST be: \`from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent\` (NEVER CopilotKitSDK or LangGraphAGUIAgent)
-4. User's original tools/agent logic (preserved exactly)
-5. \`app = FastAPI(title="Agent Server")\`
-6. CORS middleware allowing all origins
-7. CopilotKit SDK using LangGraphAgent: \`sdk = CopilotKitRemoteEndpoint(agents=[LangGraphAgent(name="agent", description="...", graph=agent)])\`
-8. Endpoint: \`add_fastapi_endpoint(app, sdk, "/copilotkit")\`
-9. Health endpoint: \`@app.get("/health")\`
-10. Uvicorn entrypoint: \`if __name__ == "__main__": uvicorn.run("agent_server:app", host="0.0.0.0", port=8000, reload=True)\`
+3. CopilotKit import MUST be: \`from copilotkit import CopilotKitSDK, LangGraphAGUIAgent\` (NEVER bare LangGraphAgent)
+4. The monkey-patch for dict_repr bug (see above) — MUST appear after imports, before SDK creation
+5. User's original tools/agent logic (preserved exactly)
+6. \`app = FastAPI(title="Agent Server")\`
+7. CORS middleware allowing all origins
+8. CopilotKit SDK: \`sdk = CopilotKitSDK(agents=[LangGraphAGUIAgent(name="agent", description="...", graph=agent)])\`
+9. Endpoint: \`add_fastapi_endpoint(app, sdk, "/copilotkit")\`
+10. Health endpoint: \`@app.get("/health")\`
+11. Uvicorn entrypoint: \`if __name__ == "__main__": uvicorn.run("agent_server:app", host="0.0.0.0", port=8000, reload=True)\`
 
 ## Response Format
 After the Python code, add a line "---META---" followed by a JSON object:
@@ -303,21 +315,16 @@ function postProcessCode(code: string): string {
     lines.splice(insertAt, 0, 'from copilotkit.integrations.fastapi import add_fastapi_endpoint');
   }
 
-  // 2. Fix deprecated LangGraphAGUIAgent → LangGraphAgent
+  // 2. Fix: ensure LangGraphAGUIAgent is used (not bare LangGraphAgent)
   lines = lines.map((l) => {
-    if (/LangGraphAGUIAgent/.test(l)) {
-      return l.replace(/LangGraphAGUIAgent/g, 'LangGraphAgent');
+    if (/\bLangGraphAgent\b/.test(l) && !/LangGraphAGUIAgent/.test(l)) {
+      return l.replace(/\bLangGraphAgent\b/g, 'LangGraphAGUIAgent');
     }
     return l;
   });
 
-  // 2b. Fix deprecated CopilotKitSDK → CopilotKitRemoteEndpoint
-  lines = lines.map((l) => {
-    if (/CopilotKitSDK/.test(l) && !/CopilotKitRemoteEndpoint/.test(l)) {
-      return l.replace(/CopilotKitSDK/g, 'CopilotKitRemoteEndpoint');
-    }
-    return l;
-  });
+  // 2b. Fix: ensure CopilotKitSDK is used (CopilotKitRemoteEndpoint also works but SDK is standard)
+  // No change needed — both work. Just ensure consistency.
 
   // 3. Fix missing import: uvicorn used but not imported
   const usesUvicorn = lines.some((l) => l.includes('uvicorn.run'));
@@ -347,13 +354,34 @@ function postProcessCode(code: string): string {
     return true;
   });
 
-  // 6. Ensure `agent=` param is replaced with `graph=` in LangGraphAgent
+  // 6. Ensure `agent=` param is replaced with `graph=` in LangGraphAGUIAgent
   lines = lines.map((l) => {
-    if (/LangGraphAgent\(/.test(l) && /\bagent\s*=/.test(l) && !/\bgraph\s*=/.test(l)) {
+    if (/LangGraphAGUIAgent\(/.test(l) && /\bagent\s*=/.test(l) && !/\bgraph\s*=/.test(l)) {
       return l.replace(/\bagent\s*=/, 'graph=');
     }
     return l;
   });
+
+  // 7. Inject monkey-patch for dict_repr bug if LangGraphAGUIAgent is used but patch is missing
+  const usesAGUI = lines.some((l) => /LangGraphAGUIAgent/.test(l));
+  const hasPatch = lines.some((l) => /_patched_dict_repr/.test(l) || /_original_dict_repr/.test(l));
+  if (usesAGUI && !hasPatch) {
+    // Find the line after the last import to inject the patch
+    const lastImportIdx = lines.reduce((idx, l, i) => (/^from |^import /.test(l) ? i : idx), -1);
+    const patchLines = [
+      '',
+      '# Fix dict_repr bug in copilotkit 0.1.x',
+      '_original_dict_repr = LangGraphAGUIAgent.dict_repr',
+      'def _patched_dict_repr(self):',
+      '    try:',
+      '        return _original_dict_repr(self)',
+      '    except AttributeError:',
+      "        return {'name': self.name, 'description': self.description or '', 'type': 'langgraph_agui'}",
+      'LangGraphAGUIAgent.dict_repr = _patched_dict_repr',
+      '',
+    ];
+    lines.splice(lastImportIdx + 1, 0, ...patchLines);
+  }
 
   return lines.join('\n');
 }
