@@ -2,21 +2,107 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { BlockConfig } from '@/types/blocks';
 import { Send, Bot, User } from 'lucide-react';
 import { useAgentChat } from '@/hooks/useAgentChat';
+import { useCopilotLive } from '@/components/runtime/CopilotKitBridge';
+import { useCopilotChat } from '@copilotkit/react-core';
 
-export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
-  const { messages, isStreaming, sendMessage } = useAgentChat();
+// ─── Unified message shape for rendering ───
+interface DisplayMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+// ─── Live Chat (inside CopilotKit provider) ───
+const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
+  const { visibleMessages, appendMessage, isLoading } = useCopilotChat();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Convert CopilotKit messages to our display format
+  const messages: DisplayMessage[] = (visibleMessages || [])
+    .filter((m: any) => m.role === 'user' || m.role === 'assistant')
+    .map((m: any) => ({
+      role: m.role as 'user' | 'assistant',
+      content: typeof m.content === 'string' ? m.content : (m.content?.text || String(m.content || '')),
+    }));
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [messages]);
+  }, [messages.length]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+    const text = input.trim();
+    setInput('');
+    try {
+      // Use the deprecated appendMessage (GQL format) since it's the free API
+      // We need to construct a message object compatible with the GQL format
+      const { TextMessage, MessageRole } = await import('@copilotkit/runtime-client-gql');
+      await appendMessage(
+        new TextMessage({ content: text, role: MessageRole.User }),
+      );
+    } catch {
+      // Fallback: try constructing a plain object
+      try {
+        await appendMessage({ id: crypto.randomUUID(), role: 'user', content: text } as any);
+      } catch (err) {
+        console.error('Failed to send message:', err);
+      }
+    }
+  };
+
+  return (
+    <ChatUI
+      block={block}
+      messages={messages}
+      isStreaming={isLoading}
+      input={input}
+      setInput={setInput}
+      onSend={handleSend}
+    />
+  );
+};
+
+// ─── Preview Chat (mock/standalone mode) ───
+const PreviewChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
+  const { messages, isStreaming, sendMessage } = useAgentChat();
+  const [input, setInput] = useState('');
+
+  const displayMessages: DisplayMessage[] = messages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
     sendMessage(input.trim());
     setInput('');
   };
+
+  return (
+    <ChatUI
+      block={block}
+      messages={displayMessages}
+      isStreaming={isStreaming}
+      input={input}
+      setInput={setInput}
+      onSend={handleSend}
+    />
+  );
+};
+
+// ─── Shared Chat UI ───
+const ChatUI: React.FC<{
+  block: BlockConfig;
+  messages: DisplayMessage[];
+  isStreaming: boolean;
+  input: string;
+  setInput: (v: string) => void;
+  onSend: () => void;
+}> = ({ block, messages, isStreaming, input, setInput, onSend }) => {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+  }, [messages.length]);
 
   return (
     <div className="flex flex-col h-full">
@@ -65,12 +151,12 @@ export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
+            onKeyDown={(e) => e.key === 'Enter' && onSend()}
             placeholder="Type a message..."
             className="ck-input text-sm flex-1"
           />
           <button
-            onClick={handleSend}
+            onClick={onSend}
             disabled={!input.trim() || isStreaming}
             className="px-3.5 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg
                        transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
@@ -81,6 +167,12 @@ export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
       </div>
     </div>
   );
+};
+
+// ─── Main Export: switches between live and preview ───
+export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
+  const isLive = useCopilotLive();
+  return isLive ? <LiveChatBlock block={block} /> : <PreviewChatBlock block={block} />;
 };
 
 export const BlockHeader: React.FC<{ label: string }> = ({ label }) => (
