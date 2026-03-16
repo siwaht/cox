@@ -99,9 +99,11 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
 
 // Section header for block groups
 const SectionHeader: React.FC<{ label: string }> = ({ label }) => (
-  <div className="flex items-center gap-2 px-1 pt-2 pb-1">
-    <span className="text-[10px] font-semibold text-txt-faint uppercase tracking-wider">{label}</span>
-    <div className="flex-1 h-px bg-border" />
+  <div className="flex items-center gap-2 px-2 pt-3 pb-1.5">
+    <span className="text-[11px] font-bold text-accent uppercase tracking-wider px-2 py-0.5 rounded bg-accent/10 border border-accent/20">
+      {label}
+    </span>
+    <div className="flex-1 h-px bg-accent/20" />
   </div>
 );
 
