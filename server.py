@@ -92,35 +92,15 @@ async def deploy_agent(request: Request):
     with open(agent_path, "w", encoding="utf-8") as f:
         f.write(code)
 
-    # 3. Try loading — if a module is missing, auto-install and retry (up to 3 rounds)
-    for attempt in range(3):
-        try:
-            if "agent" in sys.modules:
-                del sys.modules["agent"]
-            importlib.import_module("agent")
-            break
-        except ModuleNotFoundError as e:
-            missing = e.name or ""
-            pip_name = PIP_ALIASES.get(missing, missing)
-            try:
-                subprocess.check_call(
-                    [sys.executable, "-m", "pip", "install", "--quiet", pip_name],
-                    timeout=120,
-                )
-            except Exception:
-                return JSONResponse({
-                    "ok": True,
-                    "warning": f"Code saved but missing package '{pip_name}' could not be installed.",
-                })
-        except Exception as e:
-            return JSONResponse({
-                "ok": True,
-                "warning": f"Code saved but agent failed to load: {e}. Fix the code and try again.",
-            })
-
     return {"ok": True, "message": "Agent deployed. Restart the server to activate."}
 
-    return {"ok": True, "message": "Agent deployed. Restart the server to activate."}
+
+@app.post("/api/restart")
+async def restart_server():
+    """Restart the server process by re-executing itself."""
+    import subprocess
+    # On Replit, the workflow runner will restart the process
+    os.execv(sys.executable, [sys.executable, __file__])
 
 
 # ─── Mount your agent ───
@@ -131,36 +111,61 @@ async def deploy_agent(request: Request):
 
 def mount_agent():
     """Try to import agent.py and wire CopilotKit endpoints."""
-    try:
-        agent_mod = importlib.import_module("agent")
-    except Exception as e:
-        print(f"⚠ Could not import agent.py: {e}")
-        print("  The frontend will still work, but /copilotkit won't be available.")
-        print("  Paste your agent code in agent.py and restart.")
+    agent_path = os.path.join(os.path.dirname(__file__), "agent.py")
+    if not os.path.isfile(agent_path):
+        print("⚠ No agent.py found. The frontend will work but /copilotkit won't be available.")
         return
 
     try:
+        # Read the code and exec it in an isolated namespace so its top-level
+        # FastAPI app / uvicorn.run don't interfere with ours.
+        with open(agent_path, "r", encoding="utf-8") as f:
+            code = f.read()
+
+        # Strip out lines that would start a competing server
+        filtered_lines = []
+        for line in code.splitlines():
+            stripped = line.strip()
+            # Skip standalone server bootstrap
+            if stripped.startswith("uvicorn.run("):
+                continue
+            if stripped.startswith("app = FastAPI("):
+                continue
+            if stripped.startswith("app.add_middleware("):
+                continue
+            if stripped.startswith("add_langgraph_fastapi_endpoint("):
+                continue
+            if stripped.startswith('@app.get("/health')  or stripped.startswith('@app.get("/copilotkit'):
+                continue
+            if stripped == 'def health():' or stripped == 'return {"status": "ok"}':
+                continue
+            filtered_lines.append(line)
+
+        namespace = {}
+        exec("\n".join(filtered_lines), namespace)
+
+        # Look for the agent/graph/executor object
+        agent_obj = (
+            namespace.get("graph")
+            or namespace.get("agent")
+            or namespace.get("executor")
+            or namespace.get("workflow")
+        )
+
+        if not agent_obj:
+            print("⚠ agent.py found but no `graph`, `agent`, `executor`, or `workflow` exported.")
+            print("  Export one of those and restart.")
+            return
+
         from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
-
-        # Prefer a LangGraph graph
-        graph = getattr(agent_mod, "graph", None)
-        if graph:
-            add_langgraph_fastapi_endpoint(app, graph, "/copilotkit")
-            print("✓ Mounted LangGraph agent at /copilotkit")
-            return
-
-        # Fall back to AgentExecutor
-        executor = getattr(agent_mod, "executor", None)
-        if executor:
-            add_langgraph_fastapi_endpoint(app, executor, "/copilotkit")
-            print("✓ Mounted LangChain executor at /copilotkit")
-            return
-
-        print("⚠ agent.py found but no `graph` or `executor` exported.")
-        print("  Export one of those and restart.")
+        add_langgraph_fastapi_endpoint(app, agent_obj, "/copilotkit")
+        print("✓ Mounted agent at /copilotkit")
 
     except ImportError:
         print("⚠ copilotkit package not installed. Run: pip install copilotkit")
+    except Exception as e:
+        print(f"⚠ Could not load agent.py: {e}")
+        print("  The frontend will still work, but /copilotkit won't be available.")
 
 
 mount_agent()

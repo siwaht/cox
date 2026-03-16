@@ -683,7 +683,7 @@ const RunHerePanel: React.FC<{
   onConnect: (url: string) => void;
   onBack: () => void;
 }> = ({ result, onConnect, onBack }) => {
-  const [status, setStatus] = useState<'idle' | 'deploying' | 'done' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'deploying' | 'restarting' | 'done' | 'error'>('idle');
   const [message, setMessage] = useState('');
 
   const handleDeploy = async () => {
@@ -706,8 +706,31 @@ const RunHerePanel: React.FC<{
         setMessage(data.warning);
         return;
       }
-      setStatus('done');
-      setMessage(data.message || 'Agent deployed');
+
+      // Trigger server restart
+      setStatus('restarting');
+      setMessage('Restarting server...');
+      try {
+        await fetch('/api/restart', { method: 'POST' }).catch(() => {});
+      } catch { /* expected — server is restarting */ }
+
+      // Wait for server to come back
+      let healthy = false;
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        try {
+          const h = await fetch('/health', { signal: AbortSignal.timeout(3000) });
+          if (h.ok) { healthy = true; break; }
+        } catch { /* still restarting */ }
+      }
+
+      if (healthy) {
+        setStatus('done');
+        setMessage('Agent is live');
+      } else {
+        setStatus('done');
+        setMessage('Agent deployed — server may still be starting');
+      }
     } catch (err) {
       setStatus('error');
       setMessage(err instanceof Error ? err.message : 'Network error');
@@ -727,7 +750,7 @@ const RunHerePanel: React.FC<{
       </div>
 
       <p className="text-2xs text-txt-secondary">
-        This saves the agent code to this app and connects it to the frontend. You may need to restart the server for changes to take full effect.
+        This saves the agent code, installs dependencies, and restarts the server automatically.
       </p>
 
       {status === 'idle' && (
@@ -740,7 +763,13 @@ const RunHerePanel: React.FC<{
 
       {status === 'deploying' && (
         <div className="flex items-center gap-2 text-xs text-accent justify-center py-2">
-          <Loader2 size={13} className="animate-spin" /> Deploying...
+          <Loader2 size={13} className="animate-spin" /> Installing dependencies & saving code...
+        </div>
+      )}
+
+      {status === 'restarting' && (
+        <div className="flex items-center gap-2 text-xs text-accent justify-center py-2">
+          <Loader2 size={13} className="animate-spin" /> Restarting server...
         </div>
       )}
 
