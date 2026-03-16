@@ -3,7 +3,7 @@ import {
   Copy, Check, Wand2, AlertTriangle, ChevronDown,
   Rocket, Loader2, Terminal, Plug, ExternalLink, RotateCcw,
   Key, Plus, X, Monitor, Cloud, Trash2, CheckCircle2, XCircle, Download,
-  Settings, Brain, Sparkles, Eye, EyeOff, FileCode, ChevronRight,
+  Settings, Brain, Sparkles, Eye, EyeOff, FileCode, ChevronRight, BookOpen,
 } from 'lucide-react';
 import { useDeployStore } from '@/store/deploy-store';
 import { useConnectionStore } from '@/store/connection-store';
@@ -13,6 +13,7 @@ import type { LLMProvider } from '@/store/llm-store';
 import { validateForDeploy, createDeployConfig } from '@/adapters/sandbox-deployer';
 import { llmTransformCode } from '@/adapters/llm-transformer';
 import type { LLMTransformResult, FrontendContext } from '@/adapters/llm-transformer';
+import { getDocsCacheStatus, clearDocsCache } from '@/adapters/docs-fetcher';
 import { getBlockDefinition } from '@/registry/block-registry';
 import type { RuntimeCapability, BlockConfig } from '@/types/blocks';
 import type { WorkspaceConfig } from '@/types/workspace';
@@ -98,11 +99,17 @@ export const CodeTransformerView: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
 
   const deploy = useDeployStore();
-  const { addConnection, setActive, validate } = useConnectionStore();
+  const { addConnection, setActive, validate, connections, activeConnectionId } = useConnectionStore();
   const { workspace, removeBlock, setMode } = useWorkspaceStore();
   const llm = useLLMStore();
 
   const hasApiKey = !!llm.getActiveKey();
+
+  // Get active connection's frontend/runtime for docs fetching
+  const activeConn = connections.find((c) => c.id === activeConnectionId);
+  const activeFrontend = activeConn?.frontend || 'copilotkit';
+  const activeRuntime = activeConn?.runtime || 'langchain';
+  const docsStatus = getDocsCacheStatus();
 
   const blockCompatibility = useMemo(() => {
     if (!result || !input.trim()) return null;
@@ -123,6 +130,8 @@ export const CodeTransformerView: React.FC = () => {
         blocks: workspace.blocks,
         workspaceName: workspace.name,
         theme: workspace.theme,
+        frontend: activeFrontend,
+        runtime: activeRuntime,
       };
       const llmResult: LLMTransformResult = await llmTransformCode(
         input, llm.provider, llm.modelId, llm.getActiveKey(), frontendCtx,
@@ -264,6 +273,20 @@ export const CodeTransformerView: React.FC = () => {
                 Syncing with {workspace.blocks.filter(b => b.visible).length} frontend block(s)
               </span>
             )}
+            {hasApiKey && (
+              <span className="text-2xs text-txt-faint flex items-center gap-1">
+                <BookOpen size={10} className={docsStatus.cached ? 'text-success' : 'text-txt-ghost'} />
+                {docsStatus.cached
+                  ? `Docs cached (${docsStatus.sources.join(', ')})`
+                  : 'Docs will be fetched on transform'}
+                {docsStatus.cached && (
+                  <button onClick={() => { clearDocsCache(); window.location.reload(); }}
+                    className="text-2xs text-txt-ghost hover:text-accent ml-1" title="Refresh docs cache">
+                    <RotateCcw size={8} />
+                  </button>
+                )}
+              </span>
+            )}
           </div>
         </div>
 
@@ -301,7 +324,7 @@ export const CodeTransformerView: React.FC = () => {
                 <Loader2 size={32} className="mx-auto animate-spin text-accent" />
                 <p className="text-xs text-txt-secondary">AI is analyzing your code...</p>
                 <p className="text-2xs text-txt-faint">
-                  Checking latest CopilotKit, LangChain & LangGraph APIs
+                  Fetching latest docs & checking CopilotKit, LangChain & LangGraph APIs
                   {workspace.blocks.length > 0 && ` • Syncing with ${workspace.blocks.filter(b => b.visible).length} frontend block(s)`}
                 </p>
               </div>

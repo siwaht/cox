@@ -1,10 +1,14 @@
 import type { LLMProvider } from '@/store/llm-store';
 import type { BlockConfig } from '@/types/blocks';
+import type { FrontendType, RuntimeType } from '@/types/connections';
+import { fetchDocs, getDocsSync, formatDocsForPrompt } from '@/adapters/docs-fetcher';
 
 export interface FrontendContext {
   blocks: BlockConfig[];
   workspaceName: string;
   theme: string;
+  frontend?: FrontendType;
+  runtime?: RuntimeType;
 }
 
 export interface LLMTransformResult {
@@ -260,8 +264,26 @@ export async function llmTransformCode(
   if (!apiKey) throw new Error('API key is required. Add it in the settings panel.');
   if (!input.trim()) throw new Error('No code provided.');
 
-  // Build the user prompt with frontend context
+  // Fetch latest documentation for the selected frontend + backend
+  const frontend = frontendContext?.frontend || 'copilotkit';
+  const runtime = frontendContext?.runtime || 'langchain';
+  let docsSection = '';
+  try {
+    const docs = await fetchDocs(frontend, runtime);
+    docsSection = formatDocsForPrompt(docs);
+  } catch {
+    // Fall back to sync/cached docs if async fetch fails
+    const docs = getDocsSync(frontend, runtime);
+    docsSection = formatDocsForPrompt(docs);
+  }
+
+  // Build the user prompt with frontend context + docs
   let userPrompt = `Transform this agent code into a complete, runnable agent_server.py with CopilotKit integration:\n\n${input}`;
+
+  // Inject verified documentation into the prompt
+  if (docsSection) {
+    userPrompt += `\n\n${docsSection}`;
+  }
 
   if (frontendContext && frontendContext.blocks.length > 0) {
     const blockSummary = frontendContext.blocks
