@@ -20,7 +20,7 @@ import { useWorkspaceStore } from '@/store/workspace-store';
 import { SortableBlock } from './SortableBlock';
 import { DragPreview } from './DragPreview';
 import { TemplatePicker } from './TemplatePicker';
-import { Layers, Undo2, Plus, Plug, Eye } from 'lucide-react';
+import { Layers, Undo2, Plus, Plug, Eye, Grid3x3 } from 'lucide-react';
 
 interface Props {
   selectedBlockId: string | null;
@@ -31,6 +31,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
   const { workspace, reorderBlocks, removeBlock, addBlock } = useWorkspaceStore();
   const [activeId, setActiveId] = React.useState<string | null>(null);
   const [lastRemoved, setLastRemoved] = React.useState<{ type: string; label: string } | null>(null);
+  const [showGrid, setShowGrid] = React.useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -109,6 +110,38 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
 
   return (
     <div className="flex-1 bg-surface overflow-y-auto p-4 sm:p-6 relative canvas-grid">
+      {/* Grid overlay toggle */}
+      <div className="max-w-5xl mx-auto flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowGrid(!showGrid)}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-2xs font-medium transition-colors ${
+              showGrid
+                ? 'bg-accent/15 text-accent border border-accent/30'
+                : 'bg-surface-raised text-txt-muted border border-border hover:text-txt-secondary'
+            }`}
+            title="Toggle 12-column grid overlay"
+          >
+            <Grid3x3 size={12} />
+            {showGrid ? 'Grid On' : 'Grid'}
+          </button>
+          <span className="text-2xs text-txt-ghost">12-column layout</span>
+        </div>
+        {/* Row usage summary */}
+        <RowUsageSummary blocks={workspace.blocks} />
+      </div>
+
+      {/* 12-column grid overlay */}
+      {showGrid && (
+        <div className="max-w-5xl mx-auto grid grid-cols-12 gap-2.5 pointer-events-none absolute inset-x-4 sm:inset-x-6 top-14" style={{ zIndex: 1 }}>
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i} className="h-full min-h-[60vh] bg-accent/[0.03] border-x border-accent/[0.06] rounded-sm relative">
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 text-[9px] text-accent/20 font-mono">{i + 1}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -153,6 +186,48 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Shows how blocks fill up rows in the 12-column grid
+const RowUsageSummary: React.FC<{ blocks: import('@/types/blocks').BlockConfig[] }> = ({ blocks }) => {
+  if (blocks.length === 0) return null;
+
+  // Calculate rows: greedily fill 12 columns per row
+  const rows: number[][] = [];
+  let currentRow: number[] = [];
+  let remaining = 12;
+  for (const b of blocks) {
+    if (b.w > remaining) {
+      if (currentRow.length > 0) rows.push(currentRow);
+      currentRow = [b.w];
+      remaining = 12 - b.w;
+    } else {
+      currentRow.push(b.w);
+      remaining -= b.w;
+    }
+  }
+  if (currentRow.length > 0) rows.push(currentRow);
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-2xs text-txt-ghost">{rows.length} row{rows.length !== 1 ? 's' : ''}</span>
+      <div className="flex gap-1">
+        {rows.map((row, ri) => {
+          const used = row.reduce((a, b) => a + b, 0);
+          return (
+            <div key={ri} className="flex gap-px" title={`Row ${ri + 1}: ${row.join('+')} = ${used}/12 cols`}>
+              {row.map((w, bi) => (
+                <div key={bi} className="h-2 rounded-sm bg-accent/40" style={{ width: `${(w / 12) * 40}px` }} />
+              ))}
+              {used < 12 && (
+                <div className="h-2 rounded-sm bg-surface-overlay" style={{ width: `${((12 - used) / 12) * 40}px` }} />
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };

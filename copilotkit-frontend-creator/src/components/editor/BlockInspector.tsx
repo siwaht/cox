@@ -101,7 +101,7 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
                       b.id === selectedBlockId ? 'bg-accent-soft text-accent' : 'text-txt-muted hover:bg-surface-overlay hover:text-txt-secondary'
                     }`}>
                     <span className="truncate">{b.label}</span>
-                    <span className="text-txt-ghost shrink-0 ml-2">{b.w}col</span>
+                    <span className="text-txt-ghost shrink-0 ml-2">{b.w}/12</span>
                   </div>
                 ))}
               </div>
@@ -117,12 +117,30 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
   );
 };
 
+// Column presets: value = number of columns out of 12
+const WIDTH_PRESETS = [
+  { label: 'Full', w: 12, perRow: '1' },
+  { label: '1/2', w: 6, perRow: '2' },
+  { label: '1/3', w: 4, perRow: '3' },
+  { label: '1/4', w: 3, perRow: '4' },
+  { label: '1/5', w: 2, perRow: '5–6' },
+] as const;
+
+const HEIGHT_PRESETS = [
+  { label: 'XS', h: 1 },
+  { label: 'S', h: 2 },
+  { label: 'M', h: 3 },
+  { label: 'L', h: 5 },
+  { label: 'XL', h: 8 },
+] as const;
+
 const BlockProperties: React.FC<{
   block: BlockConfig;
   onUpdate: (id: string, patch: Partial<BlockConfig>) => void;
   onResize: (id: string, w: number, h: number) => void;
 }> = ({ block, onUpdate, onResize }) => {
   const [showRawJson, setShowRawJson] = useState(false);
+  const blocksPerRow = Math.floor(12 / block.w);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -131,21 +149,74 @@ const BlockProperties: React.FC<{
           onChange={(e) => onUpdate(block.id, { label: e.target.value })} className="ck-input text-xs" />
       </Field>
 
-      <Field label={`Width — ${block.w} columns`}>
+      {/* Width — column presets */}
+      <Field label={`Width — ${block.w}/12 cols · ${blocksPerRow} per row`}>
+        <div className="flex gap-1 mb-2">
+          {WIDTH_PRESETS.map((p) => (
+            <button key={p.w}
+              onClick={() => onResize(block.id, p.w, block.h)}
+              className={`flex-1 py-1.5 rounded-lg text-2xs font-medium transition-colors ${
+                block.w === p.w
+                  ? 'bg-accent text-white'
+                  : 'bg-surface-overlay text-txt-muted hover:text-txt-secondary hover:bg-surface'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {/* Fine-tune slider */}
         <input type="range" min={2} max={12} value={block.w}
           onChange={(e) => onResize(block.id, Number(e.target.value), block.h)}
           className="w-full accent-accent h-1.5 cursor-pointer" />
+        {/* 12-column visual grid */}
+        <div className="flex gap-px mt-2">
+          {Array.from({ length: 12 }).map((_, i) => (
+            <div key={i}
+              className={`h-2.5 flex-1 rounded-sm transition-colors ${
+                i < block.w ? 'bg-accent/60' : 'bg-surface-overlay'
+              }`}
+            />
+          ))}
+        </div>
         <div className="flex justify-between text-2xs text-txt-ghost mt-1">
-          <span>2</span><span>6</span><span>12</span>
+          <span>2 cols</span>
+          <span>{blocksPerRow} blocks fit per row</span>
+          <span>12 cols</span>
         </div>
       </Field>
 
-      <Field label={`Height — ${block.h} rows`}>
+      {/* Height — named presets + slider */}
+      <Field label={`Height — ${block.h} row${block.h > 1 ? 's' : ''}`}>
+        <div className="flex gap-1 mb-2">
+          {HEIGHT_PRESETS.map((p) => (
+            <button key={p.h}
+              onClick={() => onResize(block.id, block.w, p.h)}
+              className={`flex-1 py-1.5 rounded-lg text-2xs font-medium transition-colors ${
+                block.h === p.h
+                  ? 'bg-accent text-white'
+                  : 'bg-surface-overlay text-txt-muted hover:text-txt-secondary hover:bg-surface'
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
         <input type="range" min={1} max={8} value={block.h}
           onChange={(e) => onResize(block.id, block.w, Number(e.target.value))}
           className="w-full accent-accent h-1.5 cursor-pointer" />
+        {/* Height visual bar */}
+        <div className="flex gap-px mt-2">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i}
+              className={`h-2.5 flex-1 rounded-sm transition-colors ${
+                i < block.h ? 'bg-accent/40' : 'bg-surface-overlay'
+              }`}
+            />
+          ))}
+        </div>
         <div className="flex justify-between text-2xs text-txt-ghost mt-1">
-          <span>1</span><span>4</span><span>8</span>
+          <span>1 row</span><span>8 rows</span>
         </div>
       </Field>
 

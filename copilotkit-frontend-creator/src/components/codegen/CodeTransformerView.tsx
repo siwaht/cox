@@ -1,13 +1,15 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Code2, Copy, Check, Wand2, AlertTriangle, ChevronDown,
   Rocket, Loader2, Terminal, Plug, ExternalLink, RotateCcw,
-  Key, Plus, X, Monitor, Cloud, Download,
+  Key, Plus, X, Monitor, Cloud, Trash2, CheckCircle2, XCircle, Download,
 } from 'lucide-react';
 import { useDeployStore } from '@/store/deploy-store';
 import { useConnectionStore } from '@/store/connection-store';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { validateForDeploy, createDeployConfig } from '@/adapters/sandbox-deployer';
+import { getBlockDefinition } from '@/registry/block-registry';
+import type { RuntimeCapability, BlockConfig } from '@/types/blocks';
 
 type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
 type DeployPath = 'choose' | 'sandbox' | 'selfhost';
@@ -44,6 +46,85 @@ function detectRuntime(code: string, override: RuntimeType | 'auto'): RuntimeTyp
   if (/from\s+langgraph|StateGraph|CompiledGraph/.test(code)) return 'langgraph';
   if (/from\s+deepagents|DeepAgent/.test(code)) return 'deepagents';
   return 'langchain';
+}
+
+// ─── Capability detection from pasted code ───
+function detectCodeCapabilities(code: string, runtime: RuntimeType): Set<RuntimeCapability> {
+  const caps = new Set<RuntimeCapability>();
+
+  // Chat & streaming — CopilotKit always provides these via the SDK
+  if (/CopilotKit|copilotkit|useCopilotChat|appendMessage/.test(code)) {
+    caps.add('chat');
+    caps.add('streaming');
+  }
+  // LangGraph / LangChain agents inherently support chat + streaming
+  if (runtime === 'langgraph' || runtime === 'langchain') {
+    caps.add('chat');
+    caps.add('streaming');
+  }
+
+  // Tool calls
+  if (/tools\s*=\s*\[|@tool|Tool\(|StructuredTool|BaseTool|bind_tools|\.tools/.test(code)) {
+    caps.add('toolCalls');
+    caps.add('toolResults');
+  }
+
+  // Approvals / human-in-the-loop
+  if (/interrupt_before|interrupt_after|human_in_the_loop|HumanApproval|approval|ask_human/.test(code)) {
+    caps.add('approvals');
+  }
+
+  // Structured output
+  if (/BaseModel|TypedDict|Pydantic|structured_output|json_schema|\.parse|response_format/.test(code)) {
+    caps.add('structuredOutput');
+  }
+
+  // Logs
+  if (/logging|logger|getLogger|print\(|console\.log|verbose\s*=\s*True/.test(code)) {
+    caps.add('logs');
+  }
+
+  // Progress / status
+  if (/progress|status|callback|on_chain_start|on_chain_end|StreamEvent/.test(code)) {
+    caps.add('progress');
+  }
+
+  // Intermediate state (LangGraph state)
+  if (/StateGraph|state_schema|AgentState|MessagesState/.test(code)) {
+    caps.add('intermediateState');
+  }
+
+  // Subagents
+  if (/create_agent|AgentExecutor|multi.?agent|supervisor|crew/i.test(code)) {
+    caps.add('subagents');
+  }
+
+  // Form — always compatible (no runtime requirement)
+  // Panel, Markdown — always compatible (no runtime requirement)
+
+  return caps;
+}
+
+interface BlockCompatibility {
+  block: BlockConfig;
+  compatible: boolean;
+  missingCapabilities: RuntimeCapability[];
+}
+
+function checkBlockCompatibility(
+  blocks: BlockConfig[],
+  codeCapabilities: Set<RuntimeCapability>,
+): BlockCompatibility[] {
+  return blocks.map((block) => {
+    const def = getBlockDefinition(block.type);
+    const required = def?.requiredCapabilities ?? [];
+    // Blocks with no required capabilities are always compatible
+    if (required.length === 0) {
+      return { block, compatible: true, missingCapabilities: [] };
+    }
+    const missing = required.filter((cap) => !codeCapabilities.has(cap));
+    return { block, compatible: missing.length === 0, missingCapabilities: missing };
+  });
 }
 
 // ─── Code transformer ───
@@ -194,7 +275,20 @@ export const CodeTransformerView: React.FC = () => {
 
   const deploy = useDeployStore();
   const { addConnection, setActive, validate } = useConnectionStore();
-  const { setMode } = useWorkspaceStore();
+  const { workspace, removeBlock, setMode } = useWorkspaceStore();
+
+  // Compute block compatibility whenever result or workspace blocks change
+  const blockCompatibility = useMemo(() => {
+    if (!result || !input.trim()) return null;
+    const runtime = detectRuntime(input, runtimeOverride);
+    const caps = detectCodeCapabilities(input, runtime);
+    return checkBlockCompatibility(workspace.blocks, caps);
+  }, [result, input, runtimeOverride, workspace.blocks]);
+
+  const incompatibleBlocks = useMemo(
+    () => blockCompatibility?.filter((b) => !b.compatible) ?? [],
+    [blockCompatibility],
+  );
 
   const handleTransform = useCallback(() => {
     if (!input.trim()) return;
@@ -210,6 +304,17 @@ export const CodeTransformerView: React.FC = () => {
     navigator.clipboard.writeText(result.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }, [result]);
+
+  const handleDownloadCode = useCallback(() => {
+    if (!result) return;
+    const blob = new Blob([result.code], { type: 'text/x-python' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'agent_server.py';
+    a.click();
+    URL.revokeObjectURL(url);
   }, [result]);
 
   const handleSandboxDeploy = useCallback(() => {
@@ -289,12 +394,19 @@ export const CodeTransformerView: React.FC = () => {
               )}
             </div>
             {result && (
-              <button onClick={handleCopy}
-                className="flex items-center gap-1 px-2 py-1 text-2xs rounded-md
-                           text-txt-muted hover:text-accent hover:bg-accent-soft transition-all">
-                {copied ? <Check size={11} className="text-success" /> : <Copy size={11} />}
-                {copied ? 'Copied' : 'Copy'}
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={handleDownloadCode}
+                  className="flex items-center gap-1 px-2 py-1 text-2xs rounded-md
+                             text-txt-muted hover:text-accent hover:bg-accent-soft transition-all">
+                  <Download size={11} /> Download .py
+                </button>
+                <button onClick={handleCopy}
+                  className="flex items-center gap-1 px-2 py-1 text-2xs rounded-md
+                             text-txt-muted hover:text-accent hover:bg-accent-soft transition-all">
+                  {copied ? <Check size={11} className="text-success" /> : <Copy size={11} />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
             )}
           </div>
 
@@ -309,6 +421,15 @@ export const CodeTransformerView: React.FC = () => {
                   ))}
                 </div>
               )}
+
+              {/* Block compatibility panel */}
+              {blockCompatibility && blockCompatibility.length > 0 && (
+                <BlockCompatibilityPanel
+                  compatibility={blockCompatibility}
+                  onRemoveBlock={removeBlock}
+                />
+              )}
+
               <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-txt-primary leading-relaxed bg-surface min-h-0">
                 {result.code}
               </pre>
@@ -338,6 +459,73 @@ export const CodeTransformerView: React.FC = () => {
           )}
         </div>
       </div>
+    </div>
+  );
+};
+
+// ─── Block Compatibility Panel ───
+const BlockCompatibilityPanel: React.FC<{
+  compatibility: BlockCompatibility[];
+  onRemoveBlock: (id: string) => void;
+}> = ({ compatibility, onRemoveBlock }) => {
+  const [expanded, setExpanded] = useState(true);
+  const incompatible = compatibility.filter((c) => !c.compatible);
+  const compatible = compatibility.filter((c) => c.compatible);
+
+  return (
+    <div className="border-b border-border bg-surface-raised">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full px-3 py-2 text-2xs font-medium text-txt-secondary hover:text-txt-primary transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span>Block Compatibility</span>
+          {incompatible.length > 0 ? (
+            <span className="px-1.5 py-0.5 rounded bg-danger/15 text-danger text-2xs font-medium">
+              {incompatible.length} incompatible
+            </span>
+          ) : (
+            <span className="px-1.5 py-0.5 rounded bg-success/15 text-success text-2xs font-medium">
+              All compatible
+            </span>
+          )}
+        </div>
+        <ChevronDown size={10} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-2.5 space-y-1 animate-fade-in">
+          {incompatible.map(({ block, missingCapabilities }) => (
+            <div key={block.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-danger/5 border border-danger/15">
+              <div className="flex items-center gap-2 min-w-0">
+                <XCircle size={12} className="text-danger shrink-0" />
+                <span className="text-2xs font-medium text-txt-primary truncate">{block.label}</span>
+                <span className="text-2xs text-txt-faint">({block.type})</span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-2xs text-danger/80" title={`Missing: ${missingCapabilities.join(', ')}`}>
+                  needs {missingCapabilities.join(', ')}
+                </span>
+                <button
+                  onClick={() => onRemoveBlock(block.id)}
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-2xs rounded
+                             text-danger/70 hover:text-white hover:bg-danger transition-colors"
+                  title={`Remove ${block.label}`}
+                >
+                  <Trash2 size={10} /> Remove
+                </button>
+              </div>
+            </div>
+          ))}
+          {compatible.map(({ block }) => (
+            <div key={block.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-success/5 border border-success/10">
+              <CheckCircle2 size={12} className="text-success shrink-0" />
+              <span className="text-2xs font-medium text-txt-primary truncate">{block.label}</span>
+              <span className="text-2xs text-txt-faint">({block.type})</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

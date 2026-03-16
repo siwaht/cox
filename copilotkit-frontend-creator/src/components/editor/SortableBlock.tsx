@@ -115,13 +115,13 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
         {/* Controls */}
         <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
           <button
-            onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.max(3, block.w - 1), block.h); }}
+            onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.max(2, block.w - 1), block.h); }}
             className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
             title="Narrower"
           >
             <ChevronLeft size={12} />
           </button>
-          <span className="text-2xs text-txt-faint w-4 text-center tabular-nums">{block.w}</span>
+          <span className="text-2xs text-txt-faint text-center tabular-nums whitespace-nowrap" title={`${block.w} of 12 columns · ${Math.floor(12 / block.w)} per row`}>{block.w}<span className="text-txt-ghost">/{12}</span></span>
           <button
             onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.min(12, block.w + 1), block.h); }}
             className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"

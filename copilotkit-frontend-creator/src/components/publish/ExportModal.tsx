@@ -1,12 +1,14 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { useConnectionStore } from '@/store/connection-store';
 import { useToastStore } from '@/store/toast-store';
 import { validateImportConfig } from '@/utils/config-validator';
 import { encodeWorkspaceToUrl } from '@/utils/share-url';
+import { downloadProject, generateProjectFiles, getProjectCodePreview } from '@/utils/project-generator';
 import {
   X, Copy, Check, Terminal, FileJson, Rocket, Download, Upload,
   AlertTriangle, CheckCircle, Code2, Link, FolderArchive, FileCode,
+  Package, Eye, ChevronRight,
 } from 'lucide-react';
 
 interface Props {
@@ -20,10 +22,30 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
   const [copied, setCopied] = useState<string | null>(null);
   const [importError, setImportError] = useState('');
   const [importWarnings, setImportWarnings] = useState<string[]>([]);
+  const [codePreviewFile, setCodePreviewFile] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeConn = connections.find((c) => c.id === activeConnectionId);
   const blockCount = workspace.blocks.filter((b) => b.visible).length;
+
+  // Generate project files for preview
+  const projectFiles = useMemo(
+    () => generateProjectFiles({ workspace, connection: activeConn }),
+    [workspace, activeConn],
+  );
+
+  const handleDownloadProject = () => {
+    downloadProject({ workspace, connection: activeConn });
+    addToast('Full React project downloaded as .zip', 'success');
+  };
+
+  const handleCopyAllCode = () => {
+    const code = getProjectCodePreview({ workspace, connection: activeConn });
+    navigator.clipboard.writeText(code);
+    setCopied('all-code');
+    setTimeout(() => setCopied(null), 2000);
+    addToast('All source code copied', 'success');
+  };
 
   const workspaceConfig = JSON.stringify({
     version: 1,
@@ -224,6 +246,63 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
             <CheckItem ok={true} label="Frontend builds successfully" />
           </div>
 
+          {/* Download Full Project — primary CTA */}
+          <Section title="Download Full React Project" icon={<Package size={14} />}>
+            <p className="text-2xs text-txt-muted mb-2">
+              Get a complete Vite + React + Tailwind + CopilotKit project with all your blocks, ready to <code className="text-txt-secondary">npm install && npm run dev</code>.
+            </p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              <button onClick={handleDownloadProject}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg bg-accent hover:bg-accent-hover
+                           text-white transition-colors font-medium">
+                <Download size={13} /> Download .zip
+              </button>
+              <button onClick={handleCopyAllCode}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border border-border
+                           hover:border-accent/50 hover:bg-accent-soft text-txt-secondary hover:text-accent transition-all">
+                {copied === 'all-code' ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                {copied === 'all-code' ? 'Copied' : 'Copy All Code'}
+              </button>
+            </div>
+            <p className="text-2xs text-txt-faint">
+              {projectFiles.length} files · Deploy to Vercel, Netlify, Docker, or any static host.
+            </p>
+          </Section>
+
+          {/* Browse generated files */}
+          <Section title="Browse Generated Code" icon={<Eye size={14} />}>
+            <div className="bg-surface rounded-xl overflow-hidden border border-border/50">
+              <div className="max-h-36 overflow-y-auto divide-y divide-border/30">
+                {projectFiles.map((f) => (
+                  <button key={f.path} onClick={() => setCodePreviewFile(codePreviewFile === f.path ? null : f.path)}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-2xs font-mono hover:bg-surface-overlay transition-colors ${
+                      codePreviewFile === f.path ? 'bg-accent-soft text-accent' : 'text-txt-secondary'
+                    }`}>
+                    <ChevronRight size={10} className={`shrink-0 transition-transform ${codePreviewFile === f.path ? 'rotate-90' : ''}`} />
+                    {f.path}
+                  </button>
+                ))}
+              </div>
+              {codePreviewFile && (() => {
+                const file = projectFiles.find((f) => f.path === codePreviewFile);
+                return file ? (
+                  <div className="border-t border-border">
+                    <div className="flex items-center justify-between px-3 py-1.5 bg-surface-raised">
+                      <span className="text-2xs font-mono text-txt-muted">{file.path}</span>
+                      <button onClick={() => copyToClipboard(file.content, `file-${file.path}`)}
+                        className="p-1 rounded text-txt-faint hover:text-accent">
+                        {copied === `file-${file.path}` ? <Check size={11} className="text-success" /> : <Copy size={11} />}
+                      </button>
+                    </div>
+                    <pre className="p-3 text-xs font-mono text-txt-secondary overflow-x-auto max-h-48 overflow-y-auto leading-relaxed">
+                      {file.content}
+                    </pre>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          </Section>
+
           <Section title="Run Locally" icon={<Terminal size={14} />}>
             <CodeBlock id="quickstart" code={`npm install\nnpm run dev`} copied={copied} onCopy={copyToClipboard} />
           </Section>
@@ -292,19 +371,16 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
             <CodeBlock id="env" code={envTemplate} copied={copied} onCopy={copyToClipboard} />
           </Section>
 
-          {/* Standalone project */}
-          <Section title="Download Standalone Project" icon={<FolderArchive size={14} />}>
+          {/* Standalone HTML (quick preview) */}
+          <Section title="Quick HTML Preview" icon={<FolderArchive size={14} />}>
             <p className="text-2xs text-txt-muted mb-2">
-              Generate a ready-to-run React project with your current workspace config baked in.
+              Single-file HTML snapshot — open in a browser for a quick layout preview (no runtime).
             </p>
             <button onClick={downloadStandaloneProject}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs rounded-lg bg-accent hover:bg-accent-hover
-                         text-white transition-colors font-medium">
-              <FolderArchive size={13} /> Download Project (.html)
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-border
+                         hover:border-accent/50 hover:bg-accent-soft text-txt-secondary hover:text-accent transition-all">
+              <FolderArchive size={12} /> Download .html
             </button>
-            <p className="text-2xs text-txt-faint mt-1.5">
-              Single-file HTML app — open directly in a browser or deploy anywhere.
-            </p>
           </Section>
         </div>
       </div>
