@@ -69,19 +69,22 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 - Simple agents should use \`langchain.agents.create_agent\` instead
 - \`create_react_agent\` in langgraph.prebuilt is DEPRECATED
 
-### CopilotKit Python SDK (copilotkit >= 0.1)
-- \`from copilotkit import CopilotKitSDK, LangGraphAgent\`
+### CopilotKit Python SDK (copilotkit >= 0.1.x, 2025+)
+- DEPRECATED: \`LangGraphAgent\` — raises ValueError at runtime. Do NOT use it.
+- NEW: \`from copilotkit import CopilotKitSDK, LangGraphAGUIAgent\`
 - \`from copilotkit.integrations.fastapi import add_fastapi_endpoint\`
-- LangGraphAgent wraps ANY agent (LangChain, LangGraph, or custom):
+- LangGraphAGUIAgent wraps ANY agent (LangChain, LangGraph, Deep Agents, or custom):
   \`\`\`
-  LangGraphAgent(name="agent", description="...", graph=my_agent)
+  LangGraphAGUIAgent(name="agent", description="...", graph=my_agent)
   \`\`\`
   NOTE: The parameter is \`graph=\`, not \`agent=\`
+  NOTE: \`LangGraphAgent\` is REMOVED — always use \`LangGraphAGUIAgent\`
 - CopilotKitSDK takes a list of agents:
   \`\`\`
-  sdk = CopilotKitSDK(agents=[LangGraphAgent(...)])
+  sdk = CopilotKitSDK(agents=[LangGraphAGUIAgent(...)])
   \`\`\`
 - Endpoint: \`add_fastapi_endpoint(app, sdk, "/copilotkit")\`
+- NEVER import or use \`LangGraphAgent\` — it will raise: ValueError: LangGraphAgent should be instantiated using LangGraphAGUIAgent
 
 ### Deep Agents
 - \`from deepagents import create_deep_agent\`
@@ -89,14 +92,16 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 
 ## Required Structure
 The output file MUST have:
-1. \`from dotenv import load_dotenv\` + \`load_dotenv()\` at the top
+1. \`from dotenv import load_dotenv\` + \`load_dotenv()\` at the top (only ONCE — never duplicate)
 2. All necessary imports (no duplicates)
-3. User's original tools/agent logic (preserved exactly)
-4. \`app = FastAPI(title="Agent Server")\`
-5. CORS middleware allowing all origins
-6. CopilotKit SDK + endpoint at "/copilotkit"
-7. Health endpoint: \`@app.get("/health")\`
-8. Uvicorn entrypoint: \`if __name__ == "__main__": uvicorn.run(...)\`
+3. CopilotKit import MUST be: \`from copilotkit import CopilotKitSDK, LangGraphAGUIAgent\` (NEVER LangGraphAgent)
+4. User's original tools/agent logic (preserved exactly)
+5. \`app = FastAPI(title="Agent Server")\`
+6. CORS middleware allowing all origins
+7. CopilotKit SDK using LangGraphAGUIAgent: \`sdk = CopilotKitSDK(agents=[LangGraphAGUIAgent(name="agent", description="...", graph=agent)])\`
+8. Endpoint: \`add_fastapi_endpoint(app, sdk, "/copilotkit")\`
+9. Health endpoint: \`@app.get("/health")\`
+10. Uvicorn entrypoint: \`if __name__ == "__main__": uvicorn.run("agent_server:app", host="0.0.0.0", port=8000, reload=True)\`
 
 ## Response Format
 After the Python code, add a line "---META---" followed by a JSON object:
