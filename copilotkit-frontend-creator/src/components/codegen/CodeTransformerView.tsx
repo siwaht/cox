@@ -418,39 +418,99 @@ function detectRuntime(code: string, override: RuntimeType | 'auto'): RuntimeTyp
 
 function transformCode(code: string, runtime: RuntimeType): TransformResult {
   const warnings: string[] = [];
-  const tools = extractTools(code);
   const agentVar = extractAgentVar(code);
   const systemPrompt = extractSystemPrompt(code);
-  const model = extractModel(code);
-  const hasCors = /CORSMiddleware/.test(code);
 
-  if (!agentVar) warnings.push('Could not detect an agent variable. Adjust the agent= parameter in the SDK setup.');
-  if (!hasCors) warnings.push('CORS middleware not detected. It has been added automatically.');
+  const hasCors = /CORSMiddleware/.test(code);
+  const hasFastAPI = /app\s*=\s*FastAPI/.test(code);
+  const hasCopilotKit = /add_fastapi_endpoint/.test(code);
+  const hasHealth = /\/health/.test(code);
+  const hasDotenv = /load_dotenv/.test(code);
 
   const deps = ['fastapi', 'uvicorn', 'copilotkit', 'python-dotenv'];
-  let transformed = '';
+  if (/langchain/.test(code) || runtime === 'langchain') deps.push('langchain', 'langchain-openai');
+  if (/langgraph/.test(code) || runtime === 'langgraph') deps.push('langgraph');
 
-  if (runtime === 'langchain') {
-    deps.push('langchain', 'langchain-openai');
-    transformed = buildLangChainOutput(tools, agentVar, systemPrompt, model, warnings);
-  } else if (runtime === 'langgraph') {
-    deps.push('langchain', 'langchain-openai', 'langgraph');
-    transformed = buildLangGraphOutput(tools, agentVar, systemPrompt, model);
-  } else {
-    deps.push('langchain', 'langchain-openai');
-    transformed = buildDeepAgentsOutput(tools, agentVar, systemPrompt, model);
+  // Already compatible — return as-is
+  if (hasCopilotKit) {
+    warnings.push('Code already has CopilotKit integration. No changes needed.');
+    return { code, runtime, warnings, deps: [...new Set(deps)], runCommand: 'uvicorn agent_server:app --host 0.0.0.0 --port 8000' };
   }
 
-  return { code: transformed, runtime, warnings, deps, runCommand: 'uvicorn agent_server:app --host 0.0.0.0 --port 8000' };
-}
+  if (!agentVar) warnings.push('Could not detect an agent variable — using "agent". Adjust if needed.');
 
-function extractTools(code: string): string[] {
-  const matches = code.match(/@tool\s*\ndef\s+(\w+)/g) || [];
-  return matches.map((m) => { const n = m.match(/def\s+(\w+)/); return n ? n[1] : ''; }).filter(Boolean);
+  // Start with missing imports injected at the top
+  const missingImports: string[] = [];
+  if (!hasCors) missingImports.push('from fastapi.middleware.cors import CORSMiddleware');
+  if (!/copilotkit/.test(code)) {
+    missingImports.push('from copilotkit.integrations.fastapi import add_fastapi_endpoint');
+    missingImports.push(runtime === 'langgraph'
+      ? 'from copilotkit import CopilotKitSDK, LangGraphAgent'
+      : 'from copilotkit import CopilotKitSDK, LangChainAgent');
+  }
+  if (!hasDotenv) missingImports.push('from dotenv import load_dotenv');
+
+  let transformed = '';
+
+  // Inject imports at the top, before the user's code
+  if (missingImports.length > 0) {
+    transformed += '# --- Added by CopilotKit Transformer ---\n';
+    transformed += missingImports.join('\n') + '\n';
+    transformed += '# --- End added imports ---\n\n';
+  }
+
+  // User's original code
+  transformed += code.trimEnd() + '\n';
+
+  // Remove old /chat endpoint and raw FastAPI app if we're replacing them
+  // (We keep the user's code intact and append below)
+
+  // Append CopilotKit integration at the bottom
+  const name = agentVar || 'agent';
+  const agentClass = runtime === 'langgraph' ? 'LangGraphAgent' : 'LangChainAgent';
+
+  transformed += `\n# --- CopilotKit Integration (added by Transformer) ---\n`;
+
+  if (!hasDotenv) {
+    transformed += `load_dotenv()\n`;
+  }
+
+  transformed += `\nsdk = CopilotKitSDK(\n`;
+  transformed += `    agents=[\n`;
+  transformed += `        ${agentClass}(\n`;
+  transformed += `            name="assistant",\n`;
+  transformed += `            agent=${name},\n`;
+  transformed += `            description="${systemPrompt}",\n`;
+  transformed += `        )\n`;
+  transformed += `    ]\n`;
+  transformed += `)\n`;
+
+  if (!hasFastAPI) {
+    transformed += `\napp = FastAPI(title="Agent Server")\n`;
+  }
+
+  if (!hasCors) {
+    transformed += `app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])\n`;
+    warnings.push('CORS middleware was not detected. It has been added.');
+  }
+
+  transformed += `add_fastapi_endpoint(app, sdk, "/copilotkit")\n`;
+
+  if (!hasHealth) {
+    transformed += `\n@app.get("/health")\nasync def health():\n    return {"status": "ok"}\n`;
+  }
+
+  return {
+    code: transformed,
+    runtime,
+    warnings,
+    deps: [...new Set(deps)],
+    runCommand: 'uvicorn agent_server:app --host 0.0.0.0 --port 8000',
+  };
 }
 
 function extractAgentVar(code: string): string | null {
-  const m = code.match(/(\w+)\s*=\s*(?:create_agent|AgentExecutor|create_openai_tools_agent|StateGraph|CompiledGraph)/);
+  const m = code.match(/(\w+)\s*=\s*(?:create_agent|AgentExecutor|create_openai_tools_agent|create_react_agent|StateGraph|CompiledGraph)/);
   if (m) return m[1];
   const f = code.match(/^(\w*(?:agent|executor|graph))\s*=/m);
   return f ? f[1] : null;
@@ -459,129 +519,6 @@ function extractAgentVar(code: string): string | null {
 function extractSystemPrompt(code: string): string {
   const m = code.match(/system_prompt\s*=\s*["'](.+?)["']/s) || code.match(/\("system",\s*["'](.+?)["']\)/s);
   return m ? m[1] : 'You are a helpful assistant.';
-}
-
-function extractModel(code: string): string {
-  const m = code.match(/model\s*=\s*["'](.+?)["']/) || code.match(/ChatOpenAI\(.*?model\s*=\s*["'](.+?)["']/);
-  return m ? m[1] : 'gpt-4o';
-}
-
-function buildLangChainOutput(
-  tools: string[], agentVar: string | null, systemPrompt: string, model: string, warnings: string[]
-): string {
-  const toolList = tools.length > 0 ? tools.join(', ') : 'get_weather';
-  const name = agentVar || 'executor';
-  if (tools.length === 0) warnings.push('No @tool functions found. A placeholder tool has been added.');
-  return `# agent_server.py — CopilotKit-compatible LangChain agent
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_openai_tools_agent
-from langchain_core.tools import tool
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitSDK, LangChainAgent
-from dotenv import load_dotenv
-load_dotenv()
-${tools.length === 0 ? `
-@tool
-def get_weather(location: str) -> str:
-    """Get the weather for a location."""
-    return f"The weather in {location} is sunny"
-` : `# Detected tools: ${toolList}
-`}
-llm = ChatOpenAI(model="${model}")
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "${systemPrompt}"),
-    MessagesPlaceholder(variable_name="chat_history", optional=True),
-    ("human", "{input}"),
-    MessagesPlaceholder(variable_name="agent_scratchpad"),
-])
-tools_list = [${toolList}]
-agent = create_openai_tools_agent(llm, tools_list, prompt)
-${name} = AgentExecutor(agent=agent, tools=tools_list)
-
-sdk = CopilotKitSDK(agents=[LangChainAgent(name="assistant", agent=${name}, description="${systemPrompt}")])
-app = FastAPI(title="Agent Server")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-add_fastapi_endpoint(app, sdk, "/copilotkit")
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-`;
-}
-
-function buildLangGraphOutput(
-  tools: string[], agentVar: string | null, systemPrompt: string, model: string
-): string {
-  const toolList = tools.length > 0 ? tools.join(', ') : 'get_weather';
-  const name = agentVar || 'graph';
-  return `# agent_server.py — CopilotKit-compatible LangGraph agent
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from langchain_openai import ChatOpenAI
-from langchain_core.tools import tool
-from langgraph.prebuilt import create_react_agent
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitSDK, LangGraphAgent
-from dotenv import load_dotenv
-load_dotenv()
-
-# Detected tools: ${toolList}
-llm = ChatOpenAI(model="${model}")
-tools_list = [${toolList}]
-${name} = create_react_agent(model=llm, tools=tools_list, state_modifier="${systemPrompt}")
-
-sdk = CopilotKitSDK(agents=[LangGraphAgent(name="assistant", agent=${name}, description="${systemPrompt}")])
-app = FastAPI(title="Agent Server")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-add_fastapi_endpoint(app, sdk, "/copilotkit")
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-`;
-}
-
-function buildDeepAgentsOutput(
-  tools: string[], agentVar: string | null, systemPrompt: string, model: string
-): string {
-  const toolList = tools.length > 0 ? tools.join(', ') : 'get_weather';
-  const name = agentVar || 'executor';
-  return `# agent_server.py — CopilotKit-compatible Deep Agent
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from langchain_openai import ChatOpenAI
-from langchain.agents import AgentExecutor, create_openai_tools_agent
-from langchain_core.tools import tool
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
-from copilotkit import CopilotKitSDK, LangChainAgent
-from dotenv import load_dotenv
-load_dotenv()
-
-# Detected tools: ${toolList}
-llm = ChatOpenAI(model="${model}")
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "${systemPrompt}"),
-    MessagesPlaceholder(variable_name="chat_history", optional=True),
-    ("human", "{input}"),
-    MessagesPlaceholder(variable_name="agent_scratchpad"),
-])
-tools_list = [${toolList}]
-agent = create_openai_tools_agent(llm, tools_list, prompt)
-${name} = AgentExecutor(agent=agent, tools=tools_list)
-
-sdk = CopilotKitSDK(agents=[LangChainAgent(name="assistant", agent=${name}, description="${systemPrompt}")])
-app = FastAPI(title="Deep Agent Server")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-add_fastapi_endpoint(app, sdk, "/copilotkit")
-
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-`;
 }
 
 const PLACEHOLDER = `# Paste your agent code here. For example:
