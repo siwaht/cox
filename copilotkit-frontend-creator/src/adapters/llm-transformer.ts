@@ -23,9 +23,11 @@ You also receive the user's FRONTEND CONFIGURATION — the UI blocks they've set
 ## CRITICAL RULES
 1. Output ONLY valid Python code. No markdown fences, no explanations in the code block.
 2. Preserve ALL of the user's original agent logic, tools, prompts, and model choices.
-3. If the user's code has an undefined variable (like bare \`model\`), define it properly.
+3. If the user's code has an undefined variable (like bare \`model\`), define it properly using a string like \`model = "openai:gpt-4o"\`.
 4. Use ONLY the latest stable APIs — no deprecated imports.
 5. Ensure the backend supports ALL capabilities required by the frontend blocks.
+6. EVERY function/class you USE must be IMPORTED. Double-check: if you call \`add_fastapi_endpoint\`, you MUST have \`from copilotkit.integrations.fastapi import add_fastapi_endpoint\` in the imports.
+7. Each import and statement MUST be on its own line. Never put multiple statements on one line.
 
 ## Frontend Block → Backend Capability Mapping
 Each frontend block requires specific backend capabilities. Your code MUST enable these:
@@ -88,7 +90,7 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 
 ### Deep Agents
 - \`from deepagents import create_deep_agent\`
-- Works with CopilotKit via LangGraphAgent wrapper (same as above)
+- Works with CopilotKit via LangGraphAGUIAgent wrapper (same as above)
 
 ## Required Structure
 The output file MUST have:
@@ -254,6 +256,70 @@ If a block requires a capability the user's code doesn't have, add the minimum c
   return parseResponse(raw);
 }
 
+function postProcessCode(code: string): string {
+  let lines = code.split('\n');
+
+  // 1. Fix missing import: add_fastapi_endpoint used but not imported
+  const usesAddEndpoint = lines.some((l) => l.includes('add_fastapi_endpoint'));
+  const importsAddEndpoint = lines.some((l) =>
+    /from\s+copilotkit\.integrations\.fastapi\s+import\s+add_fastapi_endpoint/.test(l),
+  );
+  if (usesAddEndpoint && !importsAddEndpoint) {
+    // Insert after the last "from copilotkit" or "import" line
+    const lastCopilotImport = lines.reduce(
+      (idx, l, i) => (/^from copilotkit|^import copilotkit/.test(l) ? i : idx), -1,
+    );
+    const insertAt = lastCopilotImport >= 0 ? lastCopilotImport + 1 : lines.findIndex((l) => /^from |^import /.test(l)) + 1;
+    lines.splice(insertAt, 0, 'from copilotkit.integrations.fastapi import add_fastapi_endpoint');
+  }
+
+  // 2. Fix deprecated LangGraphAgent → LangGraphAGUIAgent (in case LLM still uses it)
+  lines = lines.map((l) => {
+    if (/LangGraphAgent/.test(l) && !/LangGraphAGUIAgent/.test(l)) {
+      return l.replace(/LangGraphAgent/g, 'LangGraphAGUIAgent');
+    }
+    return l;
+  });
+
+  // 3. Fix missing import: uvicorn used but not imported
+  const usesUvicorn = lines.some((l) => l.includes('uvicorn.run'));
+  const importsUvicorn = lines.some((l) => /^import uvicorn/.test(l));
+  if (usesUvicorn && !importsUvicorn) {
+    const lastImport = lines.reduce((idx, l, i) => (/^from |^import /.test(l) ? i : idx), -1);
+    lines.splice(lastImport + 1, 0, 'import uvicorn');
+  }
+
+  // 4. Fix duplicate load_dotenv() calls
+  let dotenvCount = 0;
+  lines = lines.filter((l) => {
+    if (/^load_dotenv\(\)/.test(l.trim())) {
+      dotenvCount++;
+      return dotenvCount <= 1;
+    }
+    return true;
+  });
+
+  // 5. Fix duplicate "from dotenv import load_dotenv"
+  let dotenvImportCount = 0;
+  lines = lines.filter((l) => {
+    if (/^from dotenv import load_dotenv/.test(l.trim())) {
+      dotenvImportCount++;
+      return dotenvImportCount <= 1;
+    }
+    return true;
+  });
+
+  // 6. Ensure `agent=` param is replaced with `graph=` in LangGraphAGUIAgent
+  lines = lines.map((l) => {
+    if (/LangGraphAGUIAgent\(/.test(l) && /\bagent\s*=/.test(l) && !/\bgraph\s*=/.test(l)) {
+      return l.replace(/\bagent\s*=/, 'graph=');
+    }
+    return l;
+  });
+
+  return lines.join('\n');
+}
+
 function parseResponse(raw: string): LLMTransformResult {
   // Strip markdown fences if present
   let cleaned = raw.replace(/^```(?:python)?\n?/gm, '').replace(/^```\s*$/gm, '');
@@ -281,6 +347,9 @@ function parseResponse(raw: string): LLMTransformResult {
   if (firstImport > 0) {
     code = code.slice(firstImport);
   }
+
+  // ─── Post-processing: fix common LLM mistakes ───
+  code = postProcessCode(code);
 
   return {
     code: code + '\n',
