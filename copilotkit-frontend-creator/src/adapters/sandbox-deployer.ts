@@ -180,10 +180,14 @@ async function uploadFile(
 async function execCommand(
   sandboxId: string, command: string, headers: Record<string, string>, onLog: (msg: string) => void
 ): Promise<string> {
+  // Daytona's execute API doesn't run commands through a shell,
+  // so shell features (pipes, redirects, &, nohup) won't work.
+  // Wrap every command in bash -c to ensure proper shell interpretation.
+  const shellCommand = `bash -c ${JSON.stringify(command)}`;
   const res = await fetch(`${API}/toolbox/${sandboxId}/toolbox/process/execute`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ command, timeout: 120 }),
+    body: JSON.stringify({ command: shellCommand, timeout: 120 }),
   });
   if (!res.ok) {
     const err = await res.text();
@@ -191,7 +195,7 @@ async function execCommand(
   }
   const data = await res.json();
   if (data.exitCode && data.exitCode !== 0) {
-    const output = data.stderr || data.stdout || 'Unknown error';
+    const output = data.stderr || data.stdout || `Command exited with code ${data.exitCode}`;
     onLog(`Warning: ${output.slice(0, 300)}`);
   }
   return data.stdout || '';
@@ -204,7 +208,7 @@ async function checkHealth(
     try {
       const result = await execCommand(
         sandboxId,
-        'curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/health',
+        "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health",
         headers, onLog,
       );
       if (result.trim() === '200') return true;
