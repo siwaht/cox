@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Sandbox Deploy Agent",
+  "description": "When triggered, reads the deploy config from the deploy store, creates a Daytona sandbox, uploads the transformed agent code, installs dependencies, starts the uvicorn server, and updates the deploy store with the live URL.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "The user clicked \"Deploy to Cloud Sandbox\" in the Code Transformer tab. Read the deploy store state from copilotkit-frontend-creator/src/store/deploy-store.ts to understand the config shape. Then:\n\n1. Create a Daytona sandbox with Python support\n2. Upload the transformed agent code as /tmp/agent_server.py\n3. Upload a .env file with the user's API keys\n4. Install the Python dependencies with pip\n5. Start the uvicorn server on port 8000\n6. Get a preview URL for port 8000\n7. Report the live URL back so the user can click \"Connect & Go Live\"\n\nThe deploy config (code, deps, envVars) is set by the UI when the user clicks deploy. Check the deploy-store for the shape, then ask the user to provide their transformed code and API key if needed."
+  }
+}

@@ -1,5 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { Code2, Copy, Check, Wand2, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Code2, Copy, Check, Wand2, AlertTriangle, ChevronDown, Rocket, Loader2, Terminal, Plug, ExternalLink, RotateCcw, Key } from 'lucide-react';
+import { useDeployStore } from '@/store/deploy-store';
+import { useConnectionStore } from '@/store/connection-store';
+import { useWorkspaceStore } from '@/store/workspace-store';
+import { validateForDeploy, createDeployConfig } from '@/adapters/sandbox-deployer';
 
 type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
 
@@ -17,13 +21,20 @@ export const CodeTransformerView: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [runtimeOverride, setRuntimeOverride] = useState<RuntimeType | 'auto'>('auto');
   const [showDeps, setShowDeps] = useState(false);
+  const [openaiKey, setOpenaiKey] = useState('');
+  const [showEnvInput, setShowEnvInput] = useState(false);
+
+  const deploy = useDeployStore();
+  const { addConnection, setActive, validate } = useConnectionStore();
+  const { setMode } = useWorkspaceStore();
 
   const handleTransform = useCallback(() => {
     if (!input.trim()) return;
     const detected = detectRuntime(input, runtimeOverride);
     const transformed = transformCode(input, detected);
     setResult(transformed);
-  }, [input, runtimeOverride]);
+    deploy.reset();
+  }, [input, runtimeOverride, deploy]);
 
   const handleCopy = useCallback(() => {
     if (!result) return;
@@ -31,6 +42,39 @@ export const CodeTransformerView: React.FC = () => {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }, [result]);
+
+  const handleDeploy = useCallback(() => {
+    if (!result) return;
+
+    const validation = validateForDeploy(result.code);
+    if (!validation.valid) {
+      deploy.setError('Code validation failed: ' + validation.issues.join('; '));
+      return;
+    }
+
+    const envVars: Record<string, string> = {};
+    if (openaiKey.trim()) envVars['OPENAI_API_KEY'] = openaiKey.trim();
+
+    const config = createDeployConfig(result.code, result.deps, envVars, result.runtime);
+    deploy.setDeployConfig(config);
+    deploy.setStatus('creating');
+    deploy.addLog('Deploy config ready. Waiting for sandbox provisioning...');
+    deploy.addLog('The agent will create a sandbox, install dependencies, and start your server.');
+  }, [result, openaiKey, deploy]);
+
+  const handleAutoConnect = useCallback((url: string) => {
+    const id = addConnection({
+      name: `Sandbox Agent (${result?.runtime || 'langchain'})`,
+      runtime: (result?.runtime as RuntimeType) || 'langchain',
+      baseUrl: url,
+      agentId: '',
+      auth: { mode: 'none' },
+    });
+    setActive(id);
+    validate(id).then(() => {
+      setMode('published');
+    });
+  }, [addConnection, setActive, validate, setMode, result]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -40,7 +84,7 @@ export const CodeTransformerView: React.FC = () => {
           <Code2 size={16} className="text-accent" />
           <span className="text-sm font-semibold text-txt-primary">Agent Code Transformer</span>
           <span className="text-2xs text-txt-faint bg-surface px-2 py-0.5 rounded-full">
-            Paste → Transform → Connect
+            Paste → Transform → Deploy
           </span>
         </div>
         <div className="flex items-center gap-2">
@@ -74,7 +118,7 @@ export const CodeTransformerView: React.FC = () => {
             className="flex-1 w-full p-4 bg-surface text-txt-primary text-xs font-mono
                        resize-none outline-none placeholder:text-txt-ghost/50 leading-relaxed"
           />
-          <div className="px-3 py-2 border-t border-border bg-surface-raised">
+          <div className="px-3 py-2 border-t border-border bg-surface-raised flex items-center gap-2">
             <button
               onClick={handleTransform}
               disabled={!input.trim()}
@@ -83,12 +127,12 @@ export const CodeTransformerView: React.FC = () => {
                          disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Wand2 size={13} />
-              Transform for CopilotKit
+              Transform
             </button>
           </div>
         </div>
 
-        {/* Output panel */}
+        {/* Output + Deploy panel */}
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface">
             <div className="flex items-center gap-2">
@@ -100,14 +144,16 @@ export const CodeTransformerView: React.FC = () => {
               )}
             </div>
             {result && (
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1 px-2 py-1 text-2xs rounded-md
-                           text-txt-muted hover:text-accent hover:bg-accent-soft transition-all"
-              >
-                {copied ? <Check size={11} className="text-success" /> : <Copy size={11} />}
-                {copied ? 'Copied' : 'Copy'}
-              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1 px-2 py-1 text-2xs rounded-md
+                             text-txt-muted hover:text-accent hover:bg-accent-soft transition-all"
+                >
+                  {copied ? <Check size={11} className="text-success" /> : <Copy size={11} />}
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
             )}
           </div>
 
@@ -126,36 +172,28 @@ export const CodeTransformerView: React.FC = () => {
               )}
 
               {/* Code output */}
-              <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-txt-primary leading-relaxed bg-surface">
+              <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-txt-primary leading-relaxed bg-surface min-h-0">
                 {result.code}
               </pre>
 
-              {/* Footer with deps + run command */}
-              <div className="px-3 py-2 border-t border-border bg-surface-raised space-y-2">
-                <button
-                  onClick={() => setShowDeps(!showDeps)}
-                  className="flex items-center gap-1 text-2xs text-txt-muted hover:text-txt-secondary transition-colors"
-                >
-                  <ChevronDown size={10} className={`transition-transform ${showDeps ? 'rotate-180' : ''}`} />
-                  Install &amp; Run
-                </button>
-                {showDeps && (
-                  <div className="space-y-1.5 animate-fade-in">
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xs text-txt-faint shrink-0">Install:</span>
-                      <code className="text-2xs font-mono text-accent bg-surface px-2 py-1 rounded flex-1 overflow-x-auto">
-                        pip install {result.deps.join(' ')}
-                      </code>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-2xs text-txt-faint shrink-0">Run:</span>
-                      <code className="text-2xs font-mono text-accent bg-surface px-2 py-1 rounded flex-1">
-                        {result.runCommand}
-                      </code>
-                    </div>
-                  </div>
-                )}
-              </div>
+              {/* Deploy section */}
+              <DeployPanel
+                result={result}
+                deployStatus={deploy.status}
+                logs={deploy.logs}
+                error={deploy.error}
+                agentUrl={deploy.agentUrl}
+                previewUrl={deploy.previewUrl}
+                openaiKey={openaiKey}
+                showEnvInput={showEnvInput}
+                showDeps={showDeps}
+                onToggleDeps={() => setShowDeps(!showDeps)}
+                onToggleEnv={() => setShowEnvInput(!showEnvInput)}
+                onKeyChange={setOpenaiKey}
+                onDeploy={handleDeploy}
+                onReset={() => deploy.reset()}
+                onAutoConnect={handleAutoConnect}
+              />
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center text-txt-ghost">
@@ -173,6 +211,181 @@ export const CodeTransformerView: React.FC = () => {
 };
 
 
+// ─── Deploy Panel ───
+
+interface DeployPanelProps {
+  result: TransformResult;
+  deployStatus: string;
+  logs: string[];
+  error: string | null;
+  agentUrl: string | null;
+  previewUrl: string | null;
+  openaiKey: string;
+  showEnvInput: boolean;
+  showDeps: boolean;
+  onToggleDeps: () => void;
+  onToggleEnv: () => void;
+  onKeyChange: (key: string) => void;
+  onDeploy: () => void;
+  onReset: () => void;
+  onAutoConnect: (url: string) => void;
+}
+
+const DeployPanel: React.FC<DeployPanelProps> = ({
+  result, deployStatus, logs, error, agentUrl, previewUrl,
+  openaiKey, showEnvInput, showDeps,
+  onToggleDeps, onToggleEnv, onKeyChange, onDeploy, onReset, onAutoConnect,
+}) => {
+  const isDeploying = ['creating', 'installing', 'starting', 'checking'].includes(deployStatus);
+  const isLive = deployStatus === 'live';
+
+  return (
+    <div className="border-t border-border bg-surface-raised">
+      {/* Manual install/run info */}
+      <div className="px-3 py-2 border-b border-border">
+        <button
+          onClick={onToggleDeps}
+          className="flex items-center gap-1 text-2xs text-txt-muted hover:text-txt-secondary transition-colors"
+        >
+          <ChevronDown size={10} className={`transition-transform ${showDeps ? 'rotate-180' : ''}`} />
+          Manual Install &amp; Run
+        </button>
+        {showDeps && (
+          <div className="space-y-1.5 mt-2 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <span className="text-2xs text-txt-faint shrink-0">Install:</span>
+              <code className="text-2xs font-mono text-accent bg-surface px-2 py-1 rounded flex-1 overflow-x-auto">
+                pip install {result.deps.join(' ')}
+              </code>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-2xs text-txt-faint shrink-0">Run:</span>
+              <code className="text-2xs font-mono text-accent bg-surface px-2 py-1 rounded flex-1">
+                {result.runCommand}
+              </code>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Deploy controls */}
+      <div className="px-3 py-3 space-y-2">
+        {/* Env vars toggle */}
+        <button
+          onClick={onToggleEnv}
+          className="flex items-center gap-1.5 text-2xs text-txt-muted hover:text-txt-secondary transition-colors"
+        >
+          <Key size={10} />
+          {showEnvInput ? 'Hide' : 'Set'} API Keys
+        </button>
+
+        {showEnvInput && (
+          <div className="space-y-1.5 pl-3 border-l-2 border-accent/20 animate-fade-in">
+            <div>
+              <label className="text-2xs text-txt-faint">OPENAI_API_KEY</label>
+              <input
+                type="password"
+                value={openaiKey}
+                onChange={(e) => onKeyChange(e.target.value)}
+                placeholder="sk-..."
+                className="ck-input text-xs font-mono mt-0.5 w-full"
+              />
+              <p className="text-2xs text-txt-ghost mt-0.5">Required for the agent to call OpenAI. Stored only in the sandbox.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Deploy button / status */}
+        {!isLive && !isDeploying && deployStatus !== 'error' && (
+          <button
+            onClick={onDeploy}
+            className="flex items-center gap-2 px-4 py-2.5 text-xs font-medium rounded-lg w-full justify-center
+                       bg-gradient-to-r from-accent to-purple-500 hover:from-accent-hover hover:to-purple-600
+                       text-white transition-all shadow-sm shadow-accent/20"
+          >
+            <Rocket size={14} />
+            Deploy to Cloud Sandbox
+          </button>
+        )}
+
+        {isDeploying && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-accent-soft border border-accent/20">
+              <Loader2 size={14} className="text-accent animate-spin" />
+              <span className="text-xs text-accent font-medium capitalize">{deployStatus}...</span>
+            </div>
+            {/* Logs */}
+            <div className="max-h-24 overflow-y-auto bg-surface rounded-lg p-2 border border-border">
+              {logs.map((log, i) => (
+                <div key={i} className="flex items-start gap-1.5 text-2xs font-mono text-txt-muted">
+                  <Terminal size={9} className="mt-0.5 shrink-0 text-txt-ghost" />
+                  <span>{log}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isLive && agentUrl && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-success/10 border border-success/20">
+              <span className="w-2 h-2 rounded-full bg-success animate-pulse" />
+              <span className="text-xs text-success font-medium">Agent is live</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="text-2xs font-mono text-accent bg-surface px-2 py-1.5 rounded flex-1 truncate">
+                {agentUrl}
+              </code>
+              {previewUrl && (
+                <a href={previewUrl} target="_blank" rel="noopener noreferrer"
+                   className="p-1.5 text-txt-muted hover:text-accent rounded-md hover:bg-accent-soft transition-all">
+                  <ExternalLink size={12} />
+                </a>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onAutoConnect(agentUrl)}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg
+                           bg-accent hover:bg-accent-hover text-white transition-colors"
+              >
+                <Plug size={12} />
+                Connect &amp; Go Live
+              </button>
+              <button
+                onClick={onReset}
+                className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg
+                           border border-border text-txt-muted hover:text-txt-secondary hover:border-txt-faint transition-all"
+              >
+                <RotateCcw size={12} />
+                Reset
+              </button>
+            </div>
+          </div>
+        )}
+
+        {deployStatus === 'error' && error && (
+          <div className="space-y-2">
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-danger/10 border border-danger/20">
+              <AlertTriangle size={12} className="text-danger mt-0.5 shrink-0" />
+              <span className="text-2xs text-danger">{error}</span>
+            </div>
+            <button
+              onClick={onReset}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg w-full justify-center
+                         border border-border text-txt-muted hover:text-txt-secondary hover:border-txt-faint transition-all"
+            >
+              <RotateCcw size={12} />
+              Try Again
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
 // ─── Detection + Transformation Logic ───
 
 function detectRuntime(code: string, override: RuntimeType | 'auto'): RuntimeType {
@@ -184,45 +397,30 @@ function detectRuntime(code: string, override: RuntimeType | 'auto'): RuntimeTyp
 
 function transformCode(code: string, runtime: RuntimeType): TransformResult {
   const warnings: string[] = [];
-
-  // Extract useful parts from the pasted code
-  const imports = extractImports(code);
   const tools = extractTools(code);
   const agentVar = extractAgentVar(code);
   const systemPrompt = extractSystemPrompt(code);
   const model = extractModel(code);
-  const hasHealth = /\/health/.test(code);
   const hasCors = /CORSMiddleware/.test(code);
 
   if (!agentVar) warnings.push('Could not detect an agent variable. You may need to adjust the agent= parameter in the SDK setup.');
   if (!hasCors) warnings.push('CORS middleware was not detected in your code. It has been added automatically.');
 
-  let transformed = '';
   const deps = ['fastapi', 'uvicorn', 'copilotkit', 'python-dotenv'];
+  let transformed = '';
 
   if (runtime === 'langchain') {
     deps.push('langchain', 'langchain-openai');
-    transformed = buildLangChainOutput(code, imports, tools, agentVar, systemPrompt, model, warnings);
+    transformed = buildLangChainOutput(tools, agentVar, systemPrompt, model, warnings);
   } else if (runtime === 'langgraph') {
     deps.push('langchain', 'langchain-openai', 'langgraph');
-    transformed = buildLangGraphOutput(code, imports, tools, agentVar, systemPrompt, model, warnings);
+    transformed = buildLangGraphOutput(tools, agentVar, systemPrompt, model);
   } else {
     deps.push('langchain', 'langchain-openai');
-    transformed = buildDeepAgentsOutput(code, imports, tools, agentVar, systemPrompt, model, warnings);
+    transformed = buildDeepAgentsOutput(tools, agentVar, systemPrompt, model);
   }
 
-  return {
-    code: transformed,
-    runtime,
-    warnings,
-    deps,
-    runCommand: 'uvicorn agent_server:app --host 0.0.0.0 --port 8000',
-  };
-}
-
-function extractImports(code: string): string[] {
-  const lines = code.split('\n');
-  return lines.filter((l) => /^(from |import )/.test(l.trim()));
+  return { code: transformed, runtime, warnings, deps, runCommand: 'uvicorn agent_server:app --host 0.0.0.0 --port 8000' };
 }
 
 function extractTools(code: string): string[] {
@@ -234,10 +432,8 @@ function extractTools(code: string): string[] {
 }
 
 function extractAgentVar(code: string): string | null {
-  // Match patterns like: agent = create_agent(...) or executor = AgentExecutor(...)
   const match = code.match(/(\w+)\s*=\s*(?:create_agent|AgentExecutor|create_openai_tools_agent|StateGraph|CompiledGraph)/);
   if (match) return match[1];
-  // Fallback: look for variable named agent/executor/graph/app_graph
   const fallback = code.match(/^(\w*(?:agent|executor|graph))\s*=/m);
   return fallback ? fallback[1] : null;
 }
@@ -255,12 +451,10 @@ function extractModel(code: string): string {
 }
 
 function buildLangChainOutput(
-  _code: string, _imports: string[], tools: string[], agentVar: string | null,
-  systemPrompt: string, model: string, warnings: string[]
+  tools: string[], agentVar: string | null, systemPrompt: string, model: string, warnings: string[]
 ): string {
   const toolList = tools.length > 0 ? tools.join(', ') : 'get_weather';
   const agentName = agentVar || 'executor';
-
   if (tools.length === 0) warnings.push('No @tool decorated functions found. A placeholder tool has been added.');
 
   return `# agent_server.py — CopilotKit-compatible LangChain agent
@@ -334,11 +528,9 @@ async def health():
 }
 
 function buildLangGraphOutput(
-  _code: string, _imports: string[], tools: string[], agentVar: string | null,
-  systemPrompt: string, model: string, _warnings: string[]
+  tools: string[], agentVar: string | null, systemPrompt: string, model: string
 ): string {
   const toolList = tools.length > 0 ? tools.join(', ') : 'get_weather';
-
   return `# agent_server.py — CopilotKit-compatible LangGraph agent
 # Generated by Frontend Creator
 
@@ -400,11 +592,9 @@ async def health():
 }
 
 function buildDeepAgentsOutput(
-  _code: string, _imports: string[], tools: string[], agentVar: string | null,
-  systemPrompt: string, model: string, _warnings: string[]
+  tools: string[], agentVar: string | null, systemPrompt: string, model: string
 ): string {
   const toolList = tools.length > 0 ? tools.join(', ') : 'get_weather';
-
   return `# agent_server.py — CopilotKit-compatible Deep Agent
 # Generated by Frontend Creator
 
