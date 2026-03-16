@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useMemo } from 'react';
 import { useConnectionStore } from '@/store/connection-store';
-import { buildRuntimeConfig } from '@/adapters/runtime-adapter';
+import { buildTamboConfig } from '@/adapters/runtime-adapter';
 
 /**
  * TamboBridge — Parallel to CopilotKitBridge.
@@ -47,16 +47,16 @@ export const TamboBridge: React.FC<Props> = ({ children }) => {
   const activeConn = connections.find((c) => c.id === activeConnectionId);
 
   const config = useMemo<TamboConfig>(() => {
-    if (!activeConn || connectionStatus !== 'connected' || activeConn.runtime !== 'tambo') {
+    if (!activeConn || connectionStatus !== 'connected' || activeConn.frontend !== 'tambo') {
       return { apiKey: '', tamboUrl: '', mcpServerUrl: '', backendHeaders: {}, isConnected: false };
     }
 
-    const rtConfig = buildRuntimeConfig(activeConn);
+    const tambo = buildTamboConfig(activeConn);
     return {
-      apiKey: rtConfig.properties['tambo-api-key'] as string || '',
-      tamboUrl: rtConfig.properties['tambo-url'] as string || 'https://api.tambo.co',
-      mcpServerUrl: rtConfig.runtimeUrl,
-      backendHeaders: rtConfig.headers,
+      apiKey: tambo.tamboApiKey,
+      tamboUrl: tambo.tamboUrl,
+      mcpServerUrl: tambo.mcpServerUrl,
+      backendHeaders: tambo.backendHeaders,
       isConnected: true,
     };
   }, [activeConn, connectionStatus]);

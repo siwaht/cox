@@ -2,6 +2,7 @@
   "connections": [
     {
       "name": "Local LangGraph",
+      "frontend": "copilotkit",
       "runtime": "langgraph",
       "baseUrl": "http://localhost:2024",
       "agentId": "agent",
@@ -9,12 +10,14 @@
     },
     {
       "name": "Local LangChain",
+      "frontend": "copilotkit",
       "runtime": "langchain",
       "baseUrl": "http://localhost:8000",
       "auth": { "mode": "none" }
     },
     {
       "name": "Remote Deep Agent",
+      "frontend": "copilotkit",
       "runtime": "deepagents",
       "baseUrl": "https://agent.example.com",
       "agentId": "deep-agent",
@@ -22,7 +25,8 @@
     },
     {
       "name": "Tambo + LangChain Backend",
-      "runtime": "tambo",
+      "frontend": "tambo",
+      "runtime": "langchain",
       "baseUrl": "http://localhost:8000",
       "auth": { "mode": "none" },
       "env": {

@@ -208,7 +208,7 @@ function uniqueBlockTypes(blocks: BlockConfig[]): BlockType[] {
 
 function genPackageJson(name: string, connection?: ConnectionProfile | null): string {
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'agent-frontend';
-  const isTambo = connection?.runtime === 'tambo';
+  const isTambo = connection?.frontend === 'tambo';
 
   const deps: Record<string, string> = isTambo
     ? {
@@ -355,7 +355,7 @@ function genAppTsx(
     (t) => `import { ${blockComponentName(t)} } from './components/${blockComponentName(t)}';`,
   ).join('\n');
 
-  const isTambo = connection?.runtime === 'tambo';
+  const isTambo = connection?.frontend === 'tambo';
 
   if (isTambo) {
     const backendUrl = connection
@@ -458,7 +458,7 @@ ${blockElements}
 
 function genEnvExample(connection?: ConnectionProfile | null): string {
   const base = connection?.baseUrl || 'http://localhost:8000';
-  const isTambo = connection?.runtime === 'tambo';
+  const isTambo = connection?.frontend === 'tambo';
 
   if (isTambo) {
     return `# Tambo Configuration

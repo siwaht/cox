@@ -72,7 +72,7 @@ export const PreviewView: React.FC = () => {
               <Wifi size={12} className="text-success" />
               <span className="text-txt-secondary">
                 <span className="text-txt-primary font-medium">{activeConn.name}</span>
-                <span className="text-txt-faint ml-1.5">({activeConn.runtime})</span>
+                <span className="text-txt-faint ml-1.5">({activeConn.frontend} + {activeConn.runtime})</span>
               </span>
             </>
           ) : (
@@ -122,7 +122,7 @@ export const PreviewView: React.FC = () => {
   return (
     <div className="h-full flex flex-col" style={themeStyle}>
       {isConnected ? (
-        activeConn.runtime === 'tambo' ? (
+        activeConn.frontend === 'tambo' ? (
           <TamboBridge>{previewContent}</TamboBridge>
         ) : (
           <CopilotKitBridge>{previewContent}</CopilotKitBridge>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { AuthMode, ConnectionProfile, RuntimeType } from '@/types/connections';
+import type { AuthMode, ConnectionProfile, FrontendType, RuntimeType } from '@/types/connections';
 import { Zap, Sparkles } from 'lucide-react';
 
 interface Props {
@@ -10,17 +10,18 @@ interface Props {
 }
 
 const PRESETS: Array<{
-  label: string; runtime: RuntimeType; baseUrl: string; agentId: string; description: string;
+  label: string; frontend: FrontendType; runtime: RuntimeType; baseUrl: string; agentId: string; description: string;
 }> = [
-  { label: 'LangGraph Local', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Default LangGraph dev server' },
-  { label: 'LangChain Local', runtime: 'langchain', baseUrl: 'http://localhost:8000', agentId: '', description: 'Default LangChain serve' },
-  { label: 'Deep Agent Local', runtime: 'deepagents', baseUrl: 'http://localhost:3001', agentId: 'default', description: 'Local deep agent server' },
-  { label: 'Tambo + Backend', runtime: 'tambo', baseUrl: 'http://localhost:8000', agentId: '', description: 'Tambo generative UI via MCP' },
-  { label: 'Custom Remote', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
+  { label: 'CopilotKit + LangGraph', frontend: 'copilotkit', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Default LangGraph dev server' },
+  { label: 'CopilotKit + LangChain', frontend: 'copilotkit', runtime: 'langchain', baseUrl: 'http://localhost:8000', agentId: '', description: 'Default LangChain serve' },
+  { label: 'CopilotKit + Deep Agent', frontend: 'copilotkit', runtime: 'deepagents', baseUrl: 'http://localhost:3001', agentId: 'default', description: 'Local deep agent server' },
+  { label: 'Tambo + LangGraph', frontend: 'tambo', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Tambo generative UI via MCP' },
+  { label: 'Custom Remote', frontend: 'copilotkit', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
 ];
 
 export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialValues, submitLabel }) => {
   const [name, setName] = useState(initialValues?.name || '');
+  const [frontend, setFrontend] = useState<FrontendType>(initialValues?.frontend || 'copilotkit');
   const [runtime, setRuntime] = useState<RuntimeType>(initialValues?.runtime || 'langgraph');
   const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl || 'http://localhost:2024');
   const [agentId, setAgentId] = useState(initialValues?.agentId || 'agent');
@@ -34,7 +35,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
   const [urlError, setUrlError] = useState('');
 
   const applyPreset = (p: typeof PRESETS[0]) => {
-    setRuntime(p.runtime); setBaseUrl(p.baseUrl); setAgentId(p.agentId); setName(p.label); setUrlError('');
+    setFrontend(p.frontend); setRuntime(p.runtime); setBaseUrl(p.baseUrl); setAgentId(p.agentId); setName(p.label); setUrlError('');
   };
 
   const validateUrl = (url: string): boolean => {
@@ -47,7 +48,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
     e.preventDefault();
     if (!validateUrl(baseUrl)) return;
     onSubmit({
-      name: name || `${runtime} agent`, runtime,
+      name: name || `${frontend} + ${runtime} agent`, frontend, runtime,
       baseUrl: baseUrl.replace(/\/+$/, ''),
       agentId: agentId || undefined,
       auth: {
@@ -56,7 +57,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
         ...(tokenValue ? { tokenValue } : {}),
         ...(headerName ? { headerName } : {}),
       },
-      ...(runtime === 'tambo' ? {
+      ...(frontend === 'tambo' ? {
         env: {
           ...(tamboApiKey ? { TAMBO_API_KEY: tamboApiKey } : {}),
           ...(tamboUrl ? { TAMBO_URL: tamboUrl } : {}),
@@ -82,7 +83,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
             {PRESETS.map((p) => (
               <button key={p.label} type="button" onClick={() => applyPreset(p)}
                 className={`text-left px-2.5 py-2 rounded-lg border transition-all text-2xs ${
-                  runtime === p.runtime && baseUrl === p.baseUrl
+                  frontend === p.frontend && runtime === p.runtime && baseUrl === p.baseUrl
                     ? 'border-accent/50 bg-accent-soft text-accent'
                     : 'border-border text-txt-secondary hover:border-txt-faint hover:text-txt-secondary'
                 }`}>
@@ -99,12 +100,17 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
           <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                  placeholder="My Agent" className="ck-input text-xs" />
         </Row>
-        <Row label="Runtime Type" hint="Your agent framework">
+        <Row label="Frontend" hint="How the UI connects to your agent">
+          <select value={frontend} onChange={(e) => setFrontend(e.target.value as FrontendType)} className="ck-input text-xs">
+            <option value="copilotkit">CopilotKit</option>
+            <option value="tambo">Tambo (Generative UI)</option>
+          </select>
+        </Row>
+        <Row label="Backend" hint="Your agent framework">
           <select value={runtime} onChange={(e) => setRuntime(e.target.value as RuntimeType)} className="ck-input text-xs">
             <option value="langchain">LangChain</option>
             <option value="langgraph">LangGraph</option>
             <option value="deepagents">Deep Agents</option>
-            <option value="tambo">Tambo (Generative UI)</option>
           </select>
         </Row>
         <Row label="Agent URL" hint="Where your agent is running">
@@ -115,13 +121,12 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
             className={`ck-input text-xs font-mono ${urlError ? 'border-danger focus:border-danger focus:ring-danger/20' : ''}`} />
           {urlError && <p className="text-2xs text-danger mt-1">{urlError}</p>}
         </Row>
-        <Row label="Agent / Graph ID" hint={runtime === 'langchain' ? 'Optional for LangChain' : runtime === 'tambo' ? 'Not used for Tambo' : 'Required'}>
+        <Row label="Agent / Graph ID" hint={runtime === 'langchain' ? 'Optional for LangChain' : 'Required'}>
           <input type="text" value={agentId} onChange={(e) => setAgentId(e.target.value)}
-                 placeholder="agent" className="ck-input text-xs font-mono"
-                 disabled={runtime === 'tambo'} />
+                 placeholder="agent" className="ck-input text-xs font-mono" />
         </Row>
 
-        {runtime === 'tambo' && (
+        {frontend === 'tambo' && (
           <div className="space-y-3 pl-3 border-l-2 border-purple-500/30 animate-fade-in">
             <div className="flex items-center gap-1.5 mb-1">
               <Sparkles size={11} className="text-purple-400" />
@@ -136,8 +141,8 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
                      placeholder="https://api.tambo.co (default)" className="ck-input text-xs font-mono" />
             </Row>
             <p className="text-2xs text-txt-ghost">
-              Tambo connects to your backend via MCP. The Agent URL above should point to your
-              LangChain/LangGraph/DeepAgents server — Tambo will use it as an MCP server.
+              Tambo connects to your {runtime} backend via MCP. The Agent URL above should point to your
+              backend server — Tambo will use it as an MCP server.
             </p>
           </div>
         )}

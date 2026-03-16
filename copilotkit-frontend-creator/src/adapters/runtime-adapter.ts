@@ -1,8 +1,9 @@
 import type { ConnectionProfile, RuntimeType } from '@/types/connections';
 
 // ─── Runtime Adapter ───
-// Translates connection profiles into CopilotKit runtime configuration.
-// Each runtime type has its own endpoint patterns and config shape.
+// Translates connection profiles into runtime configuration.
+// Frontend (CopilotKit / Tambo) and backend (LangChain / LangGraph / DeepAgents)
+// are independent choices. The backend config is the same regardless of frontend.
 
 export interface RuntimeConfig {
   runtimeUrl: string;
@@ -10,6 +11,10 @@ export interface RuntimeConfig {
   properties: Record<string, unknown>;
 }
 
+/**
+ * Build the backend runtime config. This is used by CopilotKitBridge directly,
+ * and by TamboBridge to know which MCP endpoint to connect to.
+ */
 export function buildRuntimeConfig(profile: ConnectionProfile): RuntimeConfig {
   const base = profile.baseUrl.replace(/\/+$/, '');
   const headers = buildHeaders(profile);
@@ -41,23 +46,28 @@ export function buildRuntimeConfig(profile: ConnectionProfile): RuntimeConfig {
         ...(profile.env || {}),
       },
     }),
-    tambo: () => ({
-      // Tambo connects to the same backend via MCP client-side connection.
-      // The runtimeUrl points to the agent's /mcp endpoint for MCP transport,
-      // while Tambo's own API handles the generative UI orchestration.
-      runtimeUrl: `${base}/mcp`,
-      headers,
-      properties: {
-        runtime: 'tambo',
-        'tambo-api-key': profile.env?.TAMBO_API_KEY || '',
-        'tambo-url': profile.env?.TAMBO_URL || 'https://api.tambo.co',
-        'mcp-server-url': `${base}/mcp`,
-        ...(profile.env || {}),
-      },
-    }),
   };
 
   return builders[profile.runtime]();
+}
+
+/**
+ * Build Tambo-specific config (MCP endpoint + Tambo API details).
+ * Used when frontend === 'tambo', regardless of which backend is selected.
+ */
+export function buildTamboConfig(profile: ConnectionProfile): {
+  mcpServerUrl: string;
+  tamboApiKey: string;
+  tamboUrl: string;
+  backendHeaders: Record<string, string>;
+} {
+  const base = profile.baseUrl.replace(/\/+$/, '');
+  return {
+    mcpServerUrl: `${base}/mcp`,
+    tamboApiKey: profile.env?.TAMBO_API_KEY || '',
+    tamboUrl: profile.env?.TAMBO_URL || 'https://api.tambo.co',
+    backendHeaders: buildHeaders(profile),
+  };
 }
 
 function buildHeaders(profile: ConnectionProfile): Record<string, string> {

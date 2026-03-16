@@ -174,6 +174,7 @@ export const CodeTransformerView: React.FC = () => {
   const handleConnect = useCallback((url: string) => {
     const id = addConnection({
       name: deployPath === 'sandbox' ? 'Sandbox Agent' : 'My Agent',
+      frontend: 'copilotkit',
       runtime: (result?.runtime as RuntimeType) || 'langchain',
       baseUrl: url.replace(/\/+$/, ''), agentId: '',
       auth: { mode: 'none' },

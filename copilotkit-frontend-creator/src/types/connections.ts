@@ -1,6 +1,8 @@
 // ─── Agent Connection Types ───
 
-export type RuntimeType = 'langchain' | 'langgraph' | 'deepagents' | 'tambo';
+export type FrontendType = 'copilotkit' | 'tambo';
+
+export type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
 
 export type AuthMode = 'none' | 'bearer' | 'api-key' | 'custom-header';
 
@@ -17,6 +19,7 @@ export interface AuthConfig {
 export interface ConnectionProfile {
   id: string;
   name: string;
+  frontend: FrontendType;
   runtime: RuntimeType;
   baseUrl: string;
   /** Agent ID / Assistant ID / Graph ID */
