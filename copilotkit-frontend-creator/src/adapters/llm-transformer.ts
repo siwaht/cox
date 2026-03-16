@@ -1,4 +1,11 @@
 import type { LLMProvider } from '@/store/llm-store';
+import type { BlockConfig } from '@/types/blocks';
+
+export interface FrontendContext {
+  blocks: BlockConfig[];
+  workspaceName: string;
+  theme: string;
+}
 
 export interface LLMTransformResult {
   code: string;
@@ -11,12 +18,40 @@ export interface LLMTransformResult {
 
 const SYSTEM_PROMPT = `You are an expert Python backend engineer specializing in AI agent frameworks.
 Your job: take user's agent code and produce a COMPLETE, RUNNABLE agent_server.py that integrates with CopilotKit.
+You also receive the user's FRONTEND CONFIGURATION — the UI blocks they've set up. Your backend code MUST support every block's required capabilities.
 
 ## CRITICAL RULES
 1. Output ONLY valid Python code. No markdown fences, no explanations in the code block.
 2. Preserve ALL of the user's original agent logic, tools, prompts, and model choices.
 3. If the user's code has an undefined variable (like bare \`model\`), define it properly.
 4. Use ONLY the latest stable APIs — no deprecated imports.
+5. Ensure the backend supports ALL capabilities required by the frontend blocks.
+
+## Frontend Block → Backend Capability Mapping
+Each frontend block requires specific backend capabilities. Your code MUST enable these:
+
+| Block Type     | Required Capabilities        | What the backend needs                                                |
+|----------------|------------------------------|-----------------------------------------------------------------------|
+| chat           | chat, streaming              | Agent with message handling (create_agent provides this)              |
+| results        | structuredOutput             | Agent returns Pydantic models or typed dicts                          |
+| toolActivity   | toolCalls, toolResults       | Agent has tools defined with @tool decorator                          |
+| approvals      | approvals                    | LangGraph interrupt_before/interrupt_after or human-in-the-loop       |
+| logs           | logs                         | Python logging configured (import logging, logger = logging.getLogger)|
+| status         | progress                     | Callbacks or streaming events for progress tracking                   |
+| table          | structuredOutput             | Agent returns structured data (lists of dicts/models)                 |
+| chart          | structuredOutput             | Agent returns numeric/structured data for visualization               |
+| dashboard      | structuredOutput             | Agent returns KPI/metric data                                        |
+| cards          | structuredOutput             | Agent returns structured items                                        |
+| form           | (none)                       | No special backend requirement                                        |
+| panel          | (none)                       | No special backend requirement                                        |
+| markdown       | (none)                       | No special backend requirement                                        |
+
+## How to add missing capabilities
+- If frontend has "logs" block but code has no logging → add: \`import logging\` and \`logging.basicConfig(level=logging.INFO)\`
+- If frontend has "approvals" block but code has no interrupts → add interrupt_before to the graph (requires LangGraph StateGraph)
+- If frontend has "results/table/chart/cards/dashboard" but code has no structured output → add a Pydantic response model or ensure agent returns structured data
+- If frontend has "status" block but code has no progress → add streaming callbacks
+- If frontend has "toolActivity" but code has no tools → warn that tools are needed
 
 ## Current API Reference (2025-2026)
 
@@ -67,10 +102,10 @@ The output file MUST have:
 After the Python code, add a line "---META---" followed by a JSON object:
 {
   "runtime": "langchain" | "langgraph" | "deepagents",
-  "warnings": ["any warnings about the code"],
+  "warnings": ["any warnings — especially about frontend blocks that can't be fully supported"],
   "deps": ["list", "of", "pip", "packages"],
   "runCommand": "uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload",
-  "explanation": "Brief explanation of what was changed"
+  "explanation": "Brief explanation of what was changed and how frontend blocks are supported"
 }`;
 
 
@@ -169,11 +204,32 @@ export async function llmTransformCode(
   provider: LLMProvider,
   model: string,
   apiKey: string,
+  frontendContext?: FrontendContext,
 ): Promise<LLMTransformResult> {
   if (!apiKey) throw new Error('API key is required. Add it in the settings panel.');
   if (!input.trim()) throw new Error('No code provided.');
 
-  const userPrompt = `Transform this agent code into a complete, runnable agent_server.py with CopilotKit integration:\n\n${input}`;
+  // Build the user prompt with frontend context
+  let userPrompt = `Transform this agent code into a complete, runnable agent_server.py with CopilotKit integration:\n\n${input}`;
+
+  if (frontendContext && frontendContext.blocks.length > 0) {
+    const blockSummary = frontendContext.blocks
+      .filter((b) => b.visible)
+      .map((b) => `- ${b.label} (type: ${b.type})`)
+      .join('\n');
+
+    userPrompt += `\n\n## Frontend Configuration
+Workspace: "${frontendContext.workspaceName}"
+Theme: ${frontendContext.theme}
+
+The user's frontend has these UI blocks that the backend MUST support:
+${blockSummary}
+
+Make sure the generated backend code provides all capabilities these blocks need.
+If a block requires a capability the user's code doesn't have, add the minimum code to support it and note it in warnings.`;
+  } else {
+    userPrompt += `\n\nNote: No frontend blocks are configured yet. Generate a general-purpose backend that supports chat and tool calls.`;
+  }
 
   let raw: string;
   switch (provider) {

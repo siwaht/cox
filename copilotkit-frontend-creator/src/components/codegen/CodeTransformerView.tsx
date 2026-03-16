@@ -12,7 +12,7 @@ import { useLLMStore, AVAILABLE_MODELS } from '@/store/llm-store';
 import type { LLMProvider } from '@/store/llm-store';
 import { validateForDeploy, createDeployConfig } from '@/adapters/sandbox-deployer';
 import { llmTransformCode } from '@/adapters/llm-transformer';
-import type { LLMTransformResult } from '@/adapters/llm-transformer';
+import type { LLMTransformResult, FrontendContext } from '@/adapters/llm-transformer';
 import { getBlockDefinition } from '@/registry/block-registry';
 import type { RuntimeCapability, BlockConfig } from '@/types/blocks';
 
@@ -116,8 +116,13 @@ export const CodeTransformerView: React.FC = () => {
     setResult(null);
 
     try {
+      const frontendCtx: FrontendContext = {
+        blocks: workspace.blocks,
+        workspaceName: workspace.name,
+        theme: workspace.theme,
+      };
       const llmResult: LLMTransformResult = await llmTransformCode(
-        input, llm.provider, llm.modelId, llm.getActiveKey(),
+        input, llm.provider, llm.modelId, llm.getActiveKey(), frontendCtx,
       );
       setResult({
         code: llmResult.code,
@@ -223,6 +228,12 @@ export const CodeTransformerView: React.FC = () => {
                 <Key size={10} /> Add an API key in settings
               </span>
             )}
+            {hasApiKey && workspace.blocks.length > 0 && (
+              <span className="text-2xs text-txt-faint flex items-center gap-1">
+                <Sparkles size={10} className="text-accent" />
+                Syncing with {workspace.blocks.filter(b => b.visible).length} frontend block(s)
+              </span>
+            )}
           </div>
         </div>
 
@@ -259,7 +270,10 @@ export const CodeTransformerView: React.FC = () => {
               <div className="text-center space-y-3">
                 <Loader2 size={32} className="mx-auto animate-spin text-accent" />
                 <p className="text-xs text-txt-secondary">AI is analyzing your code...</p>
-                <p className="text-2xs text-txt-faint">Checking latest CopilotKit, LangChain & LangGraph APIs</p>
+                <p className="text-2xs text-txt-faint">
+                  Checking latest CopilotKit, LangChain & LangGraph APIs
+                  {workspace.blocks.length > 0 && ` • Syncing with ${workspace.blocks.filter(b => b.visible).length} frontend block(s)`}
+                </p>
               </div>
             </div>
           ) : transformError ? (
