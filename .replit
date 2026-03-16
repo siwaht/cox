@@ -35,5 +35,5 @@ externalPort = 80
 
 [deployment]
 deploymentTarget = "static"
-build = ["bash", "-c", "cd copilotkit-frontend-creator && npm run build"]
+build = ["bash", "-c", "cd copilotkit-frontend-creator && npm install && npm run build"]
 publicDir = "copilotkit-frontend-creator/dist"
