@@ -43,7 +43,8 @@ const PLACEHOLDER = `# Paste your agent code here
 // ─── Runtime detection ───
 function detectRuntime(code: string, override: RuntimeType | 'auto'): RuntimeType {
   if (override !== 'auto') return override;
-  if (/from\s+langgraph|StateGraph|CompiledGraph/.test(code)) return 'langgraph';
+  // LangGraph: explicit langgraph imports or StateGraph usage (but not deprecated create_react_agent)
+  if (/from\s+langgraph(?!\.prebuilt\s+import\s+create_react_agent)|StateGraph|CompiledGraph/.test(code)) return 'langgraph';
   if (/from\s+deepagents|DeepAgent/.test(code)) return 'deepagents';
   return 'langchain';
 }
@@ -179,6 +180,19 @@ function transformCode(input: string, runtime: RuntimeType): TransformResult {
 
   code = lines.join('\n');
 
+  // --- Migrate deprecated imports ---
+  // Replace old langgraph.prebuilt.create_react_agent with langchain.agents.create_agent
+  code = code.replace(
+    /from\s+langgraph\.prebuilt\s+import\s+create_react_agent/g,
+    'from langchain.agents import create_agent',
+  );
+  // Replace call sites: create_react_agent(...) → create_agent(...)
+  code = code.replace(/\bcreate_react_agent\s*\(/g, 'create_agent(');
+
+  if (input.includes('create_react_agent')) {
+    warnings.push('Migrated deprecated create_react_agent (langgraph.prebuilt) → create_agent (langchain.agents)');
+  }
+
   // Ensure FastAPI app exists
   if (!hasFastAPI && !code.includes('app = FastAPI')) {
     code += '\n\napp = FastAPI(title="Agent Server")\n';
@@ -204,7 +218,7 @@ app.add_middleware(
   // Add CopilotKit endpoint
   if (!hasCopilotKit) {
     let agentVar = 'agent';
-    const agentMatch = code.match(/(\w+)\s*=\s*(?:create_agent|StateGraph|CompiledGraph|DeepAgent)/);
+    const agentMatch = code.match(/(\w+)\s*=\s*(?:create_agent|create_react_agent|StateGraph|CompiledGraph|DeepAgent)/);
     if (agentMatch) agentVar = agentMatch[1];
 
     const sdkBlock = `
@@ -251,7 +265,8 @@ if __name__ == "__main__":
   const deps = ['fastapi', 'uvicorn[standard]', 'copilotkit', 'python-dotenv'];
   if (runtime === 'langchain' || runtime === 'langgraph') {
     deps.push('langchain', 'langchain-openai');
-    if (code.includes('langgraph')) deps.push('langgraph');
+    // Only add langgraph if code uses LangGraph-specific features (StateGraph, etc.)
+    if (/StateGraph|CompiledGraph|langgraph\.graph/.test(code)) deps.push('langgraph');
   }
   if (runtime === 'deepagents') deps.push('deepagents');
 
