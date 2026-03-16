@@ -56,18 +56,6 @@ export async function validateConnection(
     });
   }
 
-  // 2b. Tambo frontend requires an API key
-  if (profile.frontend === 'tambo' && !profile.env?.TAMBO_API_KEY) {
-    warnings.push({
-      code: 'MISSING_TAMBO_API_KEY',
-      whatFailed: 'Tambo frontend is selected but no Tambo API key is provided.',
-      likelyReason: 'The TAMBO_API_KEY env value is empty in the connection profile.',
-      nextAction: 'Add your Tambo API key from console.tambo.co in the connection settings.',
-      fixLocation: 'frontend configuration',
-      severity: 'warning',
-    });
-  }
-
   // 3. Auth validation
   if (profile.auth.mode === 'bearer' && !profile.auth.tokenEnv && !profile.auth.tokenValue) {
     errors.push({

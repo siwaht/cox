@@ -3,7 +3,6 @@ import { useWorkspaceStore } from '@/store/workspace-store';
 import { useConnectionStore } from '@/store/connection-store';
 import { RuntimeBlockRenderer } from '@/components/runtime/RuntimeBlockRenderer';
 import { CopilotKitBridge } from '@/components/runtime/CopilotKitBridge';
-import { TamboBridge } from '@/components/runtime/TamboBridge';
 import { FallbackWorkspace } from './FallbackWorkspace';
 import { DiagnosticsPanel } from '@/components/diagnostics/DiagnosticsPanel';
 import { LoadingSkeleton } from '@/components/runtime/LoadingSkeleton';
@@ -122,11 +121,7 @@ export const PreviewView: React.FC = () => {
   return (
     <div className="h-full flex flex-col" style={themeStyle}>
       {isConnected ? (
-        activeConn.frontend === 'tambo' ? (
-          <TamboBridge>{previewContent}</TamboBridge>
-        ) : (
-          <CopilotKitBridge>{previewContent}</CopilotKitBridge>
-        )
+        <CopilotKitBridge>{previewContent}</CopilotKitBridge>
       ) : (
         previewContent
       )}

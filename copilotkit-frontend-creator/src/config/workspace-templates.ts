@@ -55,17 +55,4 @@ export const WORKSPACE_TEMPLATES: WorkspaceTemplate[] = [
     icon: 'Plus',
     blocks: [],
   },
-  {
-    id: 'tambo-generative',
-    name: 'Tambo Generative UI',
-    description: 'Generative UI with Tambo — chat renders components dynamically',
-    icon: 'Sparkles',
-    blocks: [
-      { type: 'chat', w: 8, h: 5 },
-      { type: 'cards', w: 4, h: 3 },
-      { type: 'results', w: 4, h: 2 },
-      { type: 'toolActivity', w: 6, h: 3 },
-      { type: 'status', w: 6, h: 1 },
-    ],
-  },
 ];

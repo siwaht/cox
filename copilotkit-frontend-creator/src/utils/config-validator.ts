@@ -11,7 +11,7 @@ const VALID_BLOCK_TYPES = [
 ];
 
 const VALID_FALLBACK_MODES = ['generic-copilotkit-workspace', 'minimal', 'chat-only'];
-const VALID_FRONTENDS = ['copilotkit', 'tambo'];
+const VALID_FRONTENDS = ['copilotkit'];
 const VALID_RUNTIMES = ['langchain', 'langgraph', 'deepagents'];
 const VALID_AUTH_MODES = ['none', 'bearer', 'api-key', 'custom-header'];
 

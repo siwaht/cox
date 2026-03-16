@@ -99,19 +99,6 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 - \`from deepagents import create_deep_agent\`
 - Works with CopilotKit via LangGraphAGUIAgent wrapper (same as above)
 
-### Tambo Integration (via MCP)
-- Tambo connects to the SAME backend as CopilotKit, but via MCP (Model Context Protocol)
-- The backend must expose an MCP endpoint alongside the CopilotKit endpoint
-- Add MCP support to the FastAPI server:
-  \`\`\`
-  from fastapi_mcp import FastApiMCP
-  mcp = FastApiMCP(app, name="agent-backend", description="Agent backend MCP server")
-  mcp.mount()
-  \`\`\`
-- This allows Tambo's client-side SDK to connect to the same tools and agents
-- No changes to agent logic needed — Tambo discovers capabilities via MCP
-- The frontend uses TamboProvider with mcpServers pointing to the backend's /mcp endpoint
-
 ## Required Structure
 The output file MUST have:
 1. \`from dotenv import load_dotenv\` + \`load_dotenv()\` at the top (only ONCE — never duplicate)

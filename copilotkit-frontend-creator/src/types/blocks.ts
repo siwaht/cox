@@ -44,7 +44,7 @@ export interface BlockDefinition {
   /** Which runtime features this block needs */
   requiredCapabilities: RuntimeCapability[];
   /** Which frontend SDK this block is designed for */
-  frontend: 'copilotkit' | 'tambo' | 'both';
+  frontend: 'copilotkit';
 }
 
 export type RuntimeCapability =

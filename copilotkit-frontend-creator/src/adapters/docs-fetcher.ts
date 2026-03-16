@@ -1,6 +1,6 @@
 // ─── Documentation Fetcher ───
 // Fetches and caches latest API docs from LangChain, LangGraph, DeepAgents,
-// CopilotKit, and Tambo. Injected into the LLM prompt so generated code
+// and CopilotKit. Injected into the LLM prompt so generated code
 // always uses current, correct APIs.
 
 import type { RuntimeType, FrontendType } from '@/types/connections';
@@ -25,13 +25,6 @@ const DOC_SOURCES: Record<string, { urls: string[]; label: string }> = {
     urls: [
       'https://docs.copilotkit.ai/langgraph/quickstart',
       'https://docs.copilotkit.ai/reference/sdk/python/LangGraphAGUIAgent',
-    ],
-  },
-  tambo: {
-    label: 'Tambo',
-    urls: [
-      'https://docs.tambo.co/quickstart',
-      'https://docs.tambo.co/reference/react-sdk',
     ],
   },
   langchain: {
@@ -108,46 +101,6 @@ import { CopilotChat } from "@copilotkit/react-ui";
   <CopilotChat />
 </CopilotKit>
 \`\`\``,
-    fetchedAt: new Date().toISOString(),
-  },
-
-  tambo: {
-    source: 'tambo',
-    title: 'Tambo React SDK — Current API',
-    content: `## Tambo React SDK — Integration Pattern
-
-### Installation
-\`\`\`bash
-npm install @tambo-ai/react
-\`\`\`
-
-### Frontend Setup
-\`\`\`tsx
-import { TamboProvider, TamboComponent } from "@tambo-ai/react";
-
-<TamboProvider
-  apiKey={process.env.TAMBO_API_KEY}
-  mcpServers={[{ url: "http://localhost:8000/mcp" }]}
->
-  <TamboComponent />
-</TamboProvider>
-\`\`\`
-
-### Backend MCP Endpoint (required for Tambo)
-Tambo connects to the same backend via MCP (Model Context Protocol).
-Add MCP support alongside the CopilotKit endpoint:
-\`\`\`python
-from fastapi_mcp import FastApiMCP
-
-mcp = FastApiMCP(app, name="agent-backend", description="Agent backend MCP server")
-mcp.mount()
-\`\`\`
-
-### Key Points
-- Tambo discovers agent capabilities via MCP automatically
-- No changes to agent logic needed — same backend serves both CopilotKit and Tambo
-- The backend exposes /mcp endpoint for Tambo and /copilotkit for CopilotKit
-- pip install fastapi-mcp for the MCP integration`,
     fetchedAt: new Date().toISOString(),
   },
 
@@ -475,9 +428,6 @@ function getNeededSources(frontend: FrontendType, runtime: RuntimeType): string[
 
   // Always need CopilotKit (it's the SDK layer for all backends)
   sources.push('copilotkit');
-
-  // Frontend-specific
-  if (frontend === 'tambo') sources.push('tambo');
 
   // Backend-specific
   sources.push(runtime); // 'langchain' | 'langgraph' | 'deepagents'

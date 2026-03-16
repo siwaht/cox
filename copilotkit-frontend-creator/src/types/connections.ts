@@ -1,6 +1,6 @@
 // ─── Agent Connection Types ───
 
-export type FrontendType = 'copilotkit' | 'tambo';
+export type FrontendType = 'copilotkit';
 
 export type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
 
