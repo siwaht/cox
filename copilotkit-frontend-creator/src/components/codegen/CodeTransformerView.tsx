@@ -10,6 +10,7 @@ import { useConnectionStore } from '@/store/connection-store';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { useLLMStore, AVAILABLE_MODELS } from '@/store/llm-store';
 import type { LLMProvider } from '@/store/llm-store';
+import { useToastStore } from '@/store/toast-store';
 import { validateForDeploy, createDeployConfig } from '@/adapters/sandbox-deployer';
 import { llmTransformCode } from '@/adapters/llm-transformer';
 import type { LLMTransformResult, FrontendContext } from '@/adapters/llm-transformer';
@@ -87,9 +88,11 @@ function checkBlockCompatibility(
   });
 }
 
+const SESSION_KEY = 'ck-code-input';
+
 // ─── Main Component ───
 export const CodeTransformerView: React.FC = () => {
-  const [input, setInput] = useState('');
+  const [input, setInputRaw] = useState(() => sessionStorage.getItem(SESSION_KEY) || '');
   const [result, setResult] = useState<TransformResult | null>(null);
   const [copied, setCopied] = useState(false);
   const [deployPath, setDeployPath] = useState<DeployPath>('choose');
@@ -98,10 +101,16 @@ export const CodeTransformerView: React.FC = () => {
   const [transformError, setTransformError] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
 
+  const setInput = useCallback((v: string) => {
+    setInputRaw(v);
+    sessionStorage.setItem(SESSION_KEY, v);
+  }, []);
+
   const deploy = useDeployStore();
   const { addConnection, setActive, validate, connections, activeConnectionId } = useConnectionStore();
   const { workspace, removeBlock, setMode } = useWorkspaceStore();
   const llm = useLLMStore();
+  const addToast = useToastStore((s) => s.addToast);
 
   const hasApiKey = !!llm.getActiveKey();
 
@@ -181,16 +190,36 @@ export const CodeTransformerView: React.FC = () => {
   }, [result, deploy]);
 
   const handleConnect = useCallback((url: string) => {
-    const id = addConnection({
-      name: deployPath === 'sandbox' ? 'Sandbox Agent' : 'My Agent',
-      frontend: 'copilotkit',
-      runtime: (result?.runtime as RuntimeType) || 'langchain',
-      baseUrl: url.replace(/\/+$/, ''), agentId: '',
-      auth: { mode: 'none' },
-    });
+    const isRunHere = deployPath === 'runhere' || url === window.location.origin;
+    const name = deployPath === 'sandbox' ? 'Sandbox Agent' : isRunHere ? 'Local Agent' : 'My Agent';
+    const runtime = (result?.runtime as RuntimeType) || 'langgraph';
+
+    const existingLocal = connections.find(
+      (c) => c.baseUrl.replace(/\/+$/, '') === url.replace(/\/+$/, '')
+    );
+    const id = existingLocal
+      ? existingLocal.id
+      : addConnection({
+          name,
+          frontend: 'copilotkit',
+          runtime,
+          baseUrl: url.replace(/\/+$/, ''),
+          agentId: runtime === 'langgraph' ? 'agent' : '',
+          auth: { mode: 'none' },
+        });
+
     setActive(id);
-    validate(id).then(() => setMode('published'));
-  }, [addConnection, setActive, validate, setMode, result, deployPath]);
+    addToast('Connecting to agent...', 'info', 2000);
+
+    validate(id).then((res) => {
+      if (res.status === 'ok' || res.status === 'warning') {
+        addToast('Agent connected successfully!', 'success');
+      } else {
+        addToast('Connected — agent may still be starting up.', 'info');
+      }
+      setMode('preview');
+    });
+  }, [addConnection, setActive, validate, setMode, result, deployPath, connections, addToast]);
 
   const [codeTab, setCodeTab] = useState<CodeTab>('backend');
 
