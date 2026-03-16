@@ -204,6 +204,33 @@ async function callAnthropic(
   return data.content?.[0]?.text || '';
 }
 
+async function callMistral(
+  apiKey: string,
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+): Promise<string> {
+  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      temperature: 0.1,
+      max_tokens: 4096,
+    }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.message || err?.error?.message || `Mistral API error: ${res.status}`);
+  }
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || '';
+}
+
 // ─── Main transform function ───
 
 export async function llmTransformCode(
@@ -248,6 +275,9 @@ If a block requires a capability the user's code doesn't have, add the minimum c
       break;
     case 'anthropic':
       raw = await callAnthropic(apiKey, model, SYSTEM_PROMPT, userPrompt);
+      break;
+    case 'mistral':
+      raw = await callMistral(apiKey, model, SYSTEM_PROMPT, userPrompt);
       break;
     default:
       throw new Error(`Unknown provider: ${provider}`);

@@ -358,6 +358,7 @@ const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     openai: { label: 'OpenAI', placeholder: 'sk-...', hint: 'platform.openai.com → API Keys' },
     gemini: { label: 'Google Gemini', placeholder: 'AI...', hint: 'aistudio.google.com → API Keys' },
     anthropic: { label: 'Anthropic', placeholder: 'sk-ant-...', hint: 'console.anthropic.com → API Keys' },
+    mistral: { label: 'Mistral', placeholder: 'M...', hint: 'console.mistral.ai → API Keys' },
   };
 
   const info = providerInfo[provider];
@@ -383,6 +384,7 @@ const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <option value="openai">OpenAI</option>
             <option value="gemini">Google Gemini</option>
             <option value="anthropic">Anthropic</option>
+            <option value="mistral">Mistral</option>
           </select>
         </div>
 

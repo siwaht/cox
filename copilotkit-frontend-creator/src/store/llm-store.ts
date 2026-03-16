@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type LLMProvider = 'openai' | 'gemini' | 'anthropic';
+export type LLMProvider = 'openai' | 'gemini' | 'anthropic' | 'mistral';
 
 export interface LLMModel {
   id: string;
@@ -10,14 +10,30 @@ export interface LLMModel {
 }
 
 export const AVAILABLE_MODELS: LLMModel[] = [
-  { id: 'gpt-4o', label: 'GPT-4o', provider: 'openai' },
-  { id: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai' },
+  // OpenAI
+  { id: 'o3', label: 'o3 (reasoning)', provider: 'openai' },
+  { id: 'o3-mini', label: 'o3 Mini', provider: 'openai' },
+  { id: 'o4-mini', label: 'o4 Mini (reasoning)', provider: 'openai' },
   { id: 'gpt-4.1', label: 'GPT-4.1', provider: 'openai' },
   { id: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', provider: 'openai' },
-  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'gemini' },
+  { id: 'gpt-4.1-nano', label: 'GPT-4.1 Nano', provider: 'openai' },
+  { id: 'gpt-4o', label: 'GPT-4o', provider: 'openai' },
+  { id: 'gpt-4o-mini', label: 'GPT-4o Mini', provider: 'openai' },
+  // Google Gemini
   { id: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'gemini' },
+  { id: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'gemini' },
+  { id: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash', provider: 'gemini' },
+  // Anthropic
+  { id: 'claude-opus-4-20250514', label: 'Claude Opus 4', provider: 'anthropic' },
+  { id: 'claude-sonnet-4-20250514', label: 'Claude Sonnet 4', provider: 'anthropic' },
   { id: 'claude-sonnet-4-5-20250929', label: 'Claude Sonnet 4.5', provider: 'anthropic' },
   { id: 'claude-haiku-3-5-20241022', label: 'Claude Haiku 3.5', provider: 'anthropic' },
+  // Mistral
+  { id: 'mistral-large-latest', label: 'Mistral Large', provider: 'mistral' },
+  { id: 'mistral-medium-latest', label: 'Mistral Medium', provider: 'mistral' },
+  { id: 'mistral-small-latest', label: 'Mistral Small', provider: 'mistral' },
+  { id: 'codestral-latest', label: 'Codestral', provider: 'mistral' },
+  { id: 'open-mistral-nemo', label: 'Mistral Nemo', provider: 'mistral' },
 ];
 
 interface LLMStore {
@@ -34,8 +50,8 @@ export const useLLMStore = create<LLMStore>()(
   persist(
     (set, get) => ({
       provider: 'openai',
-      modelId: 'gpt-4o-mini',
-      apiKeys: { openai: '', gemini: '', anthropic: '' },
+      modelId: 'gpt-4.1',
+      apiKeys: { openai: '', gemini: '', anthropic: '', mistral: '' },
       setProvider: (provider) => {
         const firstModel = AVAILABLE_MODELS.find((m) => m.provider === provider);
         set({ provider, modelId: firstModel?.id || '' });
