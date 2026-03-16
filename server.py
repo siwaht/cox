@@ -133,7 +133,7 @@ def mount_agent():
                 continue
             if stripped.startswith("app.add_middleware("):
                 continue
-            if stripped.startswith("add_langgraph_fastapi_endpoint("):
+            if stripped.startswith("add_langgraph_fastapi_endpoint(") or stripped.startswith("add_fastapi_endpoint("):
                 continue
             if stripped.startswith('@app.get("/health')  or stripped.startswith('@app.get("/copilotkit'):
                 continue
@@ -157,12 +157,21 @@ def mount_agent():
             print("  Export one of those and restart.")
             return
 
-        from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
-        add_langgraph_fastapi_endpoint(app, agent_obj, "/copilotkit")
+        from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint
+        from copilotkit.integrations.fastapi import add_fastapi_endpoint
+
+        # Wrap in LangGraphAGUIAgent if it's a raw compiled graph
+        if isinstance(agent_obj, LangGraphAGUIAgent):
+            ck_agent = agent_obj
+        else:
+            ck_agent = LangGraphAGUIAgent(name="agent", graph=agent_obj)
+
+        sdk = CopilotKitRemoteEndpoint(agents=[ck_agent])
+        add_fastapi_endpoint(app, sdk, "/copilotkit")
         print("✓ Mounted agent at /copilotkit")
 
-    except ImportError:
-        print("⚠ copilotkit package not installed. Run: pip install copilotkit")
+    except ImportError as e:
+        print(f"⚠ copilotkit package issue: {e}. Run: pip install copilotkit")
     except Exception as e:
         print(f"⚠ Could not load agent.py: {e}")
         print("  The frontend will still work, but /copilotkit won't be available.")
@@ -172,21 +181,23 @@ mount_agent()
 
 # ─── Fallback /copilotkit if no agent was mounted ───
 _copilotkit_mounted = any(
-    getattr(r, 'path', '') == '/copilotkit' or
-    (hasattr(r, 'path') and str(r.path).startswith('/copilotkit'))
+    hasattr(r, 'path') and '/copilotkit' in str(r.path)
     for r in app.routes
 )
 
 if not _copilotkit_mounted:
-    @app.api_route("/copilotkit", methods=["GET", "POST"])
-    async def copilotkit_fallback(request: Request):
-        return JSONResponse(
-            {
-                "error": "No agent loaded. Create an agent.py that exports a `graph` or `agent` object.",
-                "hint": "Use the Code tab to generate and deploy agent code.",
-            },
-            status_code=503,
-        )
+    _fallback_body = {
+        "error": "No agent loaded. Create an agent.py that exports a `graph` or `agent` object.",
+        "hint": "Use the Code tab to generate and deploy agent code.",
+    }
+
+    @app.api_route("/copilotkit", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+    async def copilotkit_fallback_root(request: Request):
+        return JSONResponse(_fallback_body, status_code=503)
+
+    @app.api_route("/copilotkit/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
+    async def copilotkit_fallback(request: Request, path: str = ""):
+        return JSONResponse(_fallback_body, status_code=503)
 
 
 # ─── Serve the built frontend ───
