@@ -3,11 +3,16 @@ import {
   Code2, Copy, Check, Wand2, AlertTriangle, ChevronDown,
   Rocket, Loader2, Terminal, Plug, ExternalLink, RotateCcw,
   Key, Plus, X, Monitor, Cloud, Trash2, CheckCircle2, XCircle, Download,
+  Settings, Brain, Sparkles, Eye, EyeOff,
 } from 'lucide-react';
 import { useDeployStore } from '@/store/deploy-store';
 import { useConnectionStore } from '@/store/connection-store';
 import { useWorkspaceStore } from '@/store/workspace-store';
+import { useLLMStore, AVAILABLE_MODELS } from '@/store/llm-store';
+import type { LLMProvider } from '@/store/llm-store';
 import { validateForDeploy, createDeployConfig } from '@/adapters/sandbox-deployer';
+import { llmTransformCode } from '@/adapters/llm-transformer';
+import type { LLMTransformResult } from '@/adapters/llm-transformer';
 import { getBlockDefinition } from '@/registry/block-registry';
 import type { RuntimeCapability, BlockConfig } from '@/types/blocks';
 
@@ -20,6 +25,7 @@ interface TransformResult {
   warnings: string[];
   deps: string[];
   runCommand: string;
+  explanation?: string;
 }
 
 // ─── Placeholder ───
@@ -29,80 +35,32 @@ const PLACEHOLDER = `# Paste your agent code here
 # Example:
 #   from langchain.agents import create_agent
 #   agent = create_agent(model="openai:gpt-4o", tools=[...])
-#   app = FastAPI()
-#   ...
 #
-# The transformer will add:
-#   - CopilotKit endpoint (/copilotkit)
-#   - Health check (/health)
-#   - CORS middleware
-#   - Proper uvicorn entrypoint
+# An AI model will:
+#   - Analyze your code and detect the framework
+#   - Add CopilotKit integration with correct imports
+#   - Fix deprecated APIs automatically
+#   - Generate a complete, runnable agent_server.py
 #
-# Your original logic stays intact.`;
+# Configure your AI model in the ⚙ settings panel.`;
 
-// ─── Runtime detection ───
-function detectRuntime(code: string, override: RuntimeType | 'auto'): RuntimeType {
-  if (override !== 'auto') return override;
-  // LangGraph: explicit langgraph imports or StateGraph usage (but not deprecated create_react_agent)
-  if (/from\s+langgraph(?!\.prebuilt\s+import\s+create_react_agent)|StateGraph|CompiledGraph/.test(code)) return 'langgraph';
-  if (/from\s+deepagents|DeepAgent/.test(code)) return 'deepagents';
-  return 'langchain';
-}
-
-// ─── Capability detection from pasted code ───
-function detectCodeCapabilities(code: string, runtime: RuntimeType): Set<RuntimeCapability> {
+// ─── Capability detection (kept for block compatibility) ───
+function detectCodeCapabilities(code: string, runtime: string): Set<RuntimeCapability> {
   const caps = new Set<RuntimeCapability>();
-
-  // Chat & streaming — CopilotKit always provides these via the SDK
-  if (/CopilotKit|copilotkit|useCopilotChat|appendMessage/.test(code)) {
-    caps.add('chat');
-    caps.add('streaming');
-  }
-  // LangGraph / LangChain agents inherently support chat + streaming
   if (runtime === 'langgraph' || runtime === 'langchain') {
     caps.add('chat');
     caps.add('streaming');
   }
-
-  // Tool calls
-  if (/tools\s*=\s*\[|@tool|Tool\(|StructuredTool|BaseTool|bind_tools|\.tools/.test(code)) {
-    caps.add('toolCalls');
-    caps.add('toolResults');
+  if (/CopilotKit|copilotkit/.test(code)) { caps.add('chat'); caps.add('streaming'); }
+  if (/tools\s*=\s*\[|@tool|Tool\(|StructuredTool|BaseTool|bind_tools/.test(code)) {
+    caps.add('toolCalls'); caps.add('toolResults');
   }
-
-  // Approvals / human-in-the-loop
-  if (/interrupt_before|interrupt_after|human_in_the_loop|HumanApproval|approval|ask_human/.test(code)) {
-    caps.add('approvals');
-  }
-
-  // Structured output
-  if (/BaseModel|TypedDict|Pydantic|structured_output|json_schema|\.parse|response_format/.test(code)) {
-    caps.add('structuredOutput');
-  }
-
-  // Logs
-  if (/logging|logger|getLogger|print\(|console\.log|verbose\s*=\s*True/.test(code)) {
-    caps.add('logs');
-  }
-
-  // Progress / status
-  if (/progress|status|callback|on_chain_start|on_chain_end|StreamEvent/.test(code)) {
-    caps.add('progress');
-  }
-
-  // Intermediate state (LangGraph state)
-  if (/StateGraph|state_schema|AgentState|MessagesState/.test(code)) {
-    caps.add('intermediateState');
-  }
-
-  // Subagents
-  if (/create_agent|AgentExecutor|multi.?agent|supervisor|crew/i.test(code)) {
-    caps.add('subagents');
-  }
-
-  // Form — always compatible (no runtime requirement)
-  // Panel, Markdown — always compatible (no runtime requirement)
-
+  if (/interrupt_before|interrupt_after|human_in_the_loop|approval|ask_human/.test(code)) caps.add('approvals');
+  if (/BaseModel|TypedDict|Pydantic|structured_output|json_schema|response_format/.test(code)) caps.add('structuredOutput');
+  if (/logging|logger|getLogger|print\(|verbose\s*=\s*True/.test(code)) caps.add('logs');
+  if (/progress|status|callback|on_chain_start|on_chain_end|StreamEvent/.test(code)) caps.add('progress');
+  if (/StateGraph|state_schema|AgentState|MessagesState/.test(code)) caps.add('intermediateState');
+  if (/create_agent|AgentExecutor|multi.?agent|supervisor|crew/i.test(code)) caps.add('subagents');
   return caps;
 }
 
@@ -119,204 +77,10 @@ function checkBlockCompatibility(
   return blocks.map((block) => {
     const def = getBlockDefinition(block.type);
     const required = def?.requiredCapabilities ?? [];
-    // Blocks with no required capabilities are always compatible
-    if (required.length === 0) {
-      return { block, compatible: true, missingCapabilities: [] };
-    }
+    if (required.length === 0) return { block, compatible: true, missingCapabilities: [] };
     const missing = required.filter((cap) => !codeCapabilities.has(cap));
     return { block, compatible: missing.length === 0, missingCapabilities: missing };
   });
-}
-
-// ─── Code transformer ───
-function transformCode(input: string, runtime: RuntimeType): TransformResult {
-  const warnings: string[] = [];
-  let code = input.trim();
-  const lines = code.split('\n');
-
-  // Collect existing imports
-  const hasImport = (mod: string) => code.includes(mod);
-  const hasFastAPI = hasImport('FastAPI');
-  const hasCORS = hasImport('CORSMiddleware');
-  const hasCopilotKit = hasImport('add_fastapi_endpoint') || hasImport('CopilotKitSDK');
-  const hasHealth = /def\s+health/.test(code);
-  const hasUvicorn = hasImport('uvicorn');
-  const hasDotenv = hasImport('dotenv') || hasImport('load_dotenv');
-
-  // Build new imports block
-  const newImports: string[] = [];
-  if (!hasDotenv) newImports.push('from dotenv import load_dotenv');
-  if (!hasFastAPI) newImports.push('from fastapi import FastAPI');
-  if (!hasCORS) newImports.push('from fastapi.middleware.cors import CORSMiddleware');
-  if (!hasCopilotKit) {
-    newImports.push('from copilotkit.integrations.fastapi import add_fastapi_endpoint');
-    newImports.push('from copilotkit import CopilotKitSDK, LangGraphAgent');
-  }
-  if (!hasUvicorn) newImports.push('import uvicorn');
-
-  // Find where imports end
-  let lastImportIdx = -1;
-  for (let i = 0; i < lines.length; i++) {
-    const l = lines[i].trim();
-    if (l.startsWith('import ') || l.startsWith('from ') || l === '' || l.startsWith('#')) {
-      lastImportIdx = i;
-    } else break;
-  }
-
-  // Insert new imports after existing ones
-  if (newImports.length > 0) {
-    const insertAt = lastImportIdx + 1;
-    lines.splice(insertAt, 0, '', '# --- Added by CopilotKit Transformer ---', ...newImports, '');
-  }
-
-  // Ensure load_dotenv() call exists (check against the updated lines to avoid duplicates)
-  const alreadyHasCall = lines.some(l => l.trim() === 'load_dotenv()');
-  if (!alreadyHasCall) {
-    // Insert after the last dotenv-related import line
-    const dotenvImportIdx = (() => {
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].includes('from dotenv') || lines[i].includes('import dotenv')) return i;
-      }
-      return -1;
-    })();
-    if (dotenvImportIdx >= 0) {
-      lines.splice(dotenvImportIdx + 1, 0, 'load_dotenv()');
-    } else {
-      // No dotenv import found — insert after the imports block
-      const firstCodeIdx = lines.findIndex(l => {
-        const t = l.trim();
-        return t !== '' && !t.startsWith('#') && !t.startsWith('import') && !t.startsWith('from');
-      });
-      if (firstCodeIdx >= 0) {
-        lines.splice(firstCodeIdx, 0, 'load_dotenv()', '');
-      }
-    }
-  }
-
-  code = lines.join('\n');
-
-  // --- Deduplicate import lines ---
-  const seenImports = new Set<string>();
-  code = code.split('\n').filter(line => {
-    const trimmed = line.trim();
-    if (trimmed.startsWith('from ') || trimmed.startsWith('import ')) {
-      if (seenImports.has(trimmed)) return false;
-      seenImports.add(trimmed);
-    }
-    return true;
-  }).join('\n');
-
-  // --- Migrate deprecated imports ---
-  // Replace old langgraph.prebuilt.create_react_agent with langchain.agents.create_agent
-  code = code.replace(
-    /from\s+langgraph\.prebuilt\s+import\s+create_react_agent/g,
-    'from langchain.agents import create_agent',
-  );
-  // Replace call sites: create_react_agent(...) → create_agent(...)
-  code = code.replace(/\bcreate_react_agent\s*\(/g, 'create_agent(');
-
-  if (input.includes('create_react_agent')) {
-    warnings.push('Migrated deprecated create_react_agent (langgraph.prebuilt) → create_agent (langchain.agents)');
-  }
-
-  // --- Fix undefined model variable ---
-  // Detect create_agent(model, ...) where 'model' is used but never defined
-  const hasModelVar = /^\s*model\s*=\s*/m.test(code) ||
-    /init_chat_model|ChatOpenAI|ChatAnthropic|ChatModel/.test(code);
-  const usesModelInCreate = /create_agent\s*\(\s*model\s*[,)]/.test(code);
-
-  if (usesModelInCreate && !hasModelVar) {
-    // Replace bare `model` arg with a string model identifier
-    code = code.replace(
-      /create_agent\s*\(\s*model\s*,/g,
-      'create_agent(\n    model="openai:gpt-4o-mini",',
-    );
-    warnings.push('Replaced undefined "model" variable with "openai:gpt-4o-mini" — change this to your preferred model');
-  }
-
-  // Ensure FastAPI app exists
-  if (!hasFastAPI && !code.includes('app = FastAPI')) {
-    code += '\n\napp = FastAPI(title="Agent Server")\n';
-  }
-
-  // Add CORS
-  if (!hasCORS) {
-    const appIdx = code.indexOf('app = FastAPI');
-    if (appIdx >= 0) {
-      const afterApp = code.indexOf('\n', appIdx);
-      const corsBlock = `
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)`;
-      code = code.slice(0, afterApp + 1) + corsBlock + code.slice(afterApp + 1);
-    }
-  }
-
-  // Add CopilotKit endpoint
-  if (!hasCopilotKit) {
-    let agentVar = 'agent';
-    const agentMatch = code.match(/(\w+)\s*=\s*(?:create_agent|create_react_agent|StateGraph|CompiledGraph|DeepAgent)/);
-    if (agentMatch) agentVar = agentMatch[1];
-
-    const sdkBlock = `
-# --- CopilotKit Integration ---
-sdk = CopilotKitSDK(
-    agents=[
-        LangGraphAgent(
-            name="agent",
-            description="AI Agent",
-            agent=${agentVar},
-        ),
-    ],
-)
-
-add_fastapi_endpoint(app, sdk, "/copilotkit")
-`;
-    code += '\n' + sdkBlock;
-  }
-
-  // Add health endpoint
-  if (!hasHealth) {
-    code += `
-@app.get("/health")
-async def health():
-    return {"status": "ok"}
-`;
-  }
-
-  // Add uvicorn entrypoint
-  if (!hasUvicorn || !code.includes('uvicorn.run')) {
-    code += `
-if __name__ == "__main__":
-    uvicorn.run("agent_server:app", host="0.0.0.0", port=8000, reload=True)
-`;
-  }
-
-  // Warnings
-  if (!code.includes('OPENAI_API_KEY') && !code.includes('ANTHROPIC_API_KEY') && !hasDotenv) {
-    warnings.push('No API key references found — make sure your .env has the right keys');
-  }
-
-  // Deps
-  const deps = ['fastapi', 'uvicorn[standard]', 'copilotkit', 'python-dotenv'];
-  if (runtime === 'langchain' || runtime === 'langgraph') {
-    deps.push('langchain', 'langchain-openai');
-    // Only add langgraph if code uses LangGraph-specific features (StateGraph, etc.)
-    if (/StateGraph|CompiledGraph|langgraph\.graph/.test(code)) deps.push('langgraph');
-  }
-  if (runtime === 'deepagents') deps.push('deepagents');
-
-  return {
-    code: code.trim() + '\n',
-    runtime,
-    warnings,
-    deps: [...new Set(deps)],
-    runCommand: 'uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload',
-  };
 }
 
 // ─── Main Component ───
@@ -324,35 +88,53 @@ export const CodeTransformerView: React.FC = () => {
   const [input, setInput] = useState('');
   const [result, setResult] = useState<TransformResult | null>(null);
   const [copied, setCopied] = useState(false);
-  const [runtimeOverride, setRuntimeOverride] = useState<RuntimeType | 'auto'>('auto');
   const [deployPath, setDeployPath] = useState<DeployPath>('choose');
   const [selfHostUrl, setSelfHostUrl] = useState('http://localhost:8000');
+  const [isTransforming, setIsTransforming] = useState(false);
+  const [transformError, setTransformError] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
 
   const deploy = useDeployStore();
   const { addConnection, setActive, validate } = useConnectionStore();
   const { workspace, removeBlock, setMode } = useWorkspaceStore();
+  const llm = useLLMStore();
 
-  // Compute block compatibility whenever result or workspace blocks change
+  const hasApiKey = !!llm.getActiveKey();
+
   const blockCompatibility = useMemo(() => {
     if (!result || !input.trim()) return null;
-    const runtime = detectRuntime(input, runtimeOverride);
-    const caps = detectCodeCapabilities(input, runtime);
+    const caps = detectCodeCapabilities(result.code, result.runtime);
     return checkBlockCompatibility(workspace.blocks, caps);
-  }, [result, input, runtimeOverride, workspace.blocks]);
+  }, [result, input, workspace.blocks]);
 
-  const incompatibleBlocks = useMemo(
-    () => blockCompatibility?.filter((b) => !b.compatible) ?? [],
-    [blockCompatibility],
-  );
-
-  const handleTransform = useCallback(() => {
+  const handleTransform = useCallback(async () => {
     if (!input.trim()) return;
-    const detected = detectRuntime(input, runtimeOverride);
-    const transformed = transformCode(input, detected);
-    setResult(transformed);
-    setDeployPath('choose');
-    deploy.reset();
-  }, [input, runtimeOverride, deploy]);
+    if (!hasApiKey) { setShowSettings(true); return; }
+
+    setIsTransforming(true);
+    setTransformError(null);
+    setResult(null);
+
+    try {
+      const llmResult: LLMTransformResult = await llmTransformCode(
+        input, llm.provider, llm.modelId, llm.getActiveKey(),
+      );
+      setResult({
+        code: llmResult.code,
+        runtime: llmResult.runtime as RuntimeType,
+        warnings: llmResult.warnings,
+        deps: llmResult.deps,
+        runCommand: llmResult.runCommand,
+        explanation: llmResult.explanation,
+      });
+      setDeployPath('choose');
+      deploy.reset();
+    } catch (err: unknown) {
+      setTransformError(err instanceof Error ? err.message : 'Transform failed');
+    } finally {
+      setIsTransforming(false);
+    }
+  }, [input, llm, hasApiKey, deploy]);
 
   const handleCopy = useCallback(() => {
     if (!result) return;
@@ -366,9 +148,7 @@ export const CodeTransformerView: React.FC = () => {
     const blob = new Blob([result.code], { type: 'text/x-python' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'agent_server.py';
-    a.click();
+    a.href = url; a.download = 'agent_server.py'; a.click();
     URL.revokeObjectURL(url);
   }, [result]);
 
@@ -387,57 +167,66 @@ export const CodeTransformerView: React.FC = () => {
     const id = addConnection({
       name: deployPath === 'sandbox' ? 'Sandbox Agent' : 'My Agent',
       runtime: (result?.runtime as RuntimeType) || 'langchain',
-      baseUrl: url.replace(/\/+$/, ''),
-      agentId: '',
+      baseUrl: url.replace(/\/+$/, ''), agentId: '',
       auth: { mode: 'none' },
     });
     setActive(id);
     validate(id).then(() => setMode('published'));
   }, [addConnection, setActive, validate, setMode, result, deployPath]);
 
+  const modelLabel = AVAILABLE_MODELS.find((m) => m.id === llm.modelId)?.label || llm.modelId;
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-raised">
         <div className="flex items-center gap-2">
-          <Code2 size={16} className="text-accent" />
-          <span className="text-sm font-semibold text-txt-primary">Agent Code Transformer</span>
+          <Brain size={16} className="text-accent" />
+          <span className="text-sm font-semibold text-txt-primary">AI Code Transformer</span>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-2xs text-txt-muted">Runtime:</label>
-          <select value={runtimeOverride}
-            onChange={(e) => setRuntimeOverride(e.target.value as RuntimeType | 'auto')}
-            className="ck-input text-xs py-1 px-2 w-32">
-            <option value="auto">Auto-detect</option>
-            <option value="langchain">LangChain</option>
-            <option value="langgraph">LangGraph</option>
-            <option value="deepagents">Deep Agents</option>
-          </select>
+          <div className="flex items-center gap-1.5 text-2xs text-txt-muted">
+            <Sparkles size={10} className="text-accent" />
+            <span>{modelLabel}</span>
+          </div>
+          <button onClick={() => setShowSettings(!showSettings)}
+            className={`p-1.5 rounded-md transition-all ${showSettings ? 'bg-accent text-white' : 'text-txt-muted hover:text-accent hover:bg-accent-soft'}`}>
+            <Settings size={14} />
+          </button>
         </div>
       </div>
+
+      {/* Settings Panel */}
+      {showSettings && <LLMSettingsPanel onClose={() => setShowSettings(false)} />}
 
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Input */}
         <div className="flex-1 flex flex-col border-r border-border min-w-0">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface">
             <span className="text-2xs font-medium text-txt-secondary">Your Agent Code</span>
-            <span className="text-2xs text-txt-ghost">Paste your agent code — it will be preserved</span>
+            <span className="text-2xs text-txt-ghost">Paste your agent code</span>
           </div>
           <textarea value={input} onChange={(e) => setInput(e.target.value)}
             placeholder={PLACEHOLDER} spellCheck={false}
             className="flex-1 w-full p-4 bg-surface text-txt-primary text-xs font-mono
                        resize-none outline-none placeholder:text-txt-ghost/50 leading-relaxed" />
-          <div className="px-3 py-2 border-t border-border bg-surface-raised">
-            <button onClick={handleTransform} disabled={!input.trim()}
+          <div className="px-3 py-2 border-t border-border bg-surface-raised flex items-center gap-2">
+            <button onClick={handleTransform} disabled={!input.trim() || isTransforming}
               className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg
                          bg-accent hover:bg-accent-hover text-white transition-colors
                          disabled:opacity-40 disabled:cursor-not-allowed">
-              <Wand2 size={13} /> Add CopilotKit Compatibility
+              {isTransforming ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
+              {isTransforming ? 'Transforming...' : 'Add CopilotKit Compatibility'}
             </button>
+            {!hasApiKey && (
+              <span className="text-2xs text-warning flex items-center gap-1">
+                <Key size={10} /> Add an API key in settings
+              </span>
+            )}
           </div>
         </div>
 
-        {/* Right: Output + deploy options */}
+        {/* Right: Output */}
         <div className="flex-1 flex flex-col min-w-0">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface">
             <div className="flex items-center gap-2">
@@ -465,8 +254,37 @@ export const CodeTransformerView: React.FC = () => {
             )}
           </div>
 
-          {result ? (
+          {isTransforming ? (
+            <div className="flex-1 flex items-center justify-center text-txt-ghost">
+              <div className="text-center space-y-3">
+                <Loader2 size={32} className="mx-auto animate-spin text-accent" />
+                <p className="text-xs text-txt-secondary">AI is analyzing your code...</p>
+                <p className="text-2xs text-txt-faint">Checking latest CopilotKit, LangChain & LangGraph APIs</p>
+              </div>
+            </div>
+          ) : transformError ? (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="text-center space-y-3 max-w-md">
+                <AlertTriangle size={28} className="mx-auto text-danger" />
+                <p className="text-xs text-danger">{transformError}</p>
+                <button onClick={() => setTransformError(null)}
+                  className="flex items-center gap-1.5 mx-auto text-2xs text-txt-muted hover:text-accent transition-colors">
+                  <RotateCcw size={10} /> Try again
+                </button>
+              </div>
+            </div>
+          ) : result ? (
             <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Explanation */}
+              {result.explanation && (
+                <div className="px-3 py-2 bg-accent-soft/30 border-b border-accent/10">
+                  <div className="flex items-start gap-1.5 text-2xs text-accent">
+                    <Sparkles size={10} className="mt-0.5 shrink-0" />
+                    <span>{result.explanation}</span>
+                  </div>
+                </div>
+              )}
+
               {result.warnings.length > 0 && (
                 <div className="px-3 py-2 bg-warning/10 border-b border-warning/20">
                   {result.warnings.map((w, i) => (
@@ -477,19 +295,14 @@ export const CodeTransformerView: React.FC = () => {
                 </div>
               )}
 
-              {/* Block compatibility panel */}
               {blockCompatibility && blockCompatibility.length > 0 && (
-                <BlockCompatibilityPanel
-                  compatibility={blockCompatibility}
-                  onRemoveBlock={removeBlock}
-                />
+                <BlockCompatibilityPanel compatibility={blockCompatibility} onRemoveBlock={removeBlock} />
               )}
 
               <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-txt-primary leading-relaxed bg-surface min-h-0">
                 {result.code}
               </pre>
 
-              {/* Deploy path chooser */}
               <div className="border-t border-border bg-surface-raised overflow-y-auto max-h-[55%]">
                 {deployPath === 'choose' && <PathChooser onChoose={setDeployPath} />}
                 {deployPath === 'sandbox' && (
@@ -506,13 +319,93 @@ export const CodeTransformerView: React.FC = () => {
           ) : (
             <div className="flex-1 flex items-center justify-center text-txt-ghost">
               <div className="text-center space-y-2">
-                <Code2 size={32} className="mx-auto opacity-30" />
-                <p className="text-xs">Updated code will appear here</p>
-                <p className="text-2xs">Your code is preserved — only missing pieces are added</p>
+                <Brain size={32} className="mx-auto opacity-30" />
+                <p className="text-xs">AI-generated code will appear here</p>
+                <p className="text-2xs">Uses {modelLabel} to produce correct, up-to-date code</p>
               </div>
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+};
+
+
+// ─── LLM Settings Panel ───
+const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { provider, modelId, apiKeys, setProvider, setModelId, setApiKey } = useLLMStore();
+  const [showKey, setShowKey] = useState(false);
+
+  const modelsForProvider = AVAILABLE_MODELS.filter((m) => m.provider === provider);
+  const currentKey = apiKeys[provider] || '';
+
+  const providerInfo: Record<LLMProvider, { label: string; placeholder: string; hint: string }> = {
+    openai: { label: 'OpenAI', placeholder: 'sk-...', hint: 'platform.openai.com → API Keys' },
+    gemini: { label: 'Google Gemini', placeholder: 'AI...', hint: 'aistudio.google.com → API Keys' },
+    anthropic: { label: 'Anthropic', placeholder: 'sk-ant-...', hint: 'console.anthropic.com → API Keys' },
+  };
+
+  const info = providerInfo[provider];
+
+  return (
+    <div className="border-b border-border bg-surface-raised px-4 py-3 space-y-3 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Settings size={13} className="text-accent" />
+          <span className="text-xs font-medium text-txt-primary">AI Model Settings</span>
+        </div>
+        <button onClick={onClose} className="text-txt-faint hover:text-txt-secondary transition-colors">
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        {/* Provider */}
+        <div className="space-y-1">
+          <label className="text-2xs text-txt-secondary font-medium">Provider</label>
+          <select value={provider} onChange={(e) => setProvider(e.target.value as LLMProvider)}
+            className="ck-input text-xs py-1.5 w-full">
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="anthropic">Anthropic</option>
+          </select>
+        </div>
+
+        {/* Model */}
+        <div className="space-y-1">
+          <label className="text-2xs text-txt-secondary font-medium">Model</label>
+          <select value={modelId} onChange={(e) => setModelId(e.target.value)}
+            className="ck-input text-xs py-1.5 w-full">
+            {modelsForProvider.map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* API Key */}
+        <div className="space-y-1">
+          <label className="text-2xs text-txt-secondary font-medium">{info.label} API Key</label>
+          <div className="flex gap-1">
+            <input
+              type={showKey ? 'text' : 'password'}
+              value={currentKey}
+              onChange={(e) => setApiKey(provider, e.target.value)}
+              placeholder={info.placeholder}
+              className="ck-input text-xs font-mono py-1.5 flex-1"
+            />
+            <button onClick={() => setShowKey(!showKey)}
+              className="p-1.5 text-txt-faint hover:text-txt-secondary transition-colors" title="Toggle visibility">
+              {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
+            </button>
+          </div>
+          <p className="text-2xs text-txt-ghost">{info.hint}</p>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 text-2xs text-txt-ghost">
+        <Key size={9} />
+        <span>Keys are stored locally in your browser. Never sent anywhere except the provider's API.</span>
       </div>
     </div>
   );
@@ -529,10 +422,8 @@ const BlockCompatibilityPanel: React.FC<{
 
   return (
     <div className="border-b border-border bg-surface-raised">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center justify-between w-full px-3 py-2 text-2xs font-medium text-txt-secondary hover:text-txt-primary transition-colors"
-      >
+      <button onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full px-3 py-2 text-2xs font-medium text-txt-secondary hover:text-txt-primary transition-colors">
         <div className="flex items-center gap-2">
           <span>Block Compatibility</span>
           {incompatible.length > 0 ? (
@@ -547,7 +438,6 @@ const BlockCompatibilityPanel: React.FC<{
         </div>
         <ChevronDown size={10} className={`transition-transform ${expanded ? 'rotate-180' : ''}`} />
       </button>
-
       {expanded && (
         <div className="px-3 pb-2.5 space-y-1 animate-fade-in">
           {incompatible.map(({ block, missingCapabilities }) => (
@@ -558,15 +448,9 @@ const BlockCompatibilityPanel: React.FC<{
                 <span className="text-2xs text-txt-faint">({block.type})</span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className="text-2xs text-danger/80" title={`Missing: ${missingCapabilities.join(', ')}`}>
-                  needs {missingCapabilities.join(', ')}
-                </span>
-                <button
-                  onClick={() => onRemoveBlock(block.id)}
-                  className="flex items-center gap-1 px-1.5 py-0.5 text-2xs rounded
-                             text-danger/70 hover:text-white hover:bg-danger transition-colors"
-                  title={`Remove ${block.label}`}
-                >
+                <span className="text-2xs text-danger/80">needs {missingCapabilities.join(', ')}</span>
+                <button onClick={() => onRemoveBlock(block.id)}
+                  className="flex items-center gap-1 px-1.5 py-0.5 text-2xs rounded text-danger/70 hover:text-white hover:bg-danger transition-colors">
                   <Trash2 size={10} /> Remove
                 </button>
               </div>
@@ -595,7 +479,7 @@ const PathChooser: React.FC<{ onChoose: (p: DeployPath) => void }> = ({ onChoose
                    hover:border-accent/50 hover:bg-accent-soft transition-all text-left">
         <Cloud size={18} className="text-accent" />
         <span className="text-xs font-medium text-txt-primary">Deploy to Cloud</span>
-        <span className="text-2xs text-txt-faint text-center">Run in a Daytona sandbox. Auto-connects to this frontend.</span>
+        <span className="text-2xs text-txt-faint text-center">Run in a Daytona sandbox. Auto-connects.</span>
       </button>
       <button onClick={() => onChoose('selfhost')}
         className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border
@@ -607,6 +491,7 @@ const PathChooser: React.FC<{ onChoose: (p: DeployPath) => void }> = ({ onChoose
     </div>
   </div>
 );
+
 
 // ─── Self-Host Panel ───
 const SelfHostPanel: React.FC<{
@@ -673,12 +558,9 @@ const SelfHostPanel: React.FC<{
             <div>
               <p>Install dependencies:</p>
               <div className="flex items-center gap-1 mt-0.5">
-                <code className="flex-1 text-accent font-mono bg-surface px-2 py-1 rounded">
-                  {pipCmd}
-                </code>
+                <code className="flex-1 text-accent font-mono bg-surface px-2 py-1 rounded">{pipCmd}</code>
                 <button onClick={() => copySnippet(pipCmd, 'pip')}
-                  className="shrink-0 p-1 rounded hover:bg-accent-soft text-txt-muted hover:text-accent transition-all"
-                  title="Copy command">
+                  className="shrink-0 p-1 rounded hover:bg-accent-soft text-txt-muted hover:text-accent transition-all" title="Copy">
                   {copiedSnippet === 'pip' ? <Check size={12} className="text-success" /> : <Copy size={12} />}
                 </button>
               </div>
@@ -693,12 +575,9 @@ const SelfHostPanel: React.FC<{
             <div>
               <p>Run the server:</p>
               <div className="flex items-center gap-1 mt-0.5">
-                <code className="flex-1 text-accent font-mono bg-surface px-2 py-1 rounded">
-                  {runCmd}
-                </code>
+                <code className="flex-1 text-accent font-mono bg-surface px-2 py-1 rounded">{runCmd}</code>
                 <button onClick={() => copySnippet(runCmd, 'run')}
-                  className="shrink-0 p-1 rounded hover:bg-accent-soft text-txt-muted hover:text-accent transition-all"
-                  title="Copy command">
+                  className="shrink-0 p-1 rounded hover:bg-accent-soft text-txt-muted hover:text-accent transition-all" title="Copy">
                   {copiedSnippet === 'run' ? <Check size={12} className="text-success" /> : <Copy size={12} />}
                 </button>
               </div>
@@ -754,8 +633,7 @@ const SandboxPanel: React.FC<{
   const addCustomVar = () => {
     if (newEnvKey.trim() && newEnvVal.trim()) {
       setCustomEnvVar(newEnvKey.trim(), newEnvVal.trim());
-      setNewEnvKey('');
-      setNewEnvVal('');
+      setNewEnvKey(''); setNewEnvVal('');
     }
   };
 
@@ -766,29 +644,23 @@ const SandboxPanel: React.FC<{
           <Cloud size={13} className="text-accent" />
           <span className="text-xs font-medium text-txt-primary">Deploy to Cloud Sandbox</span>
         </div>
-        <button onClick={onBack} className="text-2xs text-txt-faint hover:text-txt-secondary transition-colors">
-          ← Back
-        </button>
+        <button onClick={onBack} className="text-2xs text-txt-faint hover:text-txt-secondary transition-colors">← Back</button>
       </div>
 
-      {/* API Keys */}
       <div className="space-y-2">
         <button onClick={() => setShowKeys(!showKeys)}
           className="flex items-center gap-1.5 text-2xs font-medium text-txt-secondary hover:text-txt-primary transition-colors">
-          <Key size={10} className="text-accent" />
-          API Keys
+          <Key size={10} className="text-accent" /> API Keys
           <ChevronDown size={10} className={`transition-transform ${showKeys ? 'rotate-180' : ''}`} />
         </button>
-
         {showKeys && (
           <div className="space-y-2 animate-fade-in">
-            <KeyInput label="Daytona API Key" value={daytonaApiKey} onChange={setDaytonaApiKey}
+            <SandboxKeyInput label="Daytona API Key" value={daytonaApiKey} onChange={setDaytonaApiKey}
               placeholder="daytona_..." hint="Required — app.daytona.io → Settings → API Keys" required />
-            <KeyInput label="OPENAI_API_KEY" value={openaiApiKey} onChange={setOpenaiApiKey}
+            <SandboxKeyInput label="OPENAI_API_KEY" value={openaiApiKey} onChange={setOpenaiApiKey}
               placeholder="sk-..." hint="For OpenAI-based agents" />
-            <KeyInput label="ANTHROPIC_API_KEY" value={anthropicApiKey} onChange={setAnthropicApiKey}
+            <SandboxKeyInput label="ANTHROPIC_API_KEY" value={anthropicApiKey} onChange={setAnthropicApiKey}
               placeholder="sk-ant-..." hint="For Claude-based agents" />
-
             {Object.entries(customEnvVars).map(([k, v]) => (
               <div key={k} className="flex items-center gap-1.5">
                 <code className="text-2xs font-mono text-txt-secondary bg-surface px-2 py-1 rounded min-w-[100px]">{k}</code>
@@ -809,7 +681,6 @@ const SandboxPanel: React.FC<{
         )}
       </div>
 
-      {/* Deploy button / status */}
       {!isLive && !isDeploying && (
         <button onClick={onDeploy} disabled={!daytonaApiKey}
           className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg w-full justify-center
@@ -822,14 +693,12 @@ const SandboxPanel: React.FC<{
       {isDeploying && (
         <div className="space-y-2">
           <div className="flex items-center gap-2 text-xs text-accent">
-            <Loader2 size={13} className="animate-spin" />
-            <span className="capitalize">{status}...</span>
+            <Loader2 size={13} className="animate-spin" /><span className="capitalize">{status}...</span>
           </div>
           <div className="max-h-32 overflow-y-auto bg-surface rounded-lg p-2 space-y-0.5">
             {logs.map((log, i) => (
               <div key={i} className="text-2xs font-mono text-txt-secondary flex items-start gap-1.5">
-                <Terminal size={9} className="mt-0.5 shrink-0 text-txt-faint" />
-                <span>{log}</span>
+                <Terminal size={9} className="mt-0.5 shrink-0 text-txt-faint" /><span>{log}</span>
               </div>
             ))}
           </div>
@@ -839,11 +708,9 @@ const SandboxPanel: React.FC<{
       {error && (
         <div className="space-y-2">
           <div className="flex items-start gap-1.5 text-2xs text-danger bg-danger/10 rounded-lg p-2">
-            <AlertTriangle size={10} className="mt-0.5 shrink-0" />
-            <span>{error}</span>
+            <AlertTriangle size={10} className="mt-0.5 shrink-0" /><span>{error}</span>
           </div>
-          <button onClick={reset}
-            className="flex items-center gap-1.5 text-2xs text-txt-muted hover:text-accent transition-colors">
+          <button onClick={reset} className="flex items-center gap-1.5 text-2xs text-txt-muted hover:text-accent transition-colors">
             <RotateCcw size={10} /> Try again
           </button>
         </div>
@@ -851,9 +718,7 @@ const SandboxPanel: React.FC<{
 
       {isLive && agentUrl && (
         <div className="space-y-2">
-          <div className="flex items-center gap-2 text-xs text-success">
-            <Check size={13} /> Agent is live
-          </div>
+          <div className="flex items-center gap-2 text-xs text-success"><Check size={13} /> Agent is live</div>
           <div className="flex items-center gap-2 bg-surface rounded-lg p-2">
             <code className="text-2xs font-mono text-accent flex-1 truncate">{agentUrl}</code>
             <a href={agentUrl + '/health'} target="_blank" rel="noopener noreferrer"
@@ -867,14 +732,11 @@ const SandboxPanel: React.FC<{
         </div>
       )}
 
-      {/* Logs (when live) */}
       {isLive && logs.length > 0 && (
         <details className="text-2xs">
           <summary className="text-txt-faint cursor-pointer hover:text-txt-secondary">Deploy logs</summary>
           <div className="mt-1 max-h-24 overflow-y-auto bg-surface rounded-lg p-2 space-y-0.5">
-            {logs.map((log, i) => (
-              <div key={i} className="font-mono text-txt-secondary">{log}</div>
-            ))}
+            {logs.map((log, i) => <div key={i} className="font-mono text-txt-secondary">{log}</div>)}
           </div>
         </details>
       )}
@@ -882,14 +744,10 @@ const SandboxPanel: React.FC<{
   );
 };
 
-// ─── Key Input Helper ───
-const KeyInput: React.FC<{
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  hint: string;
-  required?: boolean;
+// ─── Sandbox Key Input Helper ───
+const SandboxKeyInput: React.FC<{
+  label: string; value: string; onChange: (v: string) => void;
+  placeholder: string; hint: string; required?: boolean;
 }> = ({ label, value, onChange, placeholder, hint, required }) => (
   <div className="space-y-0.5">
     <div className="flex items-center gap-1">
@@ -897,8 +755,7 @@ const KeyInput: React.FC<{
       {required && <span className="text-danger text-2xs">*</span>}
     </div>
     <input type="password" value={value} onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      className="ck-input text-xs font-mono w-full py-1" />
+      placeholder={placeholder} className="ck-input text-xs font-mono w-full py-1" />
     <p className="text-2xs text-txt-ghost">{hint}</p>
   </div>
 );
