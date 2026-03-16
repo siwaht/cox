@@ -562,6 +562,16 @@ const SelfHostPanel: React.FC<{
   onBack: () => void;
 }> = ({ result, selfHostUrl, onUrlChange, onConnect, onBack }) => {
   const [showSteps, setShowSteps] = useState(true);
+  const [copiedSnippet, setCopiedSnippet] = useState<string | null>(null);
+
+  const copySnippet = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedSnippet(key);
+    setTimeout(() => setCopiedSnippet(null), 2000);
+  };
+
+  const pipCmd = `pip install ${result.deps.join(' ')}`;
+  const runCmd = result.runCommand;
 
   return (
     <div className="p-3 space-y-3">
@@ -575,11 +585,24 @@ const SelfHostPanel: React.FC<{
         </button>
       </div>
 
-      <button onClick={() => setShowSteps(!showSteps)}
-        className="flex items-center gap-1 text-2xs text-txt-muted hover:text-txt-secondary transition-colors">
-        <ChevronDown size={10} className={`transition-transform ${showSteps ? 'rotate-180' : ''}`} />
-        Setup steps
-      </button>
+      <div className="flex items-center justify-between">
+        <button onClick={() => setShowSteps(!showSteps)}
+          className="flex items-center gap-1 text-2xs text-txt-muted hover:text-txt-secondary transition-colors">
+          <ChevronDown size={10} className={`transition-transform ${showSteps ? 'rotate-180' : ''}`} />
+          Setup steps
+        </button>
+        {showSteps && (
+          <button
+            onClick={() => copySnippet(
+              `1. Save the updated code as agent_server.py\n2. ${pipCmd}\n3. Set your API keys in a .env file\n4. ${runCmd}\n5. Enter your server URL and connect`,
+              'all'
+            )}
+            className="flex items-center gap-1 text-2xs text-txt-muted hover:text-accent hover:bg-accent-soft px-1.5 py-0.5 rounded transition-all">
+            {copiedSnippet === 'all' ? <Check size={10} className="text-success" /> : <Copy size={10} />}
+            {copiedSnippet === 'all' ? 'Copied' : 'Copy all steps'}
+          </button>
+        )}
+      </div>
 
       {showSteps && (
         <div className="space-y-2 text-2xs text-txt-secondary animate-fade-in">
@@ -594,9 +617,16 @@ const SelfHostPanel: React.FC<{
             <span className="text-accent font-mono shrink-0">2.</span>
             <div>
               <p>Install dependencies:</p>
-              <code className="block text-accent font-mono bg-surface px-2 py-1 rounded mt-0.5">
-                pip install {result.deps.join(' ')}
-              </code>
+              <div className="flex items-center gap-1 mt-0.5">
+                <code className="flex-1 text-accent font-mono bg-surface px-2 py-1 rounded">
+                  {pipCmd}
+                </code>
+                <button onClick={() => copySnippet(pipCmd, 'pip')}
+                  className="shrink-0 p-1 rounded hover:bg-accent-soft text-txt-muted hover:text-accent transition-all"
+                  title="Copy command">
+                  {copiedSnippet === 'pip' ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
@@ -607,9 +637,16 @@ const SelfHostPanel: React.FC<{
             <span className="text-accent font-mono shrink-0">4.</span>
             <div>
               <p>Run the server:</p>
-              <code className="block text-accent font-mono bg-surface px-2 py-1 rounded mt-0.5">
-                {result.runCommand}
-              </code>
+              <div className="flex items-center gap-1 mt-0.5">
+                <code className="flex-1 text-accent font-mono bg-surface px-2 py-1 rounded">
+                  {runCmd}
+                </code>
+                <button onClick={() => copySnippet(runCmd, 'run')}
+                  className="shrink-0 p-1 rounded hover:bg-accent-soft text-txt-muted hover:text-accent transition-all"
+                  title="Copy command">
+                  {copiedSnippet === 'run' ? <Check size={12} className="text-success" /> : <Copy size={12} />}
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
