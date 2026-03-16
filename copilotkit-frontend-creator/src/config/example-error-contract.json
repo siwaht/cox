@@ -1,0 +1,40 @@
+{
+  "examples": [
+    {
+      "status": "error",
+      "code": "MISSING_AGENT_ID",
+      "whatFailed": "The frontend reached the server, but no agent identifier was provided.",
+      "likelyReason": "This runtime requires an explicit agent, assistant, or graph ID.",
+      "nextAction": "Add the correct ID in the connection settings and run connection validation again.",
+      "fixLocation": "frontend configuration",
+      "severity": "blocking"
+    },
+    {
+      "status": "error",
+      "code": "ENDPOINT_TIMEOUT",
+      "whatFailed": "The agent endpoint at 'http://localhost:2024' did not respond within 8 seconds.",
+      "likelyReason": "The server is not running, is unreachable, or is behind a slow network.",
+      "nextAction": "Verify the server is running and the URL is correct. Check firewall/proxy settings.",
+      "fixLocation": "network/infrastructure",
+      "severity": "blocking"
+    },
+    {
+      "status": "error",
+      "code": "AUTH_FAILURE",
+      "whatFailed": "The agent endpoint returned 401 Unauthorized.",
+      "likelyReason": "The authentication credentials are invalid or expired.",
+      "nextAction": "Check your auth token/key and ensure it has the correct permissions.",
+      "fixLocation": "authentication",
+      "severity": "blocking"
+    },
+    {
+      "status": "warning",
+      "code": "MINIMAL_CAPABILITIES",
+      "whatFailed": "Could not detect advanced capabilities from the agent.",
+      "likelyReason": "The agent health endpoint does not expose capability metadata.",
+      "nextAction": "The frontend will use fallback mode. Rich features like tool activity and approvals may not render.",
+      "fixLocation": "agent configuration",
+      "severity": "warning"
+    }
+  ]
+}

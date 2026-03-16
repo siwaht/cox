@@ -1,0 +1,29 @@
+{
+  "connections": [
+    {
+      "name": "Local LangGraph",
+      "runtime": "langgraph",
+      "baseUrl": "http://localhost:2024",
+      "agentId": "agent",
+      "auth": { "mode": "none" }
+    },
+    {
+      "name": "Local LangChain",
+      "runtime": "langchain",
+      "baseUrl": "http://localhost:8000",
+      "auth": { "mode": "none" }
+    },
+    {
+      "name": "Remote Deep Agent",
+      "runtime": "deepagents",
+      "baseUrl": "https://agent.example.com",
+      "agentId": "deep-agent",
+      "auth": { "mode": "bearer", "tokenEnv": "AGENT_API_TOKEN" }
+    }
+  ],
+  "frontend": {
+    "template": "default-agent-workspace",
+    "blocks": ["chat", "results", "toolActivity", "approvals", "logs"],
+    "fallbackMode": "generic-copilotkit-workspace"
+  }
+}
