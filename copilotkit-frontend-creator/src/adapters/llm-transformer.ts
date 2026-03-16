@@ -71,22 +71,22 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 - Simple agents should use \`langchain.agents.create_agent\` instead
 - \`create_react_agent\` in langgraph.prebuilt is DEPRECATED
 
-### CopilotKit Python SDK (copilotkit >= 0.1.x, 2025+)
-- DEPRECATED: \`LangGraphAgent\` — raises ValueError at runtime. Do NOT use it.
-- NEW: \`from copilotkit import CopilotKitSDK, LangGraphAGUIAgent\`
+### CopilotKit Python SDK (copilotkit >= 0.1.79, 2025+)
+- CURRENT API: \`from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent\`
 - \`from copilotkit.integrations.fastapi import add_fastapi_endpoint\`
-- LangGraphAGUIAgent wraps ANY agent (LangChain, LangGraph, Deep Agents, or custom):
+- DEPRECATED: \`CopilotKitSDK\` — use \`CopilotKitRemoteEndpoint\` instead
+- DEPRECATED: \`LangGraphAGUIAgent\` — use \`LangGraphAgent\` instead
+- LangGraphAgent wraps ANY agent (LangChain, LangGraph, Deep Agents, or custom):
   \`\`\`
-  LangGraphAGUIAgent(name="agent", description="...", graph=my_agent)
+  LangGraphAgent(name="agent", description="...", graph=my_agent)
   \`\`\`
   NOTE: The parameter is \`graph=\`, not \`agent=\`
-  NOTE: \`LangGraphAgent\` is REMOVED — always use \`LangGraphAGUIAgent\`
-- CopilotKitSDK takes a list of agents:
+- CopilotKitRemoteEndpoint takes a list of agents:
   \`\`\`
-  sdk = CopilotKitSDK(agents=[LangGraphAGUIAgent(...)])
+  sdk = CopilotKitRemoteEndpoint(agents=[LangGraphAgent(...)])
   \`\`\`
 - Endpoint: \`add_fastapi_endpoint(app, sdk, "/copilotkit")\`
-- NEVER import or use \`LangGraphAgent\` — it will raise: ValueError: LangGraphAgent should be instantiated using LangGraphAGUIAgent
+- NEVER import or use \`CopilotKitSDK\` or \`LangGraphAGUIAgent\` — they are deprecated and will error
 
 ### Deep Agents
 - \`from deepagents import create_deep_agent\`
@@ -96,11 +96,11 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 The output file MUST have:
 1. \`from dotenv import load_dotenv\` + \`load_dotenv()\` at the top (only ONCE — never duplicate)
 2. All necessary imports (no duplicates)
-3. CopilotKit import MUST be: \`from copilotkit import CopilotKitSDK, LangGraphAGUIAgent\` (NEVER LangGraphAgent)
+3. CopilotKit import MUST be: \`from copilotkit import CopilotKitRemoteEndpoint, LangGraphAgent\` (NEVER CopilotKitSDK or LangGraphAGUIAgent)
 4. User's original tools/agent logic (preserved exactly)
 5. \`app = FastAPI(title="Agent Server")\`
 6. CORS middleware allowing all origins
-7. CopilotKit SDK using LangGraphAGUIAgent: \`sdk = CopilotKitSDK(agents=[LangGraphAGUIAgent(name="agent", description="...", graph=agent)])\`
+7. CopilotKit SDK using LangGraphAgent: \`sdk = CopilotKitRemoteEndpoint(agents=[LangGraphAgent(name="agent", description="...", graph=agent)])\`
 8. Endpoint: \`add_fastapi_endpoint(app, sdk, "/copilotkit")\`
 9. Health endpoint: \`@app.get("/health")\`
 10. Uvicorn entrypoint: \`if __name__ == "__main__": uvicorn.run("agent_server:app", host="0.0.0.0", port=8000, reload=True)\`
@@ -303,10 +303,18 @@ function postProcessCode(code: string): string {
     lines.splice(insertAt, 0, 'from copilotkit.integrations.fastapi import add_fastapi_endpoint');
   }
 
-  // 2. Fix deprecated LangGraphAgent → LangGraphAGUIAgent (in case LLM still uses it)
+  // 2. Fix deprecated LangGraphAGUIAgent → LangGraphAgent
   lines = lines.map((l) => {
-    if (/LangGraphAgent/.test(l) && !/LangGraphAGUIAgent/.test(l)) {
-      return l.replace(/LangGraphAgent/g, 'LangGraphAGUIAgent');
+    if (/LangGraphAGUIAgent/.test(l)) {
+      return l.replace(/LangGraphAGUIAgent/g, 'LangGraphAgent');
+    }
+    return l;
+  });
+
+  // 2b. Fix deprecated CopilotKitSDK → CopilotKitRemoteEndpoint
+  lines = lines.map((l) => {
+    if (/CopilotKitSDK/.test(l) && !/CopilotKitRemoteEndpoint/.test(l)) {
+      return l.replace(/CopilotKitSDK/g, 'CopilotKitRemoteEndpoint');
     }
     return l;
   });
@@ -339,9 +347,9 @@ function postProcessCode(code: string): string {
     return true;
   });
 
-  // 6. Ensure `agent=` param is replaced with `graph=` in LangGraphAGUIAgent
+  // 6. Ensure `agent=` param is replaced with `graph=` in LangGraphAgent
   lines = lines.map((l) => {
-    if (/LangGraphAGUIAgent\(/.test(l) && /\bagent\s*=/.test(l) && !/\bgraph\s*=/.test(l)) {
+    if (/LangGraphAgent\(/.test(l) && /\bagent\s*=/.test(l) && !/\bgraph\s*=/.test(l)) {
       return l.replace(/\bagent\s*=/, 'graph=');
     }
     return l;
