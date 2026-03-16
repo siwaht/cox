@@ -3,6 +3,7 @@ import { useWorkspaceStore } from '@/store/workspace-store';
 import { useThemeStore } from '@/store/theme-store';
 import { EditorView } from '@/components/editor/EditorView';
 import { PreviewView } from '@/components/preview/PreviewView';
+import { CodeTransformerView } from '@/components/codegen/CodeTransformerView';
 import { TopBar } from '@/components/layout/TopBar';
 import { ToastContainer } from '@/components/layout/ToastContainer';
 import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts';
@@ -64,6 +65,7 @@ export const App: React.FC = () => {
       <main className="flex-1 overflow-hidden transition-opacity duration-200">
         {mode === 'editor' && <EditorView />}
         {(mode === 'preview' || mode === 'published') && <PreviewView />}
+        {mode === 'codegen' && <CodeTransformerView />}
       </main>
       <ToastContainer />
       {showShortcuts && <KeyboardShortcuts onClose={() => setShowShortcuts(false)} />}

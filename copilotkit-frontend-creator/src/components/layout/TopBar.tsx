@@ -216,14 +216,15 @@ export const TopBar: React.FC = () => {
 };
 
 const ModeToggle: React.FC<{
-  mode: 'editor' | 'preview' | 'published';
-  setMode: (m: 'editor' | 'preview' | 'published') => void;
+  mode: 'editor' | 'preview' | 'published' | 'codegen';
+  setMode: (m: 'editor' | 'preview' | 'published' | 'codegen') => void;
 }> = ({ mode, setMode }) => (
   <div className="flex bg-surface rounded-lg p-0.5 gap-0.5 w-full md:w-auto">
     {([
       { key: 'editor' as const, label: 'Edit', tip: 'Drag-and-drop block editor' },
       { key: 'preview' as const, label: 'Preview', tip: 'See your frontend with sample data' },
       { key: 'published' as const, label: 'Live', tip: 'Connected to your agent in real-time' },
+      { key: 'codegen' as const, label: 'Code', tip: 'Transform your agent code for CopilotKit' },
     ]).map((m) => (
       <button
         key={m.key}

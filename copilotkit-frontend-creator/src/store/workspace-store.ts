@@ -8,7 +8,7 @@ import type { WorkspaceTemplate } from '@/config/workspace-templates';
 
 interface WorkspaceStore {
   workspace: WorkspaceConfig;
-  mode: 'editor' | 'preview' | 'published';
+  mode: 'editor' | 'preview' | 'published' | 'codegen';
 
   // Block operations
   addBlock: (type: BlockType) => void;
@@ -20,7 +20,7 @@ interface WorkspaceStore {
   reorderBlocks: (ids: string[]) => void;
 
   // Workspace operations
-  setMode: (mode: 'editor' | 'preview' | 'published') => void;
+  setMode: (mode: 'editor' | 'preview' | 'published' | 'codegen') => void;
   setActiveConnection: (connectionId: string | null) => void;
   updateWorkspace: (patch: Partial<WorkspaceConfig>) => void;
   resetWorkspace: () => void;

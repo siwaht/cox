@@ -10,7 +10,7 @@ import {
 
 const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
-  Activity, FileInput, Table, BarChart3, LayoutDaC:\Users\asif6\Documents\makeshboard,
+  Activity, FileInput, Table, BarChart3, LayoutDashboard,
   Layers, PanelTop, FileText,
 };
 
