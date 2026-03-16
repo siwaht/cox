@@ -219,6 +219,21 @@ function transformCode(input: string, runtime: RuntimeType): TransformResult {
     warnings.push('Migrated deprecated create_react_agent (langgraph.prebuilt) → create_agent (langchain.agents)');
   }
 
+  // --- Fix undefined model variable ---
+  // Detect create_agent(model, ...) where 'model' is used but never defined
+  const hasModelVar = /^\s*model\s*=\s*/m.test(code) ||
+    /init_chat_model|ChatOpenAI|ChatAnthropic|ChatModel/.test(code);
+  const usesModelInCreate = /create_agent\s*\(\s*model\s*[,)]/.test(code);
+
+  if (usesModelInCreate && !hasModelVar) {
+    // Replace bare `model` arg with a string model identifier
+    code = code.replace(
+      /create_agent\s*\(\s*model\s*,/g,
+      'create_agent(\n    model="openai:gpt-4o-mini",',
+    );
+    warnings.push('Replaced undefined "model" variable with "openai:gpt-4o-mini" — change this to your preferred model');
+  }
+
   // Ensure FastAPI app exists
   if (!hasFastAPI && !code.includes('app = FastAPI')) {
     code += '\n\napp = FastAPI(title="Agent Server")\n';
