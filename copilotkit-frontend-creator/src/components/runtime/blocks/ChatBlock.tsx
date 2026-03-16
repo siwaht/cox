@@ -34,19 +34,19 @@ const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
     const text = input.trim();
     setInput('');
     try {
-      // Use the deprecated appendMessage (GQL format) since it's the free API
-      // We need to construct a message object compatible with the GQL format
-      const { TextMessage, MessageRole } = await import('@copilotkit/runtime-client-gql');
-      await appendMessage(
-        new TextMessage({ content: text, role: MessageRole.User }),
-      );
-    } catch {
-      // Fallback: try constructing a plain object
+      // appendMessage expects a GQL-format message object
+      // Try dynamic import of the GQL types first, fall back to plain object
       try {
-        await appendMessage({ id: crypto.randomUUID(), role: 'user', content: text } as any);
-      } catch (err) {
-        console.error('Failed to send message:', err);
+        const gql = await import('@copilotkit/runtime-client-gql');
+        await appendMessage(
+          new gql.TextMessage({ content: text, role: gql.MessageRole.User }),
+        );
+      } catch {
+        // GQL module not available — use plain object shape
+        await appendMessage({ id: crypto.randomUUID(), content: text, role: 'user' } as any);
       }
+    } catch (err) {
+      console.error('Failed to send message:', err);
     }
   };
 

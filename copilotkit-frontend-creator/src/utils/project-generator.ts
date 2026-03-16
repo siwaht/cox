@@ -21,63 +21,20 @@ interface GeneratedFile {
 // ─── Block component code templates ───
 
 const BLOCK_TEMPLATES: Record<BlockType, (block: BlockConfig) => string> = {
-  chat: (b) => `import { useState, useRef, useEffect } from 'react';
-import { useCopilotChat } from '@copilotkit/react-core';
+  chat: (b) => `import { CopilotChat } from '@copilotkit/react-ui';
+import '@copilotkit/react-ui/styles.css';
 
 export function ChatBlock() {
-  const { visibleMessages, appendMessage, isLoading } = useCopilotChat();
-  const [input, setInput] = useState('');
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
-  }, [visibleMessages]);
-
-  const handleSend = () => {
-    if (!input.trim() || isLoading) return;
-    appendMessage({ role: 'user', content: input.trim() });
-    setInput('');
-  };
-
   return (
     <div className="flex flex-col h-full rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
       <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
         ${b.label}
       </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-        {visibleMessages.length === 0 && (
-          <p className="text-center text-sm text-zinc-600 py-8">Send a message to start</p>
-        )}
-        {visibleMessages.map((msg, i) => (
-          <div key={i} className={\`flex gap-2.5 \${msg.role === 'user' ? 'flex-row-reverse' : ''}\`}>
-            <div className={\`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm \${
-              msg.role === 'user'
-                ? 'bg-indigo-500 text-white rounded-br-md'
-                : 'bg-zinc-800 text-zinc-300 rounded-bl-md'
-            }\`}>
-              {msg.content}
-            </div>
-          </div>
-        ))}
-        {isLoading && (
-          <div className="flex gap-1 px-3.5 py-2.5 bg-zinc-800 rounded-2xl rounded-bl-md w-fit">
-            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" />
-            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <span className="w-1.5 h-1.5 bg-zinc-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-          </div>
-        )}
-      </div>
-      <div className="p-2.5 border-t border-zinc-800/40">
-        <div className="flex gap-2">
-          <input type="text" value={input} onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-            placeholder="Type a message..."
-            className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-200 outline-none focus:border-indigo-500" />
-          <button onClick={handleSend} disabled={!input.trim() || isLoading}
-            className="px-3.5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg disabled:opacity-40">
-            Send
-          </button>
-        </div>
+      <div className="flex-1 overflow-hidden">
+        <CopilotChat
+          labels={{ title: "${b.label}", initial: "Send a message to start" }}
+          className="h-full"
+        />
       </div>
     </div>
   );
@@ -399,6 +356,8 @@ function genAppTsx(
         </div>`;
   }).join('\n');
 
+  const title = visible.length > 0 ? (visible[0].label || 'Agent Frontend') : 'Agent Frontend';
+
   return `import { CopilotKit } from '@copilotkit/react-core';
 import '@copilotkit/react-ui/styles.css';
 ${imports}
@@ -410,7 +369,7 @@ export function App() {
     <CopilotKit runtimeUrl={runtimeUrl}>
       <div className="min-h-screen bg-zinc-950 text-zinc-200">
         <header className="flex items-center justify-between px-5 py-3 bg-zinc-900 border-b border-zinc-800">
-          <h1 className="text-sm font-semibold">${visible.length > 0 ? '${blocks[0]?.label || "Agent Frontend"}' : 'Agent Frontend'}</h1>
+          <h1 className="text-sm font-semibold">${title}</h1>
           <div className="flex items-center gap-1.5 text-xs text-zinc-500">
             <span className="w-2 h-2 rounded-full bg-green-500" />
             Connected

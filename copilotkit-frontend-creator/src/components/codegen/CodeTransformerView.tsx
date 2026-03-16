@@ -1,9 +1,9 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import {
-  Code2, Copy, Check, Wand2, AlertTriangle, ChevronDown,
+  Copy, Check, Wand2, AlertTriangle, ChevronDown,
   Rocket, Loader2, Terminal, Plug, ExternalLink, RotateCcw,
   Key, Plus, X, Monitor, Cloud, Trash2, CheckCircle2, XCircle, Download,
-  Settings, Brain, Sparkles, Eye, EyeOff,
+  Settings, Brain, Sparkles, Eye, EyeOff, FileCode, ChevronRight,
 } from 'lucide-react';
 import { useDeployStore } from '@/store/deploy-store';
 import { useConnectionStore } from '@/store/connection-store';
@@ -15,9 +15,12 @@ import { llmTransformCode } from '@/adapters/llm-transformer';
 import type { LLMTransformResult, FrontendContext } from '@/adapters/llm-transformer';
 import { getBlockDefinition } from '@/registry/block-registry';
 import type { RuntimeCapability, BlockConfig } from '@/types/blocks';
+import type { WorkspaceConfig } from '@/types/workspace';
+import { generateProjectFiles, downloadProject, getProjectCodePreview } from '@/utils/project-generator';
 
 type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
 type DeployPath = 'choose' | 'sandbox' | 'selfhost';
+type CodeTab = 'backend' | 'frontend';
 
 interface TransformResult {
   code: string;
@@ -179,21 +182,41 @@ export const CodeTransformerView: React.FC = () => {
     validate(id).then(() => setMode('published'));
   }, [addConnection, setActive, validate, setMode, result, deployPath]);
 
+  const [codeTab, setCodeTab] = useState<CodeTab>('backend');
+
   const modelLabel = AVAILABLE_MODELS.find((m) => m.id === llm.modelId)?.label || llm.modelId;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface-raised">
-        <div className="flex items-center gap-2">
-          <Brain size={16} className="text-accent" />
-          <span className="text-sm font-semibold text-txt-primary">AI Code Transformer</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Brain size={16} className="text-accent" />
+            <span className="text-sm font-semibold text-txt-primary">AI Code Transformer</span>
+          </div>
+          <div className="flex items-center bg-surface rounded-lg p-0.5 border border-border/50">
+            <button onClick={() => setCodeTab('backend')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-2xs font-medium rounded-md transition-all ${
+                codeTab === 'backend' ? 'bg-accent text-white shadow-sm' : 'text-txt-muted hover:text-txt-secondary'
+              }`}>
+              <Terminal size={10} /> Backend
+            </button>
+            <button onClick={() => setCodeTab('frontend')}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-2xs font-medium rounded-md transition-all ${
+                codeTab === 'frontend' ? 'bg-accent text-white shadow-sm' : 'text-txt-muted hover:text-txt-secondary'
+              }`}>
+              <FileCode size={10} /> Frontend
+            </button>
+          </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 text-2xs text-txt-muted">
-            <Sparkles size={10} className="text-accent" />
-            <span>{modelLabel}</span>
-          </div>
+          {codeTab === 'backend' && (
+            <div className="flex items-center gap-1.5 text-2xs text-txt-muted">
+              <Sparkles size={10} className="text-accent" />
+              <span>{modelLabel}</span>
+            </div>
+          )}
           <button onClick={() => setShowSettings(!showSettings)}
             className={`p-1.5 rounded-md transition-all ${showSettings ? 'bg-accent text-white' : 'text-txt-muted hover:text-accent hover:bg-accent-soft'}`}>
             <Settings size={14} />
@@ -204,7 +227,13 @@ export const CodeTransformerView: React.FC = () => {
       {/* Settings Panel */}
       {showSettings && <LLMSettingsPanel onClose={() => setShowSettings(false)} />}
 
-      <div className="flex-1 flex overflow-hidden">
+      {/* Frontend Code Panel */}
+      {codeTab === 'frontend' && (
+        <FrontendCodePanel workspace={workspace} />
+      )}
+
+      {/* Backend Panel */}
+      {codeTab === 'backend' && <div className="flex-1 flex overflow-hidden">
         {/* Left: Input */}
         <div className="flex-1 flex flex-col border-r border-border min-w-0">
           <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface">
@@ -340,11 +369,116 @@ export const CodeTransformerView: React.FC = () => {
             </div>
           )}
         </div>
-      </div>
+      </div>}
     </div>
   );
 };
 
+
+// ─── Frontend Code Panel ───
+const FrontendCodePanel: React.FC<{ workspace: WorkspaceConfig }> = ({ workspace }) => {
+  const { connections, activeConnectionId } = useConnectionStore();
+  const activeConn = connections.find((c) => c.id === activeConnectionId) || null;
+  const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const projectFiles = useMemo(
+    () => generateProjectFiles({ workspace, connection: activeConn }),
+    [workspace, activeConn],
+  );
+
+  const visibleBlocks = workspace.blocks.filter((b) => b.visible).length;
+
+  const copyText = (text: string, key: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const handleDownload = () => {
+    downloadProject({ workspace, connection: activeConn });
+  };
+
+  const handleCopyAll = () => {
+    const code = getProjectCodePreview({ workspace, connection: activeConn });
+    copyText(code, 'all');
+  };
+
+  const selectedContent = projectFiles.find((f) => f.path === selectedFile);
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-surface-raised">
+        <div className="flex items-center gap-2">
+          <span className="text-2xs text-txt-secondary font-medium">
+            {projectFiles.length} files · {visibleBlocks} block(s)
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button onClick={handleCopyAll}
+            className="flex items-center gap-1 px-2 py-1 text-2xs rounded-md
+                       text-txt-muted hover:text-accent hover:bg-accent-soft transition-all">
+            {copied === 'all' ? <Check size={11} className="text-success" /> : <Copy size={11} />}
+            {copied === 'all' ? 'Copied' : 'Copy All'}
+          </button>
+          <button onClick={handleDownload}
+            className="flex items-center gap-1.5 px-2.5 py-1 text-2xs font-medium rounded-md
+                       bg-accent hover:bg-accent-hover text-white transition-colors">
+            <Download size={11} /> Download .zip
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 flex overflow-hidden">
+        {/* File tree */}
+        <div className="w-52 shrink-0 border-r border-border bg-surface overflow-y-auto">
+          {projectFiles.map((f) => (
+            <button key={f.path} onClick={() => setSelectedFile(selectedFile === f.path ? null : f.path)}
+              className={`w-full flex items-center gap-1.5 px-3 py-1.5 text-left text-2xs font-mono
+                         hover:bg-surface-overlay transition-colors ${
+                selectedFile === f.path ? 'bg-accent-soft text-accent' : 'text-txt-secondary'
+              }`}>
+              <ChevronRight size={9} className={`shrink-0 transition-transform ${selectedFile === f.path ? 'rotate-90' : ''}`} />
+              <span className="truncate">{f.path}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* File content */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          {selectedContent ? (
+            <>
+              <div className="flex items-center justify-between px-3 py-1.5 border-b border-border bg-surface-raised">
+                <span className="text-2xs font-mono text-txt-muted truncate">{selectedContent.path}</span>
+                <button onClick={() => copyText(selectedContent.content, `file-${selectedContent.path}`)}
+                  className="flex items-center gap-1 px-2 py-0.5 text-2xs rounded text-txt-faint hover:text-accent hover:bg-accent-soft transition-all">
+                  {copied === `file-${selectedContent.path}` ? <Check size={11} className="text-success" /> : <Copy size={11} />}
+                  {copied === `file-${selectedContent.path}` ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-txt-primary leading-relaxed bg-surface">
+                {selectedContent.content}
+              </pre>
+            </>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-txt-ghost">
+              <div className="text-center space-y-2">
+                <FileCode size={32} className="mx-auto opacity-30" />
+                <p className="text-xs">Select a file to preview</p>
+                <p className="text-2xs">
+                  {visibleBlocks > 0
+                    ? `Complete React + CopilotKit project with ${visibleBlocks} block(s)`
+                    : 'Add blocks in the editor to generate frontend code'}
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─── LLM Settings Panel ───
 const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
