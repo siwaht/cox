@@ -11,6 +11,7 @@ const VALID_BLOCK_TYPES = [
 ];
 
 const VALID_FALLBACK_MODES = ['generic-copilotkit-workspace', 'minimal', 'chat-only'];
+const VALID_FRONTENDS = ['copilotkit', 'tambo'];
 const VALID_RUNTIMES = ['langchain', 'langgraph', 'deepagents'];
 const VALID_AUTH_MODES = ['none', 'bearer', 'api-key', 'custom-header'];
 
@@ -69,6 +70,9 @@ export function validateImportConfig(data: unknown): ValidationResult {
           return;
         }
         const c = conn as Record<string, unknown>;
+        if (c.frontend && !VALID_FRONTENDS.includes(c.frontend as string)) {
+          errors.push(`Connection ${i}: invalid frontend "${c.frontend}". Valid: ${VALID_FRONTENDS.join(', ')}`);
+        }
         if (!c.runtime || !VALID_RUNTIMES.includes(c.runtime as string)) {
           errors.push(`Connection ${i}: invalid runtime "${c.runtime}". Valid: ${VALID_RUNTIMES.join(', ')}`);
         }
