@@ -693,7 +693,7 @@ const RunHerePanel: React.FC<{
       const res = await fetch('/api/deploy-agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: result.code }),
+        body: JSON.stringify({ code: result.code, deps: result.deps }),
       });
       const data = await res.json();
       if (!res.ok) {

@@ -10,6 +10,7 @@ HOW TO USE:
 """
 
 import os
+import sys
 import importlib
 import uvicorn
 from fastapi import FastAPI, Request
@@ -52,22 +53,41 @@ async def deploy_agent(request: Request):
     """Receive agent code from the Code Transformer and write it to agent.py."""
     body = await request.json()
     code = body.get("code", "")
+    deps = body.get("deps", [])
     if not code.strip():
         return JSONResponse({"error": "No code provided"}, status_code=400)
 
+    # 1. Install dependencies first
+    if deps:
+        import subprocess
+        try:
+            subprocess.check_call(
+                [sys.executable, "-m", "pip", "install", "--quiet"] + deps,
+                timeout=120,
+            )
+        except Exception as e:
+            return JSONResponse({
+                "ok": False,
+                "warning": f"Failed to install dependencies ({', '.join(deps)}): {e}",
+            })
+
+    # 2. Write agent code
     agent_path = os.path.join(os.path.dirname(__file__), "agent.py")
     with open(agent_path, "w", encoding="utf-8") as f:
         f.write(code)
 
-    # Re-mount the agent by reloading
+    # 3. Try loading the module to catch import errors early
     try:
-        mod = importlib.import_module("agent")
-        importlib.reload(mod)
+        if "agent" in sys.modules:
+            del sys.modules["agent"]
+        importlib.import_module("agent")
     except Exception as e:
         return JSONResponse({
             "ok": True,
             "warning": f"Code saved but agent failed to load: {e}. Fix the code and try again.",
         })
+
+    return {"ok": True, "message": "Agent deployed. Restart the server to activate."}
 
     return {"ok": True, "message": "Agent deployed. Restart the server to activate."}
 
