@@ -170,6 +170,24 @@ def mount_agent():
 
 mount_agent()
 
+# ─── Fallback /copilotkit if no agent was mounted ───
+_copilotkit_mounted = any(
+    getattr(r, 'path', '') == '/copilotkit' or
+    (hasattr(r, 'path') and str(r.path).startswith('/copilotkit'))
+    for r in app.routes
+)
+
+if not _copilotkit_mounted:
+    @app.api_route("/copilotkit", methods=["GET", "POST"])
+    async def copilotkit_fallback(request: Request):
+        return JSONResponse(
+            {
+                "error": "No agent loaded. Create an agent.py that exports a `graph` or `agent` object.",
+                "hint": "Use the Code tab to generate and deploy agent code.",
+            },
+            status_code=503,
+        )
+
 
 # ─── Serve the built frontend ───
 DIST_DIR = os.path.join("copilotkit-frontend-creator", "dist")

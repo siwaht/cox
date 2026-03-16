@@ -21,7 +21,9 @@ export function useMockPreview() {
   const injected = useRef(false);
 
   const isPreviewWithoutAgent =
-    (mode === 'preview' || mode === 'published') && connectionStatus !== 'connected';
+    (mode === 'preview' || mode === 'published') &&
+    connectionStatus !== 'connected' &&
+    connectionStatus !== 'validating';
 
   useEffect(() => {
     if (!isPreviewWithoutAgent) {

@@ -82,8 +82,9 @@ export const useConnectionStore = create<ConnectionStore>()(
 
         set({ connectionStatus: 'validating' });
         const result = await validateConnection(conn);
+        const isUsable = result.status === 'ok' || result.status === 'warning';
         set((s) => ({
-          connectionStatus: result.status === 'ok' ? 'connected' : 'error',
+          connectionStatus: isUsable ? 'connected' : 'error',
           validationResult: result,
           connections: s.connections.map((c) =>
             c.id === id ? { ...c, lastValidation: result, updatedAt: new Date().toISOString() } : c

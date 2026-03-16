@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { BlockConfig } from '@/types/blocks';
 import { Send, Bot, User } from 'lucide-react';
 import { useAgentChat } from '@/hooks/useAgentChat';
@@ -15,6 +15,7 @@ interface DisplayMessage {
 const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
   const { visibleMessages, appendMessage, isLoading } = useCopilotChat();
   const [input, setInput] = useState('');
+  const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Convert CopilotKit messages to our display format
@@ -29,10 +30,11 @@ const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages.length]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSend = useCallback(async () => {
+    if (!input.trim() || isLoading || sending) return;
     const text = input.trim();
     setInput('');
+    setSending(true);
     try {
       // appendMessage expects a GQL-format message object
       // Try dynamic import of the GQL types first, fall back to plain object
@@ -46,15 +48,17 @@ const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
         await appendMessage({ id: crypto.randomUUID(), content: text, role: 'user' } as any);
       }
     } catch (err) {
-      console.error('Failed to send message:', err);
+      console.error('[ChatBlock] Failed to send message:', err);
+    } finally {
+      setSending(false);
     }
-  };
+  }, [input, isLoading, sending, appendMessage]);
 
   return (
     <ChatUI
       block={block}
       messages={messages}
-      isStreaming={isLoading}
+      isStreaming={isLoading || sending}
       input={input}
       setInput={setInput}
       onSend={handleSend}

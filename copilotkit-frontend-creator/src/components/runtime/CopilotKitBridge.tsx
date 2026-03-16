@@ -1,4 +1,4 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 import { CopilotKit } from '@copilotkit/react-core';
 import { useConnectionStore } from '@/store/connection-store';
 import { buildRuntimeConfig } from '@/adapters/runtime-adapter';
@@ -15,7 +15,15 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
   const { activeConnectionId, connections, connectionStatus } = useConnectionStore();
   const activeConn = connections.find((c) => c.id === activeConnectionId);
 
-  if (!activeConn || connectionStatus !== 'connected') {
+  const isLive = !!activeConn && connectionStatus === 'connected';
+
+  useEffect(() => {
+    if (activeConn) {
+      console.log('[CopilotKitBridge] status=%s, live=%s, url=%s', connectionStatus, isLive, activeConn.baseUrl);
+    }
+  }, [connectionStatus, isLive, activeConn]);
+
+  if (!isLive || !activeConn) {
     return <>{children}</>;
   }
 
