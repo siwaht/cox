@@ -14,6 +14,13 @@ import { DashboardBlock } from './blocks/DashboardBlock';
 import { CardsBlock } from './blocks/CardsBlock';
 import { PanelBlock } from './blocks/PanelBlock';
 import { MarkdownBlock } from './blocks/MarkdownBlock';
+import { TraceViewerBlock } from './blocks/TraceViewerBlock';
+import { FeedbackBlock } from './blocks/FeedbackBlock';
+import { DatasetBlock } from './blocks/DatasetBlock';
+import { AnnotationQueueBlock } from './blocks/AnnotationQueueBlock';
+import { ReasoningChainBlock } from './blocks/ReasoningChainBlock';
+import { SubAgentTreeBlock } from './blocks/SubAgentTreeBlock';
+import { DepthIndicatorBlock } from './blocks/DepthIndicatorBlock';
 
 const BLOCK_COMPONENTS: Record<BlockType, React.FC<{ block: BlockConfig }>> = {
   chat: ChatBlock,
@@ -30,6 +37,15 @@ const BLOCK_COMPONENTS: Record<BlockType, React.FC<{ block: BlockConfig }>> = {
   panel: PanelBlock,
   markdown: MarkdownBlock,
   custom: PanelBlock,
+  // LangSmith blocks
+  traceViewer: TraceViewerBlock,
+  feedback: FeedbackBlock,
+  dataset: DatasetBlock,
+  annotationQueue: AnnotationQueueBlock,
+  // Deep Agent blocks
+  reasoningChain: ReasoningChainBlock,
+  subAgentTree: SubAgentTreeBlock,
+  depthIndicator: DepthIndicatorBlock,
 };
 
 export const RuntimeBlockRenderer: React.FC<{ block: BlockConfig }> = ({ block }) => {

@@ -2,7 +2,7 @@
 
 export type FrontendType = 'copilotkit';
 
-export type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
+export type RuntimeType = 'langchain' | 'langgraph' | 'langsmith' | 'deepagents';
 
 export type AuthMode = 'none' | 'bearer' | 'api-key' | 'custom-header';
 

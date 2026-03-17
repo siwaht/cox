@@ -34,6 +34,15 @@ export function buildRuntimeConfig(profile: ConnectionProfile): RuntimeConfig {
         ...(profile.env || {}),
       },
     }),
+    langsmith: () => ({
+      runtimeUrl: `${base}/copilotkit`,
+      headers,
+      properties: {
+        runtime: 'langsmith',
+        'langsmith-project': profile.agentId || 'default',
+        ...(profile.env || {}),
+      },
+    }),
     deepagents: () => ({
       runtimeUrl: `${base}/copilotkit`,
       headers,
@@ -87,6 +96,15 @@ export function getCompatibleBlocks(
     cards: ['structuredOutput'],
     panel: [],
     markdown: [],
+    // LangSmith blocks
+    traceViewer: ['logs', 'toolCalls'],
+    feedback: [],
+    dataset: ['structuredOutput'],
+    annotationQueue: ['approvals'],
+    // Deep Agent blocks
+    reasoningChain: ['intermediateState'],
+    subAgentTree: ['subagents'],
+    depthIndicator: ['progress'],
   };
 
   const supported: string[] = [];

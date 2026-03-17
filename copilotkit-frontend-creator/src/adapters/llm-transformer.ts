@@ -51,6 +51,13 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 | form           | (none)                       | No special backend requirement                                        |
 | panel          | (none)                       | No special backend requirement                                        |
 | markdown       | (none)                       | No special backend requirement                                        |
+| traceViewer    | logs, toolCalls              | LangSmith tracing enabled (LANGCHAIN_TRACING_V2=true)                 |
+| feedback       | (none)                       | LangSmith feedback API (langsmith Client)                             |
+| dataset        | structuredOutput             | LangSmith dataset access (langsmith Client)                           |
+| annotationQueue| approvals                    | LangSmith annotation queue for human review                           |
+| reasoningChain | intermediateState, streaming | Deep Agent reasoning steps with confidence scores                     |
+| subAgentTree   | subagents, progress          | Deep Agent sub-agent hierarchy and delegation tracking                |
+| depthIndicator | progress                     | Deep Agent reasoning depth indicator                                  |
 
 ## How to add missing capabilities
 - If frontend has "logs" block but code has no logging → add: \`import logging\` and \`logging.basicConfig(level=logging.INFO)\`
@@ -58,6 +65,9 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 - If frontend has "results/table/chart/cards/dashboard" but code has no structured output → add a Pydantic response model
 - If frontend has "status" block but code has no progress → add streaming callbacks
 - If frontend has "toolActivity" but code has no tools → warn that tools are needed
+- If frontend has "traceViewer" → ensure LANGCHAIN_TRACING_V2=true in env and \`pip install langsmith\`
+- If frontend has "feedback" or "dataset" or "annotationQueue" → add \`from langsmith import Client\` and configure LangSmith
+- If frontend has "reasoningChain"/"subAgentTree"/"depthIndicator" → ensure Deep Agent with intermediate state streaming
 
 ## Current API Reference (2025-2026)
 
@@ -120,7 +130,7 @@ The output file MUST have this structure in order:
 ## Response Format
 After the Python code, add a line "---META---" followed by a JSON object:
 {
-  "runtime": "langchain" | "langgraph" | "deepagents",
+  "runtime": "langchain" | "langgraph" | "langsmith" | "deepagents",
   "warnings": ["any warnings — especially about frontend blocks that can't be fully supported"],
   "deps": ["list", "of", "pip", "packages"],
   "runCommand": "uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload",

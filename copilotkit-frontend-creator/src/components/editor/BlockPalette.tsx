@@ -6,12 +6,18 @@ import {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
   Activity, FileInput, Table, BarChart3, LayoutDashboard,
   Layers, PanelTop, FileText, X, Plus, Search, Grid3X3, List,
+  GitBranch, ThumbsUp, Database, ClipboardList,
+  Brain, Network, Gauge,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
   Activity, FileInput, Table, BarChart3, LayoutDashboard,
   Layers, PanelTop, FileText,
+  // LangSmith blocks
+  GitBranch, ThumbsUp, Database, ClipboardList,
+  // Deep Agent blocks
+  Brain, Network, Gauge,
 };
 
 interface Props { onClose?: () => void; }

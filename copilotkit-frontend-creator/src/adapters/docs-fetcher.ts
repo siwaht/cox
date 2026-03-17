@@ -41,6 +41,13 @@ const DOC_SOURCES: Record<string, { urls: string[]; label: string }> = {
       'https://langchain-ai.github.io/langgraph/how-tos/create-react-agent/',
     ],
   },
+  langsmith: {
+    label: 'LangSmith',
+    urls: [
+      'https://docs.smith.langchain.com/how_to_guides/tracing',
+      'https://docs.smith.langchain.com/how_to_guides/evaluation',
+    ],
+  },
   deepagents: {
     label: 'Deep Agents',
     urls: [
@@ -195,6 +202,77 @@ from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
 
 ck_agent = LangGraphAGUIAgent(name="agent", description="...", graph=compiled)
 add_langgraph_fastapi_endpoint(app, ck_agent, "/copilotkit")
+\`\`\``,
+    fetchedAt: new Date().toISOString(),
+  },
+
+  langsmith: {
+    source: 'langsmith',
+    title: 'LangSmith — Tracing & Evaluation API (2025+)',
+    content: `## LangSmith — Tracing, Feedback & Evaluation
+
+### Installation
+\`\`\`bash
+pip install langsmith
+\`\`\`
+
+### Environment Setup
+\`\`\`bash
+export LANGCHAIN_TRACING_V2=true
+export LANGCHAIN_API_KEY=your-langsmith-api-key
+export LANGCHAIN_PROJECT=your-project-name
+\`\`\`
+
+### Tracing (automatic with LangChain)
+When LANGCHAIN_TRACING_V2=true is set, all LangChain/LangGraph runs are automatically traced to LangSmith.
+
+### Programmatic Feedback
+\`\`\`python
+from langsmith import Client
+
+client = Client()
+client.create_feedback(
+    run_id=run_id,
+    key="user-rating",
+    score=1.0,
+    comment="Great response"
+)
+\`\`\`
+
+### Dataset Management
+\`\`\`python
+from langsmith import Client
+
+client = Client()
+dataset = client.create_dataset("my-dataset", description="Test cases")
+client.create_example(
+    inputs={"query": "What is AI?"},
+    outputs={"answer": "AI is..."},
+    dataset_id=dataset.id,
+)
+\`\`\`
+
+### Evaluation
+\`\`\`python
+from langsmith.evaluation import evaluate
+
+results = evaluate(
+    my_agent,
+    data="my-dataset",
+    evaluators=[correctness, relevance],
+)
+\`\`\`
+
+### With CopilotKit
+LangSmith works alongside CopilotKit — traces are captured automatically when LangChain/LangGraph agents run through CopilotKit endpoints.
+\`\`\`python
+import os
+os.environ["LANGCHAIN_TRACING_V2"] = "true"
+os.environ["LANGCHAIN_API_KEY"] = "your-key"
+
+from copilotkit import LangGraphAGUIAgent
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+# Traces are automatically sent to LangSmith
 \`\`\``,
     fetchedAt: new Date().toISOString(),
   },

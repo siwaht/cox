@@ -44,7 +44,7 @@ export async function validateConnection(
   }
 
   // 2. Agent ID check for runtimes that require it
-  const requiresAgentId: RuntimeType[] = ['langgraph', 'deepagents'];
+  const requiresAgentId: RuntimeType[] = ['langgraph', 'langsmith', 'deepagents'];
   if (requiresAgentId.includes(profile.runtime) && !profile.agentId) {
     errors.push({
       code: 'MISSING_AGENT_ID',
@@ -222,6 +222,8 @@ function getHealthEndpoint(profile: ConnectionProfile): string {
   switch (profile.runtime) {
     case 'langgraph':
       return `${base}/ok`;
+    case 'langsmith':
+      return `${base}/health`;
     case 'deepagents':
       return `${base}/health`;
     case 'langchain':
@@ -263,6 +265,11 @@ function probeCapabilities(body: Record<string, unknown>, runtime: string): stri
   if (runtime === 'langgraph') {
     if (!caps.includes('intermediateState')) caps.push('intermediateState');
     if (!caps.includes('toolCalls')) caps.push('toolCalls');
+  }
+  if (runtime === 'langsmith') {
+    if (!caps.includes('logs')) caps.push('logs');
+    if (!caps.includes('toolCalls')) caps.push('toolCalls');
+    if (!caps.includes('structuredOutput')) caps.push('structuredOutput');
   }
   if (runtime === 'deepagents') {
     if (!caps.includes('subagents')) caps.push('subagents');

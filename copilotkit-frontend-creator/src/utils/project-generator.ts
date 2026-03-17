@@ -192,6 +192,211 @@ export function ChatBlock() {
     </div>
   );
 }`,
+
+  // ─── LangSmith-specific blocks ───
+
+  traceViewer: (b) => `import { useState } from 'react';
+
+export function TraceViewerBlock() {
+  const [expanded, setExpanded] = useState(${(b.props as Record<string, unknown>).expandByDefault ?? false});
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">${b.label}</span>
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+        >
+          {expanded ? 'Collapse' : 'Expand'}
+        </button>
+      </div>
+      <div className="p-4 font-mono text-xs text-zinc-500 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-blue-500" />
+          <span>Agent execution trace</span>
+          ${(b.props as Record<string, unknown>).showLatency ? '<span className="ml-auto text-zinc-600">latency: --ms</span>' : ''}
+        </div>
+        ${(b.props as Record<string, unknown>).showTokens ? '<div className="text-zinc-600 text-right">tokens: --</div>' : ''}
+        <p className="text-zinc-600">Connect to LangSmith to view execution traces.</p>
+      </div>
+    </div>
+  );
+}`,
+
+  feedback: (b) => `import { useState } from 'react';
+
+export function FeedbackBlock() {
+  const [rating, setRating] = useState<'up' | 'down' | null>(null);
+  const [comment, setComment] = useState('');
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        ${b.label}
+      </div>
+      <div className="p-4 space-y-3">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setRating('up')}
+            className={\`px-3 py-1.5 rounded-lg text-sm transition-colors \${
+              rating === 'up' ? 'bg-green-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+            }\`}
+          >
+            \u{1F44D} Good
+          </button>
+          <button
+            onClick={() => setRating('down')}
+            className={\`px-3 py-1.5 rounded-lg text-sm transition-colors \${
+              rating === 'down' ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
+            }\`}
+          >
+            \u{1F44E} Bad
+          </button>
+        </div>
+        ${(b.props as Record<string, unknown>).allowComment ? `<textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          placeholder="Add a comment..."
+          className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder-zinc-600 resize-none"
+          rows={2}
+        />` : ''}
+      </div>
+    </div>
+  );
+}`,
+
+  dataset: (b) => `export function DatasetBlock() {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        ${b.label}
+      </div>
+      <div className="p-4 space-y-2">
+        <div className="flex items-center justify-between text-xs text-zinc-500">
+          <span>Dataset Examples</span>
+          <span>Max: ${(b.props as Record<string, unknown>).maxRows ?? 50} rows</span>
+        </div>
+        <div className="bg-zinc-800 rounded-lg p-3 text-sm text-zinc-400">
+          Connect to LangSmith to browse datasets and examples.
+        </div>
+      </div>
+    </div>
+  );
+}`,
+
+  annotationQueue: (b) => `export function AnnotationQueueBlock() {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        ${b.label}
+      </div>
+      <div className="p-4 space-y-2">
+        ${(b.props as Record<string, unknown>).showPriority ? '<div className="flex items-center gap-2 text-xs text-zinc-500"><span className="w-2 h-2 rounded-full bg-yellow-500" /><span>Priority queue</span></div>' : ''}
+        <div className="bg-zinc-800 rounded-lg p-3 text-sm text-zinc-400">
+          Annotation queue items will appear here for human review.
+        </div>
+      </div>
+    </div>
+  );
+}`,
+
+  // ─── Deep Agent-specific blocks ───
+
+  reasoningChain: (b) => `import { useState } from 'react';
+
+export function ReasoningChainBlock() {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const steps = [
+    { step: 1, text: 'Analyzing input...', confidence: 0.92 },
+    { step: 2, text: 'Reasoning about approach...', confidence: 0.87 },
+    { step: 3, text: 'Generating response...', confidence: 0.95 },
+  ];
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">${b.label}</span>
+        ${(b.props as Record<string, unknown>).collapsible ? `<button
+          onClick={() => setCollapsed(!collapsed)}
+          className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
+        >
+          {collapsed ? 'Show' : 'Hide'}
+        </button>` : ''}
+      </div>
+      {!collapsed && (
+        <div className="p-4 space-y-2">
+          {steps.map((s) => (
+            <div key={s.step} className="flex items-center gap-3 text-sm">
+              <span className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center text-xs text-zinc-400">
+                {s.step}
+              </span>
+              <span className="text-zinc-300 flex-1">{s.text}</span>
+              ${(b.props as Record<string, unknown>).showConfidence ? '<span className="text-xs text-zinc-600">{(s.confidence * 100).toFixed(0)}%</span>' : ''}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}`,
+
+  subAgentTree: (b) => `export function SubAgentTreeBlock() {
+  const agents = [
+    { name: 'Coordinator', status: 'active', children: [
+      { name: 'Research Agent', status: 'working', children: [] },
+      { name: 'Analysis Agent', status: 'idle', children: [
+        { name: 'Data Processor', status: 'idle', children: [] },
+      ]},
+    ]},
+  ];
+
+  const statusColor = (s: string) => s === 'active' ? 'bg-green-500' : s === 'working' ? 'bg-blue-500' : 'bg-zinc-600';
+
+  const renderAgent = (agent: typeof agents[0], depth = 0) => (
+    <div key={agent.name} style={{ marginLeft: depth * 16 }} className="py-1">
+      <div className="flex items-center gap-2">
+        ${(b.props as Record<string, unknown>).showStatus ? '<span className={\`w-2 h-2 rounded-full \${statusColor(agent.status)}\`} />' : ''}
+        <span className="text-sm text-zinc-300">{agent.name}</span>
+        <span className="text-xs text-zinc-600">{agent.status}</span>
+      </div>
+      {agent.children.map((child) => renderAgent(child as typeof agents[0], depth + 1))}
+    </div>
+  );
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        ${b.label}
+      </div>
+      <div className="p-4">
+        {agents.map((a) => renderAgent(a))}
+      </div>
+    </div>
+  );
+}`,
+
+  depthIndicator: (b) => `export function DepthIndicatorBlock() {
+  const currentDepth = 2;
+  const maxDepth = ${(b.props as Record<string, unknown>).maxDepth ?? 5};
+  const progress = (currentDepth / maxDepth) * 100;
+
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+      <div className="px-3.5 py-2.5 flex items-center gap-3">
+        ${(b.props as Record<string, unknown>).showLabel ? '<span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">${b.label}</span>' : ''}
+        <div className="flex-1 bg-zinc-800 rounded-full h-2 overflow-hidden">
+          <div
+            className="h-full bg-blue-500 rounded-full transition-all"
+            style={{ width: \`\${progress}%\` }}
+          />
+        </div>
+        <span className="text-xs text-zinc-500">{currentDepth}/{maxDepth}</span>
+      </div>
+    </div>
+  );
+}`,
 };
 
 // ─── Helpers ───
@@ -638,11 +843,13 @@ function detectAgentDeps(code: string): string[] {
     [/from\s+langchain_google/m, 'langchain-google-genai'],
     [/from\s+langchain_community/m, 'langchain-community'],
     [/from\s+langchain_core/m, 'langchain-core'],
+    [/from\s+langsmith/m, 'langsmith'],
     [/from\s+copilotkit/m, 'copilotkit'],
     [/from\s+fastapi/m, 'fastapi'],
     [/import\s+uvicorn/m, 'uvicorn'],
     [/from\s+dotenv/m, 'python-dotenv'],
     [/from\s+pydantic/m, 'pydantic'],
+    [/from\s+deepagents/m, 'deepagents'],
   ];
   for (const [re, dep] of patterns) {
     if (re.test(code)) deps.push(dep);
@@ -726,6 +933,135 @@ Deploy the \`agent/\` folder to any Python hosting (Railway, Render, Fly.io, etc
 `;
 }
 
+// ─── Docker & CI generators ───
+
+function genDockerfile(_name: string): string {
+  return `# Multi-stage build for frontend + agent backend
+
+# Stage 1: Build frontend
+FROM node:20-alpine AS frontend-build
+WORKDIR /app
+COPY package.json package-lock.json* ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Stage 2: Agent backend
+FROM python:3.11-slim AS agent
+WORKDIR /app/agent
+COPY agent/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY agent/ .
+
+# Stage 3: Production with nginx + agent
+FROM python:3.11-slim
+WORKDIR /app
+
+# Install nginx
+RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
+
+# Copy frontend build
+COPY --from=frontend-build /app/dist /usr/share/nginx/html
+
+# Copy agent
+COPY --from=agent /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY agent/ /app/agent/
+
+# Nginx config
+RUN echo 'server { \\
+  listen 80; \\
+  location / { root /usr/share/nginx/html; try_files $uri /index.html; } \\
+  location /copilotkit { proxy_pass http://127.0.0.1:8000/copilotkit; } \\
+  location /health { proxy_pass http://127.0.0.1:8000/health; } \\
+}' > /etc/nginx/conf.d/default.conf
+
+# Start script
+RUN echo '#!/bin/sh\\nnginx\\ncd /app/agent && python agent_server.py' > /start.sh && chmod +x /start.sh
+
+EXPOSE 80
+CMD ["/start.sh"]
+`;
+}
+
+function genDockerCompose(_name: string): string {
+  return `version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: .
+      target: frontend-build
+    command: npm run dev -- --host 0.0.0.0
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./src:/app/src
+      - ./public:/app/public
+    environment:
+      - VITE_RUNTIME_URL=http://localhost:8000/copilotkit
+
+  agent:
+    build:
+      context: .
+      target: agent
+    command: python agent_server.py
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./agent:/app/agent
+    env_file:
+      - ./agent/.env
+`;
+}
+
+function genDockerIgnore(): string {
+  return `node_modules
+dist
+.env
+.env.local
+agent/.env
+__pycache__
+*.pyc
+.git
+.DS_Store
+`;
+}
+
+function genGitHubActions(): string {
+  return `name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  agent:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r agent/requirements.txt
+      - run: python -c "import agent.agent_server"
+        env:
+          OPENAI_API_KEY: test-key
+`;
+}
+
 export function generateFullProjectFiles(opts: FullProjectGenOptions): GeneratedFile[] {
   const { workspace, agentCode, connection } = opts;
   // Get all frontend files
@@ -741,7 +1077,15 @@ export function generateFullProjectFiles(opts: FullProjectGenOptions): Generated
   files.push({ path: 'agent/agent_server.py', content: agentCode });
   files.push({ path: 'agent/requirements.txt', content: genAgentRequirements(agentCode) });
   files.push({ path: 'agent/README.md', content: genAgentReadme(workspace.name) });
-  files.push({ path: 'agent/.env.example', content: '# Add your API keys here\nOPENAI_API_KEY=your-key-here\n' });
+  files.push({ path: 'agent/.env.example', content: '# Add your API keys here\nOPENAI_API_KEY=your-key-here\n# LangSmith (optional)\nLANGCHAIN_TRACING_V2=true\nLANGCHAIN_API_KEY=your-langsmith-key\nLANGCHAIN_PROJECT=your-project-name\n' });
+
+  // Docker files for containerized deployment
+  files.push({ path: 'Dockerfile', content: genDockerfile(workspace.name) });
+  files.push({ path: 'docker-compose.yml', content: genDockerCompose(workspace.name) });
+  files.push({ path: '.dockerignore', content: genDockerIgnore() });
+
+  // GitHub Actions CI/CD
+  files.push({ path: '.github/workflows/ci.yml', content: genGitHubActions() });
 
   return files;
 }

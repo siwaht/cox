@@ -16,7 +16,16 @@ export type BlockType =
   | 'cards'
   | 'panel'
   | 'markdown'
-  | 'custom';
+  | 'custom'
+  // LangSmith-specific blocks
+  | 'traceViewer'
+  | 'feedback'
+  | 'dataset'
+  | 'annotationQueue'
+  // Deep Agent-specific blocks
+  | 'reasoningChain'
+  | 'subAgentTree'
+  | 'depthIndicator';
 
 export interface BlockConfig {
   id: string;

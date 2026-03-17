@@ -8,11 +8,15 @@ export interface ValidationResult {
 const VALID_BLOCK_TYPES = [
   'chat', 'results', 'toolActivity', 'approvals', 'logs', 'form',
   'table', 'chart', 'dashboard', 'status', 'cards', 'panel', 'markdown', 'custom',
+  // LangSmith blocks
+  'traceViewer', 'feedback', 'dataset', 'annotationQueue',
+  // Deep Agent blocks
+  'reasoningChain', 'subAgentTree', 'depthIndicator',
 ];
 
 const VALID_FALLBACK_MODES = ['generic-copilotkit-workspace', 'minimal', 'chat-only'];
 const VALID_FRONTENDS = ['copilotkit'];
-const VALID_RUNTIMES = ['langchain', 'langgraph', 'deepagents'];
+const VALID_RUNTIMES = ['langchain', 'langgraph', 'langsmith', 'deepagents'];
 const VALID_AUTH_MODES = ['none', 'bearer', 'api-key', 'custom-header'];
 
 export function validateImportConfig(data: unknown): ValidationResult {
