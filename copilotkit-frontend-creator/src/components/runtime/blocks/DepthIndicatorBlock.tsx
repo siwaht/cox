@@ -2,7 +2,7 @@ import React from 'react';
 import type { BlockConfig } from '@/types/blocks';
 
 export const DepthIndicatorBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
-  const currentDepth = 2;
+  const currentDepth = (block.props.currentDepth as number) ?? 0;
   const maxDepth = (block.props.maxDepth as number) ?? 5;
   const progress = (currentDepth / maxDepth) * 100;
 

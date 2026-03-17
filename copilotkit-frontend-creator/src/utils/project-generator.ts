@@ -211,15 +211,17 @@ export function TraceViewerBlock() {
           {expanded ? 'Collapse' : 'Expand'}
         </button>
       </div>
-      <div className="p-4 font-mono text-xs text-zinc-500 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-blue-500" />
-          <span>Agent execution trace</span>
-          ${(b.props as Record<string, unknown>).showLatency ? '<span className="ml-auto text-zinc-600">latency: --ms</span>' : ''}
+      {expanded && (
+        <div className="p-4 font-mono text-xs text-zinc-500 space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-blue-500" />
+            <span>Agent execution trace</span>
+            ${(b.props as Record<string, unknown>).showLatency ? '<span className="ml-auto text-zinc-600">latency: --ms</span>' : ''}
+          </div>
+          ${(b.props as Record<string, unknown>).showTokens ? '<div className="text-zinc-600 text-right">tokens: --</div>' : ''}
+          <p className="text-zinc-600">Connect to LangSmith to view execution traces.</p>
         </div>
-        ${(b.props as Record<string, unknown>).showTokens ? '<div className="text-zinc-600 text-right">tokens: --</div>' : ''}
-        <p className="text-zinc-600">Connect to LangSmith to view execution traces.</p>
-      </div>
+      )}
     </div>
   );
 }`,
@@ -843,13 +845,13 @@ function detectAgentDeps(code: string): string[] {
     [/from\s+langchain_google/m, 'langchain-google-genai'],
     [/from\s+langchain_community/m, 'langchain-community'],
     [/from\s+langchain_core/m, 'langchain-core'],
-    [/from\s+langsmith/m, 'langsmith'],
+    [/(?:from|import)\s+langsmith/m, 'langsmith'],
     [/from\s+copilotkit/m, 'copilotkit'],
     [/from\s+fastapi/m, 'fastapi'],
     [/import\s+uvicorn/m, 'uvicorn'],
     [/from\s+dotenv/m, 'python-dotenv'],
     [/from\s+pydantic/m, 'pydantic'],
-    [/from\s+deepagents/m, 'deepagents'],
+    [/(?:from|import)\s+deepagents/m, 'deepagents'],
   ];
   for (const [re, dep] of patterns) {
     if (re.test(code)) deps.push(dep);
@@ -942,7 +944,7 @@ function genDockerfile(_name: string): string {
 FROM node:20-alpine AS frontend-build
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN npm install
 COPY . .
 RUN npm run build
 
@@ -1044,8 +1046,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
-      - run: npm ci
+      - run: npm install
       - run: npm run build
 
   agent:

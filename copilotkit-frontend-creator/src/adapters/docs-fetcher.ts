@@ -271,7 +271,7 @@ os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_API_KEY"] = "your-key"
 
 from copilotkit import LangGraphAGUIAgent
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
+from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
 # Traces are automatically sent to LangSmith
 \`\`\``,
     fetchedAt: new Date().toISOString(),

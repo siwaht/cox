@@ -21,7 +21,7 @@ export const TraceViewerBlock: React.FC<{ block: BlockConfig }> = ({ block }) =>
                 <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
                 <span className="text-txt-secondary">{tc.name}</span>
                 {Boolean(block.props.showLatency) && (
-                  <span className="ml-auto text-txt-ghost">--ms</span>
+                  <span className="ml-auto text-txt-ghost">{tc.duration ?? '--'}ms</span>
                 )}
               </div>
             ))}
