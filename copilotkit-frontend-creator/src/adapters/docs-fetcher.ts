@@ -71,17 +71,20 @@ const FALLBACK_DOCS: Record<string, DocSnippet> = {
 
 ### Installation
 \`\`\`bash
-pip install copilotkit
+pip install copilotkit ag-ui-langgraph
 \`\`\`
 
 ### Required Imports
 \`\`\`python
 from copilotkit import LangGraphAGUIAgent
-from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 \`\`\`
 
-### Correct Pattern (ONLY way that works)
+### Correct Pattern (recommended by official CopilotKit docs)
 \`\`\`python
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from copilotkit import LangGraphAGUIAgent
+
 # Wrap ANY agent (LangChain, LangGraph, or custom) with LangGraphAGUIAgent
 agent = LangGraphAGUIAgent(
     name="agent",
@@ -89,14 +92,22 @@ agent = LangGraphAGUIAgent(
     graph=my_compiled_agent  # NOTE: parameter is 'graph=', NOT 'agent='
 )
 
-# Register with FastAPI — this is the ONLY correct endpoint function
-add_langgraph_fastapi_endpoint(app, agent, "/copilotkit")
+# Register with FastAPI using the AG-UI endpoint
+add_langgraph_fastapi_endpoint(app=app, agent=agent, path="/copilotkit")
+\`\`\`
+
+### Alternative Pattern (SDK-based, also works)
+\`\`\`python
+from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint
+from copilotkit.integrations.fastapi import add_fastapi_endpoint
+
+agent = LangGraphAGUIAgent(name="agent", description="My agent", graph=my_compiled_agent)
+sdk = CopilotKitRemoteEndpoint(agents=[agent])
+add_fastapi_endpoint(app, sdk, "/copilotkit")
 \`\`\`
 
 ### DEPRECATED / BROKEN — NEVER USE
-- \`CopilotKitSDK\` — causes dict_repr AttributeError at runtime
-- \`CopilotKitRemoteEndpoint\` — causes dict_repr AttributeError at runtime
-- \`add_fastapi_endpoint\` — broken with LangGraphAGUIAgent
+- \`CopilotKitSDK\` — removed from SDK
 - \`LangGraphAgent\` — rejected by SDK, must use LangGraphAGUIAgent
 
 ### Frontend React Setup
@@ -118,12 +129,12 @@ import { CopilotChat } from "@copilotkit/react-ui";
 
 ### Installation
 \`\`\`bash
-pip install langchain langchain-openai
+pip install langchain langchain-openai langgraph
 \`\`\`
 
-### Creating Agents (Current API)
+### Creating Agents (Current API — use LangGraph's create_react_agent)
 \`\`\`python
-from langchain.agents import create_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
 
 @tool
@@ -131,28 +142,23 @@ def search(query: str) -> str:
     \"\"\"Search the web.\"\"\"
     return f"Results for {query}"
 
-# Simple: pass model as string
-agent = create_agent(model="openai:gpt-4o", tools=[search])
-
-# Or use init_chat_model for more control
-from langchain.chat_models import init_chat_model
-model = init_chat_model("openai:gpt-4o")
-agent = create_agent(model=model, tools=[search])
+# Simple: pass model as string (uses init_chat_model internally)
+agent = create_react_agent("openai:gpt-4o-mini", tools=[search])
 \`\`\`
 
 ### DEPRECATED APIs — Do NOT use
-- \`create_react_agent\` from langgraph.prebuilt → use \`create_agent\` from langchain.agents
-- \`AgentExecutor\` → use \`create_agent\` which returns a compiled graph
-- \`create_tool_calling_agent\` → use \`create_agent\`
+- \`create_agent\` from \`langchain.agents\` — does NOT exist
+- \`AgentExecutor\` — use \`create_react_agent\` from langgraph.prebuilt
+- \`create_tool_calling_agent\` — use \`create_react_agent\`
 
 ### With CopilotKit
 \`\`\`python
 from copilotkit import LangGraphAGUIAgent
-from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
-agent_graph = create_agent(model="openai:gpt-4o", tools=[search])
+agent_graph = create_react_agent("openai:gpt-4o-mini", tools=[search])
 ck_agent = LangGraphAGUIAgent(name="agent", description="...", graph=agent_graph)
-add_langgraph_fastapi_endpoint(app, ck_agent, "/copilotkit")
+add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
 \`\`\``,
     fetchedAt: new Date().toISOString(),
   },
@@ -167,11 +173,13 @@ add_langgraph_fastapi_endpoint(app, ck_agent, "/copilotkit")
 pip install langgraph langchain-openai
 \`\`\`
 
-### When to Use LangGraph vs LangChain
-- Simple tool-calling agent → use \`langchain.agents.create_agent\`
-- Custom state machine with branching/loops → use \`langgraph.graph.StateGraph\`
+### Simple Tool-Calling Agent
+\`\`\`python
+from langgraph.prebuilt import create_react_agent
+compiled = create_react_agent("openai:gpt-4o-mini", tools=[my_tool])
+\`\`\`
 
-### StateGraph Pattern
+### Custom StateGraph Pattern
 \`\`\`python
 from langgraph.graph import StateGraph, MessagesState, START, END
 from langchain_openai import ChatOpenAI
@@ -198,10 +206,10 @@ compiled = graph.compile(checkpointer=memory, interrupt_before=["action_node"])
 ### With CopilotKit
 \`\`\`python
 from copilotkit import LangGraphAGUIAgent
-from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
 ck_agent = LangGraphAGUIAgent(name="agent", description="...", graph=compiled)
-add_langgraph_fastapi_endpoint(app, ck_agent, "/copilotkit")
+add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
 \`\`\``,
     fetchedAt: new Date().toISOString(),
   },
@@ -271,7 +279,7 @@ os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_API_KEY"] = "your-key"
 
 from copilotkit import LangGraphAGUIAgent
-from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 # Traces are automatically sent to LangSmith
 \`\`\``,
     fetchedAt: new Date().toISOString(),
@@ -302,10 +310,10 @@ agent = create_deep_agent(
 Deep Agents work with CopilotKit via the same LangGraphAGUIAgent wrapper:
 \`\`\`python
 from copilotkit import LangGraphAGUIAgent
-from copilotkit.integrations.fastapi import add_langgraph_fastapi_endpoint
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
 ck_agent = LangGraphAGUIAgent(name="agent", description="...", graph=agent)
-add_langgraph_fastapi_endpoint(app, ck_agent, "/copilotkit")
+add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
 \`\`\`
 
 ### Key Points
@@ -344,8 +352,6 @@ function saveCache(cache: DocsCache): void {
 
 async function fetchDocPage(url: string): Promise<string | null> {
   try {
-    // Use a CORS proxy for doc sites that block direct browser requests
-    // Try direct first, fall back to allorigins proxy
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
@@ -353,9 +359,15 @@ async function fetchDocPage(url: string): Promise<string | null> {
     try {
       res = await fetch(url, { signal: controller.signal, mode: 'cors' });
     } catch {
-      // CORS blocked — try allorigins proxy
-      const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-      res = await fetch(proxyUrl, { signal: controller.signal });
+      // CORS blocked — try allorigins proxy with its own timeout
+      const proxyController = new AbortController();
+      const proxyTimeout = setTimeout(() => proxyController.abort(), 10000);
+      try {
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        res = await fetch(proxyUrl, { signal: proxyController.signal });
+      } finally {
+        clearTimeout(proxyTimeout);
+      }
     }
     clearTimeout(timeout);
 

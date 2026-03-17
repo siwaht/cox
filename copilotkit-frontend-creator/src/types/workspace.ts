@@ -36,5 +36,5 @@ export interface ProjectState {
   workspace: WorkspaceConfig;
   connections: ConnectionProfile[];
   /** Current view mode */
-  mode: 'editor' | 'preview' | 'published';
+  mode: 'editor' | 'preview' | 'published' | 'codegen';
 }

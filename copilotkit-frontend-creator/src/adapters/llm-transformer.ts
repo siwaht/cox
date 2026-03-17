@@ -86,26 +86,33 @@ Each frontend block requires specific backend capabilities. Your code MUST enabl
 - OR \`from langchain.tools import tool\`
 
 ### CopilotKit Python SDK — CORRECT API
-The ONLY working pattern (add_langgraph_fastapi_endpoint does NOT exist in the SDK):
+There are TWO integration patterns. Use the one that matches your installed packages:
+
+#### Pattern A: ag-ui-langgraph (RECOMMENDED — official CopilotKit docs)
+\`\`\`python
+from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+from copilotkit import LangGraphAGUIAgent
+
+agent = LangGraphAGUIAgent(name="agent", description="...", graph=compiled_graph)
+add_langgraph_fastapi_endpoint(app=app, agent=agent, path="/copilotkit")
+\`\`\`
+Requires: \`pip install ag-ui-langgraph copilotkit\`
+
+#### Pattern B: CopilotKitRemoteEndpoint (SDK fallback)
 \`\`\`python
 from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint
 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 
-# Wrap your compiled graph
 agent = LangGraphAGUIAgent(name="agent", description="...", graph=compiled_graph)
-
-# Create the SDK endpoint
 sdk = CopilotKitRemoteEndpoint(agents=[agent])
-
-# Register with FastAPI
 add_fastapi_endpoint(app, sdk, "/copilotkit")
 \`\`\`
+Requires: \`pip install copilotkit\`
 
 IMPORTANT:
 - The agent variable name MUST be \`agent\` or \`graph\` (the server auto-detects it)
 - \`name="agent"\` MUST match the frontend's agent ID (always use "agent")
 - Use \`graph=\` parameter (NOT \`agent=\`) in LangGraphAGUIAgent
-- NEVER use \`add_langgraph_fastapi_endpoint\` — it does not exist in the installed SDK
 - \`LangGraphAgent\` is NOT for CopilotKit — always use \`LangGraphAGUIAgent\`
 
 ### Deep Agents
@@ -116,16 +123,15 @@ IMPORTANT:
 The output file MUST have this structure in order:
 1. \`from dotenv import load_dotenv\` + \`load_dotenv()\` at the top (only ONCE)
 2. All necessary imports (no duplicates)
-3. \`from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint\`
-4. \`from copilotkit.integrations.fastapi import add_fastapi_endpoint\`
+3. \`from copilotkit import LangGraphAGUIAgent\`
+4. \`from ag_ui_langgraph import add_langgraph_fastapi_endpoint\`
 5. User's original tools/agent logic (preserved exactly)
 6. \`app = FastAPI(title="Agent Server")\`
 7. CORS middleware allowing all origins
 8. Agent creation: \`agent = LangGraphAGUIAgent(name="agent", description="...", graph=compiled_graph)\`
-9. SDK: \`sdk = CopilotKitRemoteEndpoint(agents=[agent])\`
-10. Endpoint: \`add_fastapi_endpoint(app, sdk, "/copilotkit")\`
-11. Health endpoint: \`@app.get("/health")\`
-12. Uvicorn entrypoint: \`if __name__ == "__main__": uvicorn.run("agent_server:app", host="0.0.0.0", port=8000, reload=True)\`
+9. Endpoint: \`add_langgraph_fastapi_endpoint(app=app, agent=agent, path="/copilotkit")\`
+10. Health endpoint: \`@app.get("/health")\`
+11. Uvicorn entrypoint: \`if __name__ == "__main__": uvicorn.run("agent_server:app", host="0.0.0.0", port=8000, reload=True)\`
 
 ## Response Format
 After the Python code, add a line "---META---" followed by a JSON object:
@@ -328,62 +334,56 @@ If a block requires a capability the user's code doesn't have, add the minimum c
 function postProcessCode(code: string): string {
   let lines = code.split('\n');
 
-  // 1. Fix: replace deprecated add_langgraph_fastapi_endpoint with the correct add_fastapi_endpoint pattern
-  const usesOldEndpoint = lines.some((l) =>
-    /add_langgraph_fastapi_endpoint\(/.test(l) && !/^#/.test(l.trim()),
+  // 1. Fix: replace old CopilotKitRemoteEndpoint + add_fastapi_endpoint pattern
+  //    with the modern add_langgraph_fastapi_endpoint from ag_ui_langgraph
+  const usesOldSdkPattern = lines.some((l) =>
+    /add_fastapi_endpoint\(/.test(l) && /sdk/.test(l) && !/^#/.test(l.trim()),
+  );
+  const usesCopilotKitRemoteEndpoint = lines.some((l) =>
+    /CopilotKitRemoteEndpoint\(/.test(l) && !/^#/.test(l.trim()),
   );
 
-  if (usesOldEndpoint) {
-    // Replace "add_langgraph_fastapi_endpoint(app, agent, "/copilotkit")" with add_fastapi_endpoint
+  if (usesOldSdkPattern || usesCopilotKitRemoteEndpoint) {
+    // Remove CopilotKitRemoteEndpoint lines (sdk = CopilotKitRemoteEndpoint(...))
+    lines = lines.filter((l) => !/^\s*sdk\s*=\s*CopilotKitRemoteEndpoint\(/.test(l));
+
+    // Replace add_fastapi_endpoint(app, sdk, "/copilotkit") with add_langgraph_fastapi_endpoint
     lines = lines.map((l) => {
-      if (/add_langgraph_fastapi_endpoint\(/.test(l) && !/^#/.test(l.trim())) {
-        // Extract the agent variable name from add_langgraph_fastapi_endpoint(app, agentVar, "/copilotkit")
-        const match = l.match(/add_langgraph_fastapi_endpoint\(\s*\w+\s*,\s*(\w+)\s*,/);
-        const agentVar = match ? match[1] : 'agent';
+      if (/add_fastapi_endpoint\(\s*\w+\s*,\s*sdk\s*,/.test(l) && !/^#/.test(l.trim())) {
         const indent = l.match(/^(\s*)/)?.[1] ?? '';
-        // Insert sdk creation before the endpoint line, return sdk line + endpoint line
-        return `${indent}sdk = CopilotKitRemoteEndpoint(agents=[${agentVar}])\n${indent}add_fastapi_endpoint(app, sdk, "/copilotkit")`;
+        // Find the agent variable name from the CopilotKitRemoteEndpoint call
+        const agentMatch = code.match(/CopilotKitRemoteEndpoint\(\s*agents\s*=\s*\[\s*(\w+)\s*\]/);
+        const agentVar = agentMatch ? agentMatch[1] : 'agent';
+        return `${indent}add_langgraph_fastapi_endpoint(app=app, agent=${agentVar}, path="/copilotkit")`;
       }
       return l;
     });
 
-    // Fix imports: replace add_langgraph_fastapi_endpoint import with add_fastapi_endpoint
+    // Fix imports: replace add_fastapi_endpoint import with add_langgraph_fastapi_endpoint
     lines = lines.map((l) => {
-      if (/from\s+copilotkit\.integrations\.fastapi\s+import\s+add_langgraph_fastapi_endpoint/.test(l)) {
-        return l.replace('add_langgraph_fastapi_endpoint', 'add_fastapi_endpoint');
+      if (/from\s+copilotkit\.integrations\.fastapi\s+import\s+add_fastapi_endpoint/.test(l)) {
+        return 'from ag_ui_langgraph import add_langgraph_fastapi_endpoint';
       }
       return l;
     });
 
-    // Ensure CopilotKitRemoteEndpoint is imported
-    const importsCopilotKit = lines.findIndex((l) => /^from copilotkit import/.test(l.trim()));
-    const hasCopilotKitRemote = lines.some((l) => /CopilotKitRemoteEndpoint/.test(l) && /^from copilotkit import/.test(l.trim()));
-    if (importsCopilotKit >= 0 && !hasCopilotKitRemote) {
-      lines[importsCopilotKit] = lines[importsCopilotKit].replace(
-        /from copilotkit import (.*)/,
-        (_, imports) => {
-          const parts = imports.split(',').map((s: string) => s.trim()).filter(Boolean);
-          if (!parts.includes('CopilotKitRemoteEndpoint')) parts.push('CopilotKitRemoteEndpoint');
-          return `from copilotkit import ${parts.join(', ')}`;
-        }
-      );
-    } else if (importsCopilotKit < 0) {
-      const lastImport = lines.reduce((idx, l, i) => (/^from |^import /.test(l) ? i : idx), -1);
-      lines.splice(lastImport + 1, 0, 'from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint');
-    }
+    // Remove CopilotKitRemoteEndpoint from copilotkit imports
+    lines = lines.map((l) => {
+      if (/^from copilotkit import/.test(l.trim()) && /CopilotKitRemoteEndpoint/.test(l)) {
+        return l.replace(/,?\s*CopilotKitRemoteEndpoint/, '').replace(/CopilotKitRemoteEndpoint,?\s*/, '');
+      }
+      return l;
+    });
   }
 
-  // 2. Ensure add_fastapi_endpoint is imported if used
-  const usesEndpoint = lines.some((l) => /add_fastapi_endpoint\(/.test(l) && !/^#/.test(l.trim()));
-  const importsEndpoint = lines.some((l) =>
-    /from\s+copilotkit\.integrations\.fastapi\s+import.*add_fastapi_endpoint/.test(l),
+  // 2. Ensure add_langgraph_fastapi_endpoint is imported if used
+  const usesLgEndpoint = lines.some((l) => /add_langgraph_fastapi_endpoint\(/.test(l) && !/^#/.test(l.trim()));
+  const importsLgEndpoint = lines.some((l) =>
+    /from\s+ag_ui_langgraph\s+import.*add_langgraph_fastapi_endpoint/.test(l),
   );
-  if (usesEndpoint && !importsEndpoint) {
-    const lastCopilotImport = lines.reduce(
-      (idx, l, i) => (/^from copilotkit|^import copilotkit/.test(l) ? i : idx), -1,
-    );
-    const insertAt = lastCopilotImport >= 0 ? lastCopilotImport + 1 : lines.findIndex((l) => /^from |^import /.test(l)) + 1;
-    lines.splice(insertAt, 0, 'from copilotkit.integrations.fastapi import add_fastapi_endpoint');
+  if (usesLgEndpoint && !importsLgEndpoint) {
+    const lastImport = lines.reduce((idx, l, i) => (/^from |^import /.test(l) ? i : idx), -1);
+    lines.splice(lastImport + 1, 0, 'from ag_ui_langgraph import add_langgraph_fastapi_endpoint');
   }
 
   // 3. Fix: ensure LangGraphAGUIAgent is used (not bare LangGraphAgent)
@@ -433,7 +433,7 @@ function postProcessCode(code: string): string {
     return true;
   });
 
-  // 8. Ensure \`agent=\` param is replaced with \`graph=\` in LangGraphAGUIAgent
+  // 8. Ensure `agent=` param is replaced with `graph=` in LangGraphAGUIAgent
   lines = lines.map((l) => {
     if (/LangGraphAGUIAgent\(/.test(l) && /\bagent\s*=/.test(l) && !/\bgraph\s*=/.test(l)) {
       return l.replace(/\bagent\s*=/, 'graph=');
@@ -441,7 +441,7 @@ function postProcessCode(code: string): string {
     return l;
   });
 
-  // 9. Remove any monkey-patch for dict_repr bug (no longer needed)
+  // 9. Remove any monkey-patch for dict_repr bug (no longer needed with ag_ui_langgraph)
   const patchStart = lines.findIndex((l) => /Fix dict_repr bug|_original_dict_repr|_patched_dict_repr/.test(l));
   if (patchStart >= 0) {
     let patchEnd = patchStart;
@@ -459,6 +459,14 @@ function postProcessCode(code: string): string {
       }
     }
     lines.splice(patchStart, patchEnd - patchStart + 1);
+  }
+
+  // 10. Ensure LangGraphAGUIAgent is imported
+  const usesAGUI = lines.some((l) => /LangGraphAGUIAgent/.test(l) && !/^from |^import /.test(l.trim()));
+  const importsAGUI = lines.some((l) => /from copilotkit import.*LangGraphAGUIAgent/.test(l));
+  if (usesAGUI && !importsAGUI) {
+    const lastImport = lines.reduce((idx, l, i) => (/^from |^import /.test(l) ? i : idx), -1);
+    lines.splice(lastImport + 1, 0, 'from copilotkit import LangGraphAGUIAgent');
   }
 
   return lines.join('\n');
@@ -498,7 +506,7 @@ function parseResponse(raw: string): LLMTransformResult {
     code: code + '\n',
     runtime: (meta.runtime as string) || 'langchain',
     warnings: (meta.warnings as string[]) || [],
-    deps: (meta.deps as string[]) || ['fastapi', 'uvicorn[standard]', 'copilotkit', 'python-dotenv', 'langchain', 'langchain-openai'],
+    deps: (meta.deps as string[]) || ['fastapi', 'uvicorn[standard]', 'copilotkit', 'ag-ui-langgraph', 'python-dotenv', 'langchain', 'langchain-openai', 'langgraph'],
     runCommand: (meta.runCommand as string) || 'uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload',
     explanation: (meta.explanation as string) || '',
   };

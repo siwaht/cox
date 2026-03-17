@@ -138,8 +138,6 @@ def mount_agent():
         return
 
     try:
-        # Read the code and exec it in an isolated namespace so its top-level
-        # FastAPI app / uvicorn.run don't interfere with ours.
         with open(agent_path, "r", encoding="utf-8") as f:
             code = f.read()
 
@@ -147,7 +145,6 @@ def mount_agent():
         filtered_lines = []
         for line in code.splitlines():
             stripped = line.strip()
-            # Skip standalone server bootstrap
             if stripped.startswith("uvicorn.run("):
                 continue
             if stripped.startswith("app = FastAPI("):
@@ -156,7 +153,7 @@ def mount_agent():
                 continue
             if stripped.startswith("add_langgraph_fastapi_endpoint(") or stripped.startswith("add_fastapi_endpoint("):
                 continue
-            if stripped.startswith('@app.get("/health')  or stripped.startswith('@app.get("/copilotkit'):
+            if stripped.startswith('@app.get("/health') or stripped.startswith('@app.get("/copilotkit'):
                 continue
             if stripped == 'def health():' or stripped == 'return {"status": "ok"}':
                 continue
@@ -178,122 +175,58 @@ def mount_agent():
             print("  Export one of those and restart.")
             return
 
-        from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint
-        from copilotkit.integrations.fastapi import add_fastapi_endpoint
+        from copilotkit import LangGraphAGUIAgent
 
-        # ── Patch 1: ag_ui_langgraph.LangGraphAgent has no dict_repr(), but
-        # CopilotKit's LangGraphAGUIAgent.dict_repr() calls super().dict_repr().
-        # Add a fallback so the /copilotkit/info endpoint works correctly.
-        try:
-            from ag_ui_langgraph import LangGraphAgent as _AguiBase
-            if not hasattr(_AguiBase, 'dict_repr'):
-                def _agui_dict_repr(self):
-                    return {'name': self.name, 'description': getattr(self, 'description', '') or ''}
-                _AguiBase.dict_repr = _agui_dict_repr
-        except ImportError:
-            pass
-
-        # ── Patch 2: CopilotKit SDK calls agent.execute(**kwargs) but
-        # LangGraphAGUIAgent only has run(RunAgentInput). Bridge the two by
-        # converting the SDK kwargs into a RunAgentInput and streaming back
-        # the SSE events that run() yields.
-        try:
-            from ag_ui_langgraph import LangGraphAgent as _AguiBase2
-            from ag_ui.core.types import (
-                RunAgentInput as _RunAgentInput,
-                UserMessage as _UserMsg,
-                AssistantMessage as _AssistMsg,
-                SystemMessage as _SysMsg,
-                ToolMessage as _ToolMsg,
-            )
-            import uuid as _uuid
-
-            if not hasattr(_AguiBase2, 'execute'):
-                def _coerce_message(m):
-                    """Convert a copilotkit Message dict to an ag_ui Message object."""
-                    role = m.get('role', 'user') if isinstance(m, dict) else getattr(m, 'role', 'user')
-                    content = m.get('content', '') if isinstance(m, dict) else getattr(m, 'content', '')
-                    mid = m.get('id', str(_uuid.uuid4())) if isinstance(m, dict) else getattr(m, 'id', str(_uuid.uuid4()))
-                    if role in ('human', 'user'):
-                        return _UserMsg(id=mid, role='user', content=content or '')
-                    elif role in ('ai', 'assistant'):
-                        return _AssistMsg(id=mid, role='assistant', content=content or '')
-                    elif role == 'system':
-                        return _SysMsg(id=mid, role='system', content=content or '')
-                    elif role == 'tool':
-                        tool_call_id = m.get('tool_call_id', mid) if isinstance(m, dict) else mid
-                        return _ToolMsg(id=mid, role='tool', content=content or '', tool_call_id=tool_call_id)
-                    else:
-                        return _UserMsg(id=mid, role='user', content=str(content) if content else '')
-
-                async def _agui_execute(self, *, thread_id, node_name=None, state=None,
-                                        config=None, messages=None, actions=None, meta_events=None):
-                    import json as _json
-                    coerced_msgs = [_coerce_message(m) for m in (messages or [])]
-                    run_input = _RunAgentInput(
-                        threadId=thread_id or str(_uuid.uuid4()),
-                        runId=str(_uuid.uuid4()),
-                        state=state or {},
-                        messages=coerced_msgs,
-                        tools=[],
-                        context=[],
-                        forwardedProps={'node_name': node_name} if node_name else {},
-                    )
-                    async for chunk in self.run(run_input):
-                        if chunk is None:
-                            continue
-                        # ag_ui yields either str (SSE line) or Pydantic event objects.
-                        # CopilotKit SDK's StreamingResponse needs str chunks.
-                        if isinstance(chunk, str):
-                            yield chunk
-                        elif hasattr(chunk, 'model_dump_json'):
-                            yield chunk.model_dump_json()
-                        elif hasattr(chunk, 'json'):
-                            yield chunk.json()
-                        else:
-                            yield _json.dumps(chunk) if not isinstance(chunk, bytes) else chunk.decode()
-
-                _AguiBase2.execute = _agui_execute
-        except ImportError:
-            pass
-
-        # Wrap in LangGraphAGUIAgent if it's a raw compiled graph.
-        # Use name="default" so the CopilotKit JS SDK can find it without
-        # needing an explicit agentName prop on the <CopilotKit> component.
+        # Wrap in LangGraphAGUIAgent if it's a raw compiled graph
         if isinstance(agent_obj, LangGraphAGUIAgent):
             ck_agent = agent_obj
         else:
-            ck_agent = LangGraphAGUIAgent(name="default", graph=agent_obj)
+            ck_agent = LangGraphAGUIAgent(name="default", description="Agent", graph=agent_obj)
 
-        sdk = CopilotKitRemoteEndpoint(agents=[ck_agent])
-        add_fastapi_endpoint(app, sdk, "/copilotkit")
+        # Try the modern AG-UI endpoint first (recommended by CopilotKit docs)
+        mounted = False
+        try:
+            from ag_ui_langgraph import add_langgraph_fastapi_endpoint
+            add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
+            mounted = True
+            print("✓ Mounted agent at /copilotkit (ag-ui-langgraph)")
+        except ImportError:
+            pass
+        except Exception as e:
+            print(f"⚠ ag_ui_langgraph mount failed ({e}), trying SDK fallback...")
 
-        # Also handle bare POST /copilotkit (no trailing path).
-        # The SDK's handler extracts `path` from the URL relative to the prefix;
-        # when there's no path segment it gets None and crashes. We forward to /info.
-        from copilotkit.integrations.fastapi import handle_info as _ck_handle_info
-        from copilotkit.sdk import CopilotKitContext as _CKContext
-        async def _copilotkit_root_handler(request: Request):
+        # Fallback: use CopilotKitRemoteEndpoint + add_fastapi_endpoint
+        if not mounted:
             try:
-                body = await request.json()
-            except Exception:
-                body = {}
-            thread_id = body.get("threadId") if isinstance(body, dict) else None
-            context = _CKContext(thread_id=thread_id or "")
-            return await _ck_handle_info(sdk=sdk, context=context)
-        app.add_api_route(
-            "/copilotkit",
-            _copilotkit_root_handler,
-            methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        )
+                from copilotkit import CopilotKitRemoteEndpoint
+                from copilotkit.integrations.fastapi import add_fastapi_endpoint
 
-        print("✓ Mounted agent at /copilotkit")
+                # Patch dict_repr if missing on ag_ui base class
+                try:
+                    from ag_ui_langgraph import LangGraphAgent as _AguiBase
+                    if not hasattr(_AguiBase, 'dict_repr'):
+                        def _agui_dict_repr(self):
+                            return {'name': getattr(self, 'name', ''), 'description': getattr(self, 'description', '')}
+                        _AguiBase.dict_repr = _agui_dict_repr
+                except ImportError:
+                    pass
+
+                sdk = CopilotKitRemoteEndpoint(agents=[ck_agent])
+                add_fastapi_endpoint(app, sdk, "/copilotkit")
+                mounted = True
+                print("✓ Mounted agent at /copilotkit (SDK fallback)")
+            except Exception as e2:
+                print(f"⚠ SDK fallback also failed: {e2}")
+
+        if not mounted:
+            print("⚠ Could not mount agent. Install: pip install ag-ui-langgraph copilotkit")
 
     except ImportError as e:
-        print(f"⚠ copilotkit package issue: {e}. Run: pip install copilotkit")
+        print(f"⚠ copilotkit package issue: {e}. Run: pip install copilotkit ag-ui-langgraph")
     except Exception as e:
         print(f"⚠ Could not load agent.py: {e}")
         print("  The frontend will still work, but /copilotkit won't be available.")
+
 
 
 mount_agent()

@@ -15,11 +15,11 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       '/copilotkit': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
       '/health': {
-        target: 'http://localhost:5000',
+        target: 'http://localhost:8000',
         changeOrigin: true,
       },
     },

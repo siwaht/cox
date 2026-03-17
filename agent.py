@@ -32,22 +32,14 @@ def search(query: str) -> str:
 MODEL = os.getenv("AGENT_MODEL", "openai:gpt-4o-mini")
 
 # ─── Graph ───────────────────────────────────────────────────────────────────
-# Only compile the graph if an API key is available (avoids startup errors)
 _api_key = os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("GOOGLE_API_KEY")
 if _api_key:
     _checkpointer = MemorySaver()
     _compiled = create_react_agent(MODEL, tools=[get_weather, search], checkpointer=_checkpointer)
-    # Use name="default" so the CopilotKit JS SDK can find the agent without
-    # needing an explicit agentName prop on the <CopilotKit> component.
     graph = LangGraphAGUIAgent(
         name="default",
         description="A helpful assistant with weather and search tools.",
         graph=_compiled,
     )
 else:
-    # No API key yet — server.py will print a warning and skip mounting.
-    # Set OPENAI_API_KEY (or another provider key) and restart.
-    raise RuntimeError(
-        "No LLM API key found. Set OPENAI_API_KEY (or ANTHROPIC_API_KEY / GOOGLE_API_KEY) "
-        "in your environment or a .env file, then restart the server."
-    )
+    graph = None

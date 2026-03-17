@@ -100,26 +100,31 @@ export const useConnectionStore = create<ConnectionStore>()(
 
       startHealthCheck: () => {
         const s = get();
-        if (s.healthInterval) clearInterval(s.healthInterval);
+        if (s.healthInterval) {
+          clearTimeout(s.healthInterval);
+          set({ healthInterval: null });
+        }
         let delayMs = 30000;
 
-        const scheduleNext = () => {
+        const scheduleNext = (): ReturnType<typeof setTimeout> => {
           const timeout = setTimeout(async () => {
             const state = get();
             if (!state.activeConnectionId) {
-              // Store the timeout so stopHealthCheck can clear it
               set({ healthInterval: scheduleNext() });
               return;
             }
             if (state.connectionStatus === 'connected' || state.connectionStatus === 'error') {
-              const result = await state.validate(state.activeConnectionId);
-              if (result.status === 'ok' || result.status === 'warning') {
-                delayMs = 30000; // reset on success
-              } else {
-                delayMs = Math.min(delayMs * 1.5, 120000); // exponential backoff, max 2 min
+              try {
+                const result = await state.validate(state.activeConnectionId);
+                if (result.status === 'ok' || result.status === 'warning') {
+                  delayMs = 30000;
+                } else {
+                  delayMs = Math.min(delayMs * 1.5, 120000);
+                }
+              } catch {
+                delayMs = Math.min(delayMs * 1.5, 120000);
               }
             }
-            // Schedule next check with potentially updated delay
             set({ healthInterval: scheduleNext() });
           }, delayMs);
           return timeout;

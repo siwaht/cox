@@ -847,6 +847,7 @@ function detectAgentDeps(code: string): string[] {
     [/from\s+langchain_core/m, 'langchain-core'],
     [/(?:from|import)\s+langsmith/m, 'langsmith'],
     [/from\s+copilotkit/m, 'copilotkit'],
+    [/from\s+ag_ui_langgraph/m, 'ag-ui-langgraph'],
     [/from\s+fastapi/m, 'fastapi'],
     [/import\s+uvicorn/m, 'uvicorn'],
     [/from\s+dotenv/m, 'python-dotenv'],
@@ -858,6 +859,7 @@ function detectAgentDeps(code: string): string[] {
   }
   // Always include these for a working agent
   if (!deps.includes('copilotkit')) deps.push('copilotkit');
+  if (!deps.includes('ag-ui-langgraph')) deps.push('ag-ui-langgraph');
   if (!deps.includes('uvicorn')) deps.push('uvicorn');
   if (!deps.includes('fastapi')) deps.push('fastapi');
   if (!deps.includes('python-dotenv')) deps.push('python-dotenv');

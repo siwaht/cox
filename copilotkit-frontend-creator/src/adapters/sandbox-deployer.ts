@@ -23,19 +23,15 @@ const AGENT_PORT = 8000;
 
 export function validateForDeploy(code: string): { valid: boolean; issues: string[] } {
   const issues: string[] = [];
-  if (!code.includes('add_langgraph_fastapi_endpoint')) {
-    if (code.includes('add_fastapi_endpoint')) {
-      issues.push('Using deprecated add_fastapi_endpoint — must use add_langgraph_fastapi_endpoint instead');
-    } else {
-      issues.push('Missing CopilotKit endpoint (add_langgraph_fastapi_endpoint)');
-    }
+  // Check for either endpoint pattern (both are valid)
+  const hasLgEndpoint = code.includes('add_langgraph_fastapi_endpoint');
+  const hasSdkEndpoint = code.includes('add_fastapi_endpoint');
+  if (!hasLgEndpoint && !hasSdkEndpoint) {
+    issues.push('Missing CopilotKit endpoint (add_langgraph_fastapi_endpoint or add_fastapi_endpoint)');
   }
   if (!code.includes('/copilotkit')) issues.push('Missing /copilotkit route');
   if (!code.includes('/health')) issues.push('Missing /health endpoint');
   if (!code.includes('CORSMiddleware')) issues.push('Missing CORS middleware');
-  if (code.includes('CopilotKitSDK') || code.includes('CopilotKitRemoteEndpoint')) {
-    issues.push('Using deprecated CopilotKitSDK/CopilotKitRemoteEndpoint — use add_langgraph_fastapi_endpoint(app, agent, ...) directly');
-  }
   return { valid: issues.length === 0, issues };
 }
 
@@ -98,7 +94,7 @@ export async function deploySandbox(
 
   // 5. Install dependencies
   onLog('Installing Python dependencies (this may take a minute)...');
-  await execCommand(sandboxId, `pip install ${config.deps.join(' ')}`, headers, onLog);
+  await execCommand(sandboxId, `pip install ag-ui-langgraph ${config.deps.join(' ')}`, headers, onLog);
   onLog('Dependencies installed');
 
   // 6. Start uvicorn
