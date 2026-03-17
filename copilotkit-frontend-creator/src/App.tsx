@@ -2,23 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { useThemeStore } from '@/store/theme-store';
 import { EditorView } from '@/components/editor/EditorView';
-import { PreviewView } from '@/components/preview/PreviewView';
 import { CodeTransformerView } from '@/components/codegen/CodeTransformerView';
 import { TopBar } from '@/components/layout/TopBar';
 import { ToastContainer } from '@/components/layout/ToastContainer';
 import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts';
 import { useToastStore } from '@/store/toast-store';
 import { decodeWorkspaceFromUrl } from '@/utils/share-url';
-import { useLocalAgent } from '@/hooks/useLocalAgent';
-
 export const App: React.FC = () => {
   const { mode, workspace, loadWorkspace } = useWorkspaceStore();
   const theme = useThemeStore((s) => s.theme);
   const addToast = useToastStore((s) => s.addToast);
   const [showShortcuts, setShowShortcuts] = useState(false);
-
-  // Auto-connect to the co-hosted agent
-  useLocalAgent();
 
   // Dynamic page title
   useEffect(() => {
@@ -68,7 +62,6 @@ export const App: React.FC = () => {
       <TopBar />
       <main className="flex-1 overflow-hidden transition-opacity duration-200">
         {mode === 'editor' && <EditorView />}
-        {(mode === 'preview' || mode === 'published') && <PreviewView />}
         {mode === 'codegen' && <CodeTransformerView />}
       </main>
       <ToastContainer />

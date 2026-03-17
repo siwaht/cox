@@ -1,32 +1,21 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useWorkspaceStore } from '@/store/workspace-store';
-import { useConnectionStore } from '@/store/connection-store';
 import { useToastStore } from '@/store/toast-store';
-import { ConnectionModal } from '@/components/connections/ConnectionModal';
 import { ExportModal } from '@/components/publish/ExportModal';
 import { encodeWorkspaceToUrl } from '@/utils/share-url';
 import { useThemeStore } from '@/store/theme-store';
-import { Zap, Plug, Rocket, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon } from 'lucide-react';
+import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon } from 'lucide-react';
 
 export const TopBar: React.FC = () => {
   const { mode, setMode, workspace, updateWorkspace, savedWorkspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace } = useWorkspaceStore();
-  const { activeConnectionId, connections, connectionStatus } = useConnectionStore();
   const { theme, toggleTheme } = useThemeStore();
   const addToast = useToastStore((s) => s.addToast);
-  const [showConnModal, setShowConnModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showWorkspaces, setShowWorkspaces] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(workspace.name);
   const nameRef = useRef<HTMLInputElement>(null);
-
-  const activeConn = connections.find((c) => c.id === activeConnectionId);
-
-  const statusColor =
-    connectionStatus === 'connected' ? 'bg-success' :
-    connectionStatus === 'error' ? 'bg-danger' :
-    connectionStatus === 'validating' ? 'bg-warning animate-pulse' : 'bg-txt-faint';
 
   useEffect(() => {
     if (isEditingName && nameRef.current) {
@@ -35,7 +24,6 @@ export const TopBar: React.FC = () => {
     }
   }, [isEditingName]);
 
-  // Sync name value when workspace name changes externally (e.g., import)
   useEffect(() => {
     if (!isEditingName) setNameValue(workspace.name);
   }, [workspace.name, isEditingName]);
@@ -138,18 +126,10 @@ export const TopBar: React.FC = () => {
             )}
           </div>
 
-          <button onClick={() => setShowConnModal(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs rounded-lg border border-border
-                       hover:border-accent/50 hover:bg-accent-soft transition-all">
-            <span className={`w-2 h-2 rounded-full ${statusColor}`} />
-            <Plug size={13} className="text-txt-muted" />
-            <span className="text-txt-secondary">{activeConn ? activeConn.name : 'Connect Agent'}</span>
-          </button>
-
           <button onClick={() => setShowExportModal(true)}
             className="flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-lg bg-accent
                        hover:bg-accent-hover text-white transition-colors font-medium">
-            <Rocket size={13} /> Publish
+            <Download size={13} /> Download Project
           </button>
 
           <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}
@@ -177,16 +157,10 @@ export const TopBar: React.FC = () => {
         <div className="md:hidden bg-surface-raised border-b border-border px-4 py-3 space-y-3 animate-slide-up">
           <ModeToggle mode={mode} setMode={(m) => { setMode(m); setMobileMenuOpen(false); }} />
           <div className="flex gap-2">
-            <button onClick={() => { setShowConnModal(true); setMobileMenuOpen(false); }}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 text-xs rounded-lg
-                         border border-border hover:border-accent/50 transition-all">
-              <span className={`w-2 h-2 rounded-full ${statusColor}`} />
-              {activeConn ? activeConn.name : 'Connect Agent'}
-            </button>
             <button onClick={() => { setShowExportModal(true); setMobileMenuOpen(false); }}
-              className="flex items-center gap-1.5 px-4 py-2.5 text-xs rounded-lg bg-accent
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs rounded-lg bg-accent
                          hover:bg-accent-hover text-white font-medium">
-              <Rocket size={13} /> Publish
+              <Download size={13} /> Download Project
             </button>
           </div>
           <div className="flex gap-2">
@@ -209,7 +183,6 @@ export const TopBar: React.FC = () => {
         </div>
       )}
 
-      {showConnModal && <ConnectionModal onClose={() => setShowConnModal(false)} />}
       {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
     </>
   );
@@ -222,9 +195,7 @@ const ModeToggle: React.FC<{
   <div className="flex bg-surface rounded-lg p-0.5 gap-0.5 w-full md:w-auto">
     {([
       { key: 'editor' as const, label: 'Edit', tip: 'Drag-and-drop block editor' },
-      { key: 'preview' as const, label: 'Preview', tip: 'See your frontend with sample data' },
-      { key: 'published' as const, label: 'Live', tip: 'Connected to your agent in real-time' },
-      { key: 'codegen' as const, label: 'Code', tip: 'Transform your agent code for CopilotKit' },
+      { key: 'codegen' as const, label: 'Code', tip: 'Paste & transform your agent code' },
     ]).map((m) => (
       <button
         key={m.key}
