@@ -40,7 +40,7 @@ export function useLocalAgent() {
       frontend: 'copilotkit',
       runtime: 'langgraph',
       baseUrl: window.location.origin,
-      agentId: 'agent',
+      agentId: 'default',
       auth: { mode: 'none' },
       env: {},
     });

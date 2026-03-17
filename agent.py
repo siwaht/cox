@@ -12,6 +12,7 @@ load_dotenv()
 
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
+from langgraph.checkpoint.memory import MemorySaver
 from copilotkit import LangGraphAGUIAgent
 
 # ─── Tools ───────────────────────────────────────────────────────────────────
@@ -34,9 +35,12 @@ MODEL = os.getenv("AGENT_MODEL", "openai:gpt-4o-mini")
 # Only compile the graph if an API key is available (avoids startup errors)
 _api_key = os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("GOOGLE_API_KEY")
 if _api_key:
-    _compiled = create_react_agent(MODEL, tools=[get_weather, search])
+    _checkpointer = MemorySaver()
+    _compiled = create_react_agent(MODEL, tools=[get_weather, search], checkpointer=_checkpointer)
+    # Use name="default" so the CopilotKit JS SDK can find the agent without
+    # needing an explicit agentName prop on the <CopilotKit> component.
     graph = LangGraphAGUIAgent(
-        name="agent",
+        name="default",
         description="A helpful assistant with weather and search tools.",
         graph=_compiled,
     )
