@@ -18,6 +18,27 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.cors import CORSMiddleware
 
+# ── Patch: fix Python SDK 0.1.79 bug where handler_v1 raises 400 on empty body
+# The @copilotkitnext/core JS client sends POST /info with no body in some code paths.
+# The SDK rejects body=None but should treat it as {} for the "info" endpoint.
+def _patch_copilotkit_handler_v1():
+    try:
+        import copilotkit.integrations.fastapi as _ck_fastapi
+        import fastapi.exceptions as _fexc
+        _original_handler_v1 = _ck_fastapi.handler_v1
+
+        async def _patched_handler_v1(sdk, method, path, body, context):
+            # Treat missing/None body as empty dict so POST /info works without a body
+            if body is None:
+                body = {}
+            return await _original_handler_v1(sdk=sdk, method=method, path=path, body=body, context=context)
+
+        _ck_fastapi.handler_v1 = _patched_handler_v1
+    except Exception:
+        pass  # If patching fails, continue without it
+
+_patch_copilotkit_handler_v1()
+
 app = FastAPI(title="CopilotKit Unified Server")
 
 app.add_middleware(
@@ -160,6 +181,18 @@ def mount_agent():
         from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint
         from copilotkit.integrations.fastapi import add_fastapi_endpoint
 
+        # ── Patch: ag_ui_langgraph.LangGraphAgent has no dict_repr(), but
+        # CopilotKit's LangGraphAGUIAgent.dict_repr() calls super().dict_repr().
+        # Add a fallback so the /copilotkit/info endpoint works correctly.
+        try:
+            from ag_ui_langgraph import LangGraphAgent as _AguiBase
+            if not hasattr(_AguiBase, 'dict_repr'):
+                def _agui_dict_repr(self):
+                    return {'name': self.name, 'description': getattr(self, 'description', '') or ''}
+                _AguiBase.dict_repr = _agui_dict_repr
+        except ImportError:
+            pass
+
         # Wrap in LangGraphAGUIAgent if it's a raw compiled graph
         if isinstance(agent_obj, LangGraphAGUIAgent):
             ck_agent = agent_obj
@@ -168,6 +201,26 @@ def mount_agent():
 
         sdk = CopilotKitRemoteEndpoint(agents=[ck_agent])
         add_fastapi_endpoint(app, sdk, "/copilotkit")
+
+        # Also handle bare POST /copilotkit (no trailing path).
+        # The SDK's handler extracts `path` from the URL relative to the prefix;
+        # when there's no path segment it gets None and crashes. We forward to /info.
+        from copilotkit.integrations.fastapi import handle_info as _ck_handle_info
+        from copilotkit.sdk import CopilotKitContext as _CKContext
+        async def _copilotkit_root_handler(request: Request):
+            try:
+                body = await request.json()
+            except Exception:
+                body = {}
+            thread_id = body.get("threadId") if isinstance(body, dict) else None
+            context = _CKContext(thread_id=thread_id or "")
+            return await _ck_handle_info(sdk=sdk, context=context)
+        app.add_api_route(
+            "/copilotkit",
+            _copilotkit_root_handler,
+            methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        )
+
         print("✓ Mounted agent at /copilotkit")
 
     except ImportError as e:
@@ -208,12 +261,25 @@ if os.path.isdir(DIST_DIR):
     app.mount("/assets", StaticFiles(directory=os.path.join(DIST_DIR, "assets")), name="assets")
 
     @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
+    async def serve_spa(full_path: str, request: Request):
         """Serve index.html for all non-API routes (SPA fallback)."""
         file_path = os.path.join(DIST_DIR, full_path)
         if os.path.isfile(file_path):
             return FileResponse(file_path)
-        return FileResponse(os.path.join(DIST_DIR, "index.html"))
+        # Always return index.html with no-cache headers so the browser gets
+        # the latest build (assets are content-hashed and safe to cache).
+        from fastapi.responses import HTMLResponse
+        index_path = os.path.join(DIST_DIR, "index.html")
+        with open(index_path, encoding="utf-8") as f:
+            html = f.read()
+        return HTMLResponse(
+            content=html,
+            headers={
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+            },
+        )
 else:
     @app.get("/")
     async def no_build():
