@@ -1,14 +1,13 @@
-import React from 'react';
+﻿import React from 'react';
 import { RuntimeBlockRenderer } from '@/components/runtime/RuntimeBlockRenderer';
 import type { BlockConfig } from '@/types/blocks';
-import { v4 as uuid } from 'uuid';
 
 const FALLBACK_BLOCKS: BlockConfig[] = [
-  { id: uuid(), type: 'chat', label: 'Chat', x: 0, y: 0, w: 8, h: 5, props: { showTimestamps: true, showAvatars: true }, visible: true },
-  { id: uuid(), type: 'status', label: 'Status', x: 8, y: 0, w: 4, h: 1, props: {}, visible: true },
-  { id: uuid(), type: 'results', label: 'Results', x: 8, y: 1, w: 4, h: 2, props: { format: 'auto' }, visible: true },
-  { id: uuid(), type: 'toolActivity', label: 'Tool Activity', x: 8, y: 3, w: 4, h: 2, props: { showArgs: true, showResults: true }, visible: true },
-  { id: uuid(), type: 'logs', label: 'Logs', x: 0, y: 5, w: 12, h: 2, props: { level: 'info', autoScroll: true }, visible: true },
+  { id: 'fb-chat', type: 'chat', label: 'Chat', x: 0, y: 0, w: 8, h: 5, props: { showTimestamps: true, showAvatars: true }, visible: true },
+  { id: 'fb-status', type: 'status', label: 'Status', x: 8, y: 0, w: 4, h: 1, props: {}, visible: true },
+  { id: 'fb-results', type: 'results', label: 'Results', x: 8, y: 1, w: 4, h: 2, props: { format: 'auto' }, visible: true },
+  { id: 'fb-tools', type: 'toolActivity', label: 'Tool Activity', x: 8, y: 3, w: 4, h: 2, props: { showArgs: true, showResults: true }, visible: true },
+  { id: 'fb-logs', type: 'logs', label: 'Logs', x: 0, y: 5, w: 12, h: 2, props: { level: 'info', autoScroll: true }, visible: true },
 ];
 
 export const FallbackWorkspace: React.FC = () => (

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useConnectionStore } from '@/store/connection-store';
 
 const LOCAL_AGENT_NAME = 'Local Agent';
@@ -9,33 +9,27 @@ const LOCAL_AGENT_NAME = 'Local Agent';
  * bridge activates without any manual setup.
  */
 export function useLocalAgent() {
-  const connections = useConnectionStore((s) => s.connections);
-  const addConnection = useConnectionStore((s) => s.addConnection);
-  const setActive = useConnectionStore((s) => s.setActive);
-  const validate = useConnectionStore((s) => s.validate);
-  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const initialized = useRef(false);
 
   useEffect(() => {
-    // Already have a local agent connection? Just make sure it's active.
-    const existing = connections.find((c) => c.name === LOCAL_AGENT_NAME);
+    if (initialized.current) return;
+    initialized.current = true;
+
+    const store = useConnectionStore.getState();
+    const existing = store.connections.find((c) => c.name === LOCAL_AGENT_NAME);
+
     if (existing) {
-      // Update baseUrl if origin changed (e.g. Replit assigned a new URL)
       if (existing.baseUrl !== window.location.origin) {
-        useConnectionStore.getState().updateConnection(existing.id, {
-          baseUrl: window.location.origin,
-        });
+        store.updateConnection(existing.id, { baseUrl: window.location.origin });
       }
-      if (activeConnectionId !== existing.id) {
-        setActive(existing.id);
+      if (store.activeConnectionId !== existing.id) {
+        store.setActive(existing.id);
       }
-      console.log('[useLocalAgent] Validating existing connection:', existing.baseUrl);
-      validate(existing.id);
+      store.validate(existing.id);
       return;
     }
 
-    // Seed a new connection pointing to same origin
-    console.log('[useLocalAgent] Creating new local agent connection:', window.location.origin);
-    const id = addConnection({
+    const id = store.addConnection({
       name: LOCAL_AGENT_NAME,
       frontend: 'copilotkit',
       runtime: 'langgraph',
@@ -45,7 +39,7 @@ export function useLocalAgent() {
       env: {},
     });
 
-    setActive(id);
-    validate(id);
-  }, [connections.length]); // Re-run when connections change (e.g. after hydration)
+    store.setActive(id);
+    store.validate(id);
+  }, []);
 }

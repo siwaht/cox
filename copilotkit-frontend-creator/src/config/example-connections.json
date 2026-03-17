@@ -22,7 +22,7 @@
       "baseUrl": "https://agent.example.com",
       "agentId": "deep-agent",
       "auth": { "mode": "bearer", "tokenEnv": "AGENT_API_TOKEN" }
-    },
+    }
   ],
   "frontend": {
     "template": "default-agent-workspace",
