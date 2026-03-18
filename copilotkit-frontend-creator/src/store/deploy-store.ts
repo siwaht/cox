@@ -111,12 +111,10 @@ export const useDeployStore = create<DeployStore>()(
     }),
     {
       name: 'copilotkit-deploy',
-      partialize: (state) => ({
-        daytonaApiKey: state.daytonaApiKey,
-        openaiApiKey: state.openaiApiKey,
-        anthropicApiKey: state.anthropicApiKey,
-        customEnvVars: state.customEnvVars,
-      }),
+      // Only persist non-sensitive deployment state.
+      // API keys are kept in memory only — they are cleared on page reload.
+      // Users must re-enter keys each session for security.
+      partialize: () => ({}),
     }
   )
 );

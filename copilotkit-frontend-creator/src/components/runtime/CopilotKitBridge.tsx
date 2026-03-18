@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { CopilotKit } from '@copilotkit/react-core';
 import { useConnectionStore } from '@/store/connection-store';
 import { buildRuntimeConfig } from '@/adapters/runtime-adapter';
+import { BlockErrorBoundary } from './BlockErrorBoundary';
 
 // Context to let child components know they're inside a live CopilotKit provider
 const CopilotLiveContext = createContext(false);
@@ -14,6 +15,7 @@ interface Props {
 export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
   const { activeConnectionId, connections, connectionStatus } = useConnectionStore();
   const activeConn = connections.find((c) => c.id === activeConnectionId);
+  const [bridgeError, setBridgeError] = useState<string | null>(null);
 
   const isLive = !!activeConn && connectionStatus === 'connected';
 
@@ -21,24 +23,45 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
     if (activeConn) {
       console.log('[CopilotKitBridge] status=%s, live=%s, url=%s', connectionStatus, isLive, activeConn.baseUrl);
     }
+    // Reset error when connection changes
+    setBridgeError(null);
   }, [connectionStatus, isLive, activeConn]);
 
   if (!isLive || !activeConn) {
     return <>{children}</>;
   }
 
+  if (bridgeError) {
+    return (
+      <>
+        <div className="px-4 py-2 bg-danger-soft border-b border-danger/20 text-xs text-danger flex items-center gap-2">
+          <span>CopilotKit connection error: {bridgeError}</span>
+          <button
+            onClick={() => setBridgeError(null)}
+            className="text-2xs underline hover:no-underline"
+          >
+            Dismiss
+          </button>
+        </div>
+        {children}
+      </>
+    );
+  }
+
   const config = buildRuntimeConfig(activeConn);
 
   return (
-    <CopilotKit
-      runtimeUrl={config.runtimeUrl}
-      headers={config.headers}
-      properties={config.properties}
-      agent={activeConn.agentId || 'default'}
-    >
-      <CopilotLiveContext.Provider value={true}>
-        {children}
-      </CopilotLiveContext.Provider>
-    </CopilotKit>
+    <BlockErrorBoundary blockLabel="CopilotKit Bridge">
+      <CopilotKit
+        runtimeUrl={config.runtimeUrl}
+        headers={config.headers}
+        properties={config.properties}
+        agent={activeConn.agentId || 'default'}
+      >
+        <CopilotLiveContext.Provider value={true}>
+          {children}
+        </CopilotLiveContext.Provider>
+      </CopilotKit>
+    </BlockErrorBoundary>
   );
 };

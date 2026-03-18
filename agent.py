@@ -27,13 +27,18 @@ def search(query: str) -> str:
     return f"Here are results for '{query}': This is a placeholder. Replace with a real search tool."
 
 # ─── Model ───────────────────────────────────────────────────────────────────
-# Set OPENAI_API_KEY in your environment or .env file.
+# Set OPENAI_API_KEY (or ANTHROPIC_API_KEY / GOOGLE_API_KEY) in your .env file.
 # The model string below uses LangChain's init_chat_model format: "provider:model-name"
 MODEL = os.getenv("AGENT_MODEL", "openai:gpt-4o-mini")
 
 # ─── Graph ───────────────────────────────────────────────────────────────────
 _api_key = os.getenv("OPENAI_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or os.getenv("GOOGLE_API_KEY")
-if _api_key:
+
+if not _api_key:
+    print("⚠ No LLM API key found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY in your .env file.")
+    print("  The agent will not be available until an API key is configured.")
+    graph = None
+else:
     _checkpointer = MemorySaver()
     _compiled = create_react_agent(MODEL, tools=[get_weather, search], checkpointer=_checkpointer)
     graph = LangGraphAGUIAgent(
@@ -41,5 +46,4 @@ if _api_key:
         description="A helpful assistant with weather and search tools.",
         graph=_compiled,
     )
-else:
-    graph = None
+    print(f"✓ Agent graph created with model={MODEL}")

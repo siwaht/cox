@@ -195,6 +195,7 @@ const ModeToggle: React.FC<{
   <div className="flex bg-surface rounded-lg p-0.5 gap-0.5 w-full md:w-auto">
     {([
       { key: 'editor' as const, label: 'Edit', tip: 'Drag-and-drop block editor' },
+      { key: 'preview' as const, label: 'Preview', tip: 'Live preview with agent connection' },
       { key: 'codegen' as const, label: 'Code', tip: 'Paste & transform your agent code' },
     ]).map((m) => (
       <button

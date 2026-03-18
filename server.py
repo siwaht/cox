@@ -1,6 +1,6 @@
 """
 Unified server — serves the React frontend AND your agent backend
-from a single Replit app. No sandbox needed.
+from a single process.
 
 HOW TO USE:
 1. Paste your agent code in agent.py (see the placeholder there)
@@ -11,46 +11,93 @@ HOW TO USE:
 
 import os
 import sys
-import importlib
+import ast
+import logging
+import time
 import uvicorn
 from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from starlette.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+
+# ─── Logging ─────────────────────────────────────────────────────────────────
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger = logging.getLogger("server")
+
+# ─── Environment ─────────────────────────────────────────────────────────────
+IS_PRODUCTION = os.environ.get("PYTHON_ENV", "development") == "production"
+ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+MAX_AGENT_CODE_SIZE = 512 * 1024  # 512 KB
+DEPLOY_AGENT_ENABLED = os.environ.get("DEPLOY_AGENT_ENABLED", "true").lower() == "true"
 
 # ── Patch: fix Python SDK 0.1.79 bug where handler_v1 raises 400 on empty body
-# The @copilotkitnext/core JS client sends POST /info with no body in some code paths.
-# The SDK rejects body=None but should treat it as {} for the "info" endpoint.
 def _patch_copilotkit_handler_v1():
     try:
         import copilotkit.integrations.fastapi as _ck_fastapi
-        import fastapi.exceptions as _fexc
         _original_handler_v1 = _ck_fastapi.handler_v1
 
         async def _patched_handler_v1(sdk, method, path, body, context):
-            # Treat missing/None body as empty dict so POST /info works without a body
             if body is None:
                 body = {}
             return await _original_handler_v1(sdk=sdk, method=method, path=path, body=body, context=context)
 
         _ck_fastapi.handler_v1 = _patched_handler_v1
     except Exception:
-        pass  # If patching fails, continue without it
+        pass
 
 _patch_copilotkit_handler_v1()
 
-app = FastAPI(title="CopilotKit Unified Server")
 
+# ─── Security Headers Middleware ─────────────────────────────────────────────
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+        if IS_PRODUCTION:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        return response
+
+
+# ─── Request Logging Middleware ──────────────────────────────────────────────
+class RequestLoggingMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        start = time.time()
+        response = await call_next(request)
+        duration_ms = (time.time() - start) * 1000
+        if not request.url.path.startswith("/assets"):
+            logger.info(
+                "%s %s %d %.0fms",
+                request.method, request.url.path, response.status_code, duration_ms,
+            )
+        return response
+
+
+# ─── App ─────────────────────────────────────────────────────────────────────
+app = FastAPI(
+    title="CopilotKit Unified Server",
+    docs_url=None if IS_PRODUCTION else "/docs",
+    redoc_url=None if IS_PRODUCTION else "/redoc",
+)
+
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# ─── Health check ───
+# ─── Health check ────────────────────────────────────────────────────────────
 @app.get("/health")
 async def health():
     return {
@@ -68,50 +115,73 @@ async def ok():
     return {"status": "ok"}
 
 
-# ─── Deploy agent code from the frontend ───
+# ─── Deploy agent code from the frontend ─────────────────────────────────────
 @app.post("/api/deploy-agent")
 async def deploy_agent(request: Request):
     """Receive agent code from the Code Transformer and write it to agent.py."""
-    body = await request.json()
+    if not DEPLOY_AGENT_ENABLED:
+        return JSONResponse(
+            {"error": "Agent deployment is disabled in this environment."},
+            status_code=403,
+        )
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
     code = body.get("code", "")
     deps = body.get("deps", [])
-    if not code.strip():
+
+    if not isinstance(code, str) or not code.strip():
         return JSONResponse({"error": "No code provided"}, status_code=400)
 
-    # Known pip package name mappings (import name → pip name)
-    PIP_ALIASES = {
-        "dotenv": "python-dotenv",
-        "cv2": "opencv-python",
-        "sklearn": "scikit-learn",
-        "yaml": "pyyaml",
-        "bs4": "beautifulsoup4",
-        "PIL": "pillow",
-        "gi": "pygobject",
-    }
+    if len(code) > MAX_AGENT_CODE_SIZE:
+        return JSONResponse(
+            {"error": f"Code exceeds maximum size ({MAX_AGENT_CODE_SIZE // 1024}KB)"},
+            status_code=400,
+        )
 
-    # 1. Install dependencies first
-    import subprocess
-    all_deps = list(deps) if deps else []
-    # Always ensure python-dotenv if code uses it
-    if "dotenv" in code and "python-dotenv" not in all_deps:
-        all_deps.append("python-dotenv")
+    # Validate Python syntax before writing
+    try:
+        ast.parse(code)
+    except SyntaxError as e:
+        return JSONResponse(
+            {"error": f"Python syntax error at line {e.lineno}: {e.msg}"},
+            status_code=400,
+        )
 
-    if all_deps:
+    if not isinstance(deps, list):
+        deps = []
+    # Sanitize dep names — only allow alphanumeric, hyphens, underscores, dots, brackets
+    import re
+    safe_deps = [d for d in deps if isinstance(d, str) and re.match(r'^[a-zA-Z0-9._\-\[\]<>=!,]+$', d)]
+
+    # 1. Install dependencies
+    if safe_deps:
+        import subprocess
         try:
             subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "--quiet"] + all_deps,
+                [sys.executable, "-m", "pip", "install", "--quiet"] + safe_deps,
                 timeout=120,
             )
+            logger.info("Installed deps: %s", ", ".join(safe_deps))
         except Exception as e:
+            logger.warning("Failed to install deps: %s", e)
             return JSONResponse({
                 "ok": False,
-                "warning": f"Failed to install dependencies ({', '.join(all_deps)}): {e}",
+                "warning": f"Failed to install dependencies ({', '.join(safe_deps)}): {e}",
             })
 
     # 2. Write agent code
     agent_path = os.path.join(os.path.dirname(__file__), "agent.py")
-    with open(agent_path, "w", encoding="utf-8") as f:
-        f.write(code)
+    try:
+        with open(agent_path, "w", encoding="utf-8") as f:
+            f.write(code)
+        logger.info("Agent code deployed (%d bytes)", len(code))
+    except OSError as e:
+        logger.error("Failed to write agent.py: %s", e)
+        return JSONResponse({"error": "Failed to write agent file"}, status_code=500)
 
     return {"ok": True, "message": "Agent deployed. Restart the server to activate."}
 
@@ -119,22 +189,18 @@ async def deploy_agent(request: Request):
 @app.post("/api/restart")
 async def restart_server():
     """Restart the server process by re-executing itself."""
-    import subprocess
-    # On Replit, the workflow runner will restart the process
+    if not DEPLOY_AGENT_ENABLED:
+        return JSONResponse({"error": "Restart is disabled in this environment."}, status_code=403)
+    logger.info("Server restart requested")
     os.execv(sys.executable, [sys.executable, __file__])
 
 
-# ─── Mount your agent ───
-# agent.py should expose one of:
-#   - a LangGraph compiled graph as `graph`
-#   - a LangChain AgentExecutor as `executor`
-# This block wires it into /copilotkit automatically.
-
+# ─── Mount your agent ────────────────────────────────────────────────────────
 def mount_agent():
     """Try to import agent.py and wire CopilotKit endpoints."""
     agent_path = os.path.join(os.path.dirname(__file__), "agent.py")
     if not os.path.isfile(agent_path):
-        print("⚠ No agent.py found. The frontend will work but /copilotkit won't be available.")
+        logger.warning("No agent.py found. /copilotkit won't be available.")
         return
 
     try:
@@ -171,8 +237,7 @@ def mount_agent():
         )
 
         if not agent_obj:
-            print("⚠ agent.py found but no `graph`, `agent`, `executor`, or `workflow` exported.")
-            print("  Export one of those and restart.")
+            logger.warning("agent.py found but no `graph`, `agent`, `executor`, or `workflow` exported.")
             return
 
         from copilotkit import LangGraphAGUIAgent
@@ -183,25 +248,24 @@ def mount_agent():
         else:
             ck_agent = LangGraphAGUIAgent(name="default", description="Agent", graph=agent_obj)
 
-        # Try the modern AG-UI endpoint first (recommended by CopilotKit docs)
+        # Try the modern AG-UI endpoint first
         mounted = False
         try:
             from ag_ui_langgraph import add_langgraph_fastapi_endpoint
             add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
             mounted = True
-            print("✓ Mounted agent at /copilotkit (ag-ui-langgraph)")
+            logger.info("Mounted agent at /copilotkit (ag-ui-langgraph)")
         except ImportError:
             pass
         except Exception as e:
-            print(f"⚠ ag_ui_langgraph mount failed ({e}), trying SDK fallback...")
+            logger.warning("ag_ui_langgraph mount failed (%s), trying SDK fallback...", e)
 
-        # Fallback: use CopilotKitRemoteEndpoint + add_fastapi_endpoint
+        # Fallback: CopilotKitRemoteEndpoint + add_fastapi_endpoint
         if not mounted:
             try:
                 from copilotkit import CopilotKitRemoteEndpoint
                 from copilotkit.integrations.fastapi import add_fastapi_endpoint
 
-                # Patch dict_repr if missing on ag_ui base class
                 try:
                     from ag_ui_langgraph import LangGraphAgent as _AguiBase
                     if not hasattr(_AguiBase, 'dict_repr'):
@@ -214,24 +278,23 @@ def mount_agent():
                 sdk = CopilotKitRemoteEndpoint(agents=[ck_agent])
                 add_fastapi_endpoint(app, sdk, "/copilotkit")
                 mounted = True
-                print("✓ Mounted agent at /copilotkit (SDK fallback)")
+                logger.info("Mounted agent at /copilotkit (SDK fallback)")
             except Exception as e2:
-                print(f"⚠ SDK fallback also failed: {e2}")
+                logger.error("SDK fallback also failed: %s", e2)
 
         if not mounted:
-            print("⚠ Could not mount agent. Install: pip install ag-ui-langgraph copilotkit")
+            logger.error("Could not mount agent. Install: pip install ag-ui-langgraph copilotkit")
 
     except ImportError as e:
-        print(f"⚠ copilotkit package issue: {e}. Run: pip install copilotkit ag-ui-langgraph")
+        logger.error("copilotkit package issue: %s. Run: pip install copilotkit ag-ui-langgraph", e)
     except Exception as e:
-        print(f"⚠ Could not load agent.py: {e}")
-        print("  The frontend will still work, but /copilotkit won't be available.")
-
+        logger.error("Could not load agent.py: %s", e)
 
 
 mount_agent()
 
-# ─── Fallback /copilotkit if no agent was mounted ───
+
+# ─── Fallback /copilotkit if no agent was mounted ────────────────────────────
 _copilotkit_mounted = any(
     hasattr(r, 'path') and '/copilotkit' in str(r.path)
     for r in app.routes
@@ -252,34 +315,38 @@ if not _copilotkit_mounted:
         return JSONResponse(_fallback_body, status_code=503)
 
 
-# ─── Serve the built frontend ───
+# ─── Serve the built frontend ────────────────────────────────────────────────
 DIST_DIR = os.path.join("copilotkit-frontend-creator", "dist")
 
+# Cache-control for hashed assets (immutable, long-lived)
+ASSET_CACHE = "public, max-age=31536000, immutable"
+
 if os.path.isdir(DIST_DIR):
-    # Redirect old cached asset filenames to force browser reload.
-    # Replit preview may cache old JS bundles; returning 302 to / clears them.
+    import mimetypes
+
     @app.get("/assets/{filename:path}")
     async def serve_asset(filename: str):
         asset_path = os.path.join(DIST_DIR, "assets", filename)
         if os.path.isfile(asset_path):
-            from starlette.responses import FileResponse as _FR
-            return _FR(asset_path)
-        # Asset not found — redirect to root so the browser reloads with the current bundle
+            content_type = mimetypes.guess_type(asset_path)[0] or "application/octet-stream"
+            return FileResponse(
+                asset_path,
+                media_type=content_type,
+                headers={"Cache-Control": ASSET_CACHE},
+            )
         from starlette.responses import RedirectResponse
         return RedirectResponse(url="/", status_code=302)
-
-    # API routes are already registered above, so static files come last
 
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str, request: Request):
         """Serve index.html for all non-API routes (SPA fallback)."""
         file_path = os.path.join(DIST_DIR, full_path)
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
-        # Always return index.html with no-cache headers so the browser gets
-        # the latest build (assets are content-hashed and safe to cache).
-        from fastapi.responses import HTMLResponse
+        if full_path and os.path.isfile(file_path):
+            content_type = mimetypes.guess_type(file_path)[0] or "application/octet-stream"
+            return FileResponse(file_path, media_type=content_type)
         index_path = os.path.join(DIST_DIR, "index.html")
+        if not os.path.isfile(index_path):
+            return JSONResponse({"error": "index.html not found"}, status_code=500)
         with open(index_path, encoding="utf-8") as f:
             html = f.read()
         return HTMLResponse(
@@ -301,4 +368,13 @@ else:
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    workers = int(os.environ.get("WEB_CONCURRENCY", 1))
+    logger.info("Starting server on port %d (production=%s)", port, IS_PRODUCTION)
+    uvicorn.run(
+        "server:app" if IS_PRODUCTION else app,
+        host="0.0.0.0",
+        port=port,
+        workers=workers if IS_PRODUCTION else 1,
+        log_level="warning" if IS_PRODUCTION else "info",
+        access_log=not IS_PRODUCTION,
+    )

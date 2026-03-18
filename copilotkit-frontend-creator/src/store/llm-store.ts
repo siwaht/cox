@@ -64,6 +64,14 @@ export const useLLMStore = create<LLMStore>()(
         return s.apiKeys[s.provider] || '';
       },
     }),
-    { name: 'copilotkit-llm-config' },
+    {
+      name: 'copilotkit-llm-config',
+      // Only persist provider/model selection, NOT API keys.
+      // Keys stay in memory and are cleared on page reload for security.
+      partialize: (state) => ({
+        provider: state.provider,
+        modelId: state.modelId,
+      }),
+    },
   ),
 );

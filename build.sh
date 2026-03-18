@@ -1,10 +1,22 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
-# Install Python deps
-pip install fastapi "uvicorn[standard]" copilotkit python-dotenv langchain langchain-openai langchain-core langgraph ag-ui-langgraph
+echo "=== Installing Python dependencies ==="
+pip install --quiet \
+  fastapi \
+  "uvicorn[standard]" \
+  copilotkit \
+  python-dotenv \
+  langchain \
+  langchain-openai \
+  langchain-core \
+  langgraph \
+  langgraph-checkpoint \
+  ag-ui-langgraph
 
-# Build the frontend
+echo "=== Building frontend ==="
 cd copilotkit-frontend-creator
-npm install
+npm ci --prefer-offline 2>/dev/null || npm install
 npm run build
+
+echo "=== Build complete ==="

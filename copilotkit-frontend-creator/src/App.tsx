@@ -3,16 +3,29 @@ import { useWorkspaceStore } from '@/store/workspace-store';
 import { useThemeStore } from '@/store/theme-store';
 import { EditorView } from '@/components/editor/EditorView';
 import { CodeTransformerView } from '@/components/codegen/CodeTransformerView';
+import { PreviewView } from '@/components/preview/PreviewView';
 import { TopBar } from '@/components/layout/TopBar';
 import { ToastContainer } from '@/components/layout/ToastContainer';
 import { KeyboardShortcuts } from '@/components/layout/KeyboardShortcuts';
 import { useToastStore } from '@/store/toast-store';
+import { useLocalAgent } from '@/hooks/useLocalAgent';
+import { useConnectionStore } from '@/store/connection-store';
 import { decodeWorkspaceFromUrl } from '@/utils/share-url';
+
 export const App: React.FC = () => {
   const { mode, workspace, loadWorkspace } = useWorkspaceStore();
   const theme = useThemeStore((s) => s.theme);
   const addToast = useToastStore((s) => s.addToast);
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // Auto-seed local agent connection and start periodic health checks
+  useLocalAgent();
+
+  useEffect(() => {
+    const store = useConnectionStore.getState();
+    store.startHealthCheck();
+    return () => store.stopHealthCheck();
+  }, []);
 
   // Dynamic page title
   useEffect(() => {
@@ -62,6 +75,7 @@ export const App: React.FC = () => {
       <TopBar />
       <main className="flex-1 overflow-hidden transition-opacity duration-200">
         {mode === 'editor' && <EditorView />}
+        {mode === 'preview' && <PreviewView />}
         {mode === 'codegen' && <CodeTransformerView />}
       </main>
       <ToastContainer />
