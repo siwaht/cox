@@ -137,7 +137,7 @@ The output file MUST have this structure in order:
 After the Python code, add a line "---META---" followed by a JSON object:
 {
   "runtime": "langchain" | "langgraph" | "langsmith" | "deepagents",
-  "warnings": ["any warnings — especially about frontend blocks that can't be fully supported"],
+  "warnings": ["actionable warnings — for each unsupported block, say: '<BlockName> block: <what's wrong> → <specific fix or suggest removing it>'"],
   "deps": ["list", "of", "pip", "packages"],
   "runCommand": "uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload",
   "explanation": "Brief explanation of what was changed and how frontend blocks are supported"

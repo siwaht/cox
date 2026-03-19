@@ -623,22 +623,28 @@ const BlockCompatibilityPanel: React.FC<{
       </button>
       {expanded && (
         <div className="px-3 pb-2.5 space-y-1 animate-fade-in">
-          {incompatible.map(({ block, missingCapabilities }) => (
-            <div key={block.id} className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-danger/5 border border-danger/15">
-              <div className="flex items-center gap-2 min-w-0">
-                <XCircle size={12} className="text-danger shrink-0" />
-                <span className="text-2xs font-medium text-txt-primary truncate">{block.label}</span>
-                <span className="text-2xs text-txt-faint">({block.type})</span>
+          {incompatible.map(({ block, missingCapabilities }) => {
+            const fix = getFixSuggestion(block.type, missingCapabilities);
+            return (
+              <div key={block.id} className="rounded-lg bg-danger/5 border border-danger/15 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <XCircle size={12} className="text-danger shrink-0" />
+                    <span className="text-2xs font-medium text-txt-primary truncate">{block.label}</span>
+                    <span className="text-2xs text-txt-faint">({block.type})</span>
+                  </div>
+                  <button onClick={() => onRemoveBlock(block.id)}
+                    className="flex items-center gap-1 px-1.5 py-0.5 text-2xs rounded text-danger/70 hover:text-white hover:bg-danger transition-colors shrink-0">
+                    <Trash2 size={10} /> Remove
+                  </button>
+                </div>
+                <div className="px-2 pb-1.5 space-y-0.5">
+                  <p className="text-2xs text-danger/90">{fix.problem}</p>
+                  <p className="text-2xs text-txt-muted">{fix.action}</p>
+                </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-2xs text-danger/80">needs {missingCapabilities.join(', ')}</span>
-                <button onClick={() => onRemoveBlock(block.id)}
-                  className="flex items-center gap-1 px-1.5 py-0.5 text-2xs rounded text-danger/70 hover:text-white hover:bg-danger transition-colors">
-                  <Trash2 size={10} /> Remove
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
           {compatible.map(({ block }) => (
             <div key={block.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-success/5 border border-success/10">
               <CheckCircle2 size={12} className="text-success shrink-0" />
@@ -651,3 +657,96 @@ const BlockCompatibilityPanel: React.FC<{
     </div>
   );
 };
+
+/** Maps missing capabilities to human-readable problem + actionable fix */
+function getFixSuggestion(blockType: string, missing: RuntimeCapability[]): { problem: string; action: string } {
+  // Block-specific messages
+  const blockMessages: Record<string, { problem: string; action: string }> = {
+    results: {
+      problem: 'Your agent doesn\'t return structured data, so the Results block has nothing to display.',
+      action: 'Fix: Add a Pydantic model or TypedDict to your agent\'s output — or remove this block.',
+    },
+    table: {
+      problem: 'The Table block needs structured data (lists/dicts), but your agent doesn\'t output any.',
+      action: 'Fix: Have your agent return structured data (e.g. list of dicts) — or remove this block.',
+    },
+    chart: {
+      problem: 'The Chart block needs numeric/structured data, but your agent doesn\'t output any.',
+      action: 'Fix: Have your agent return data with numeric fields for charting — or remove this block.',
+    },
+    dashboard: {
+      problem: 'The Dashboard block needs KPI/metric data, but your agent doesn\'t return structured output.',
+      action: 'Fix: Add structured output with metric fields to your agent — or remove this block.',
+    },
+    cards: {
+      problem: 'The Cards block needs structured items, but your agent doesn\'t return any.',
+      action: 'Fix: Have your agent return a list of structured items — or remove this block.',
+    },
+    toolActivity: {
+      problem: 'The Tool Activity block shows live tool calls, but your agent has no tools defined.',
+      action: 'Fix: Add tools to your agent using the @tool decorator — or remove this block.',
+    },
+    approvals: {
+      problem: 'The Approvals block needs human-in-the-loop, but your agent has no interrupt points.',
+      action: 'Fix: Add interrupt_before/interrupt_after to your LangGraph — or remove this block.',
+    },
+    logs: {
+      problem: 'The Logs block shows execution logs, but your agent has no logging configured.',
+      action: 'Fix: Add "import logging" and "logging.basicConfig(level=logging.INFO)" — or remove this block.',
+    },
+    status: {
+      problem: 'The Status block shows progress, but your agent doesn\'t emit progress events.',
+      action: 'Fix: Add streaming callbacks or progress tracking to your agent — or remove this block.',
+    },
+    traceViewer: {
+      problem: 'The Trace Viewer needs LangSmith tracing, but it\'s not enabled in your agent.',
+      action: 'Fix: Set LANGCHAIN_TRACING_V2=true in your .env and install langsmith — or remove this block.',
+    },
+    feedback: {
+      problem: 'The Feedback block needs LangSmith, but it\'s not configured.',
+      action: 'Fix: Add "from langsmith import Client" and configure LangSmith — or remove this block.',
+    },
+    dataset: {
+      problem: 'The Dataset block needs LangSmith dataset access and structured output.',
+      action: 'Fix: Configure LangSmith Client and add structured output — or remove this block.',
+    },
+    annotationQueue: {
+      problem: 'The Annotation Queue needs LangSmith with human review workflows.',
+      action: 'Fix: Configure LangSmith and add interrupt points — or remove this block.',
+    },
+    reasoningChain: {
+      problem: 'The Reasoning Chain block needs intermediate state streaming from a Deep Agent.',
+      action: 'Fix: Use a Deep Agent with intermediate state streaming — or remove this block.',
+    },
+    subAgentTree: {
+      problem: 'The Sub-Agent Tree block needs a multi-agent setup with progress tracking.',
+      action: 'Fix: Set up sub-agents with delegation tracking — or remove this block.',
+    },
+    depthIndicator: {
+      problem: 'The Depth Indicator needs progress tracking from a Deep Agent.',
+      action: 'Fix: Add progress/depth tracking to your Deep Agent — or remove this block.',
+    },
+  };
+
+  if (blockMessages[blockType]) return blockMessages[blockType];
+
+  // Fallback: build message from capability names
+  const capLabels: Record<string, string> = {
+    chat: 'chat/message handling',
+    streaming: 'streaming support',
+    toolCalls: 'tool definitions (@tool)',
+    toolResults: 'tool result handling',
+    approvals: 'human-in-the-loop (interrupt_before)',
+    structuredOutput: 'structured output (Pydantic/TypedDict)',
+    logs: 'logging (import logging)',
+    progress: 'progress tracking (callbacks)',
+    intermediateState: 'intermediate state streaming',
+    subagents: 'sub-agent setup',
+  };
+  const readable = missing.map(c => capLabels[c] || c).join(', ');
+  return {
+    problem: `This block requires: ${readable} — which your agent code doesn't provide.`,
+    action: `Fix: Add the missing capability to your agent code — or remove this block.`,
+  };
+}
+
