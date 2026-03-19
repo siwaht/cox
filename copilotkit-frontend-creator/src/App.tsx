@@ -73,7 +73,7 @@ export const App: React.FC = () => {
   return (
     <div data-theme={theme} className="flex flex-col h-screen w-screen overflow-hidden bg-surface text-txt-primary transition-colors duration-200">
       <TopBar />
-      <main className="flex-1 overflow-hidden transition-opacity duration-200">
+      <main className="flex-1 overflow-hidden transition-opacity duration-200 mt-14">
         {mode === 'editor' && <EditorView />}
         {mode === 'preview' && <PreviewView />}
         {mode === 'codegen' && <CodeTransformerView />}

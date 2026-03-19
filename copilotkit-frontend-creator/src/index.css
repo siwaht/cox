@@ -2,83 +2,83 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Dark Theme (default) ─── */
+/* ─── Premium Dark Theme (default) ─── */
 [data-theme="dark"] {
-  --color-surface: #0f1117;
-  --color-surface-raised: #161922;
-  --color-surface-overlay: #1e2130;
+  --color-surface: #09090b; /* Zinc 950 */
+  --color-surface-raised: #18181b; /* Zinc 900 */
+  --color-surface-overlay: #27272a; /* Zinc 800 */
 
-  --color-border: #262940;
-  --color-border-active: #5b5fc7;
+  --color-border: #3f3f46; /* Zinc 700 */
+  --color-border-active: #8b5cf6; /* Violet 500 */
 
-  --color-accent: #5b5fc7;
-  --color-accent-hover: #6e72d4;
-  --color-accent-muted: #3d4076;
-  --color-accent-soft: rgba(91, 95, 199, 0.08);
+  --color-accent: #8b5cf6; /* Violet 500 */
+  --color-accent-hover: #7c3aed; /* Violet 600 */
+  --color-accent-muted: #6d28d9; /* Violet 700 */
+  --color-accent-soft: rgba(139, 92, 246, 0.15);
 
-  --color-success: #2ea043;
-  --color-success-soft: rgba(46, 160, 67, 0.09);
-  --color-warning: #d29922;
-  --color-warning-soft: rgba(210, 153, 34, 0.09);
-  --color-danger: #f85149;
-  --color-danger-soft: rgba(248, 81, 73, 0.09);
+  --color-success: #10b981;
+  --color-success-soft: rgba(16, 185, 129, 0.1);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.1);
+  --color-danger: #ef4444;
+  --color-danger-soft: rgba(239, 68, 68, 0.1);
 
-  --color-txt-primary: #e4e4e7;
+  --color-txt-primary: #fafafa;
   --color-txt-secondary: #a1a1aa;
   --color-txt-muted: #71717a;
   --color-txt-faint: #52525b;
   --color-txt-ghost: #3f3f46;
 
-  --color-body-bg: #0f1117;
-  --color-body-text: #e4e4e7;
+  --color-body-bg: #000000;
+  --color-body-text: #fafafa;
 
   /* Mini-preview shades */
-  --mp-bg: #27272a;
-  --mp-bg-subtle: #18181b;
+  --mp-bg: #18181b;
+  --mp-bg-subtle: #09090b;
   --mp-border: rgba(63, 63, 70, 0.5);
 
   /* Scrollbar */
-  --scrollbar-thumb: #2e3148;
-  --scrollbar-thumb-hover: #3d4076;
+  --scrollbar-thumb: #3f3f46;
+  --scrollbar-thumb-hover: #52525b;
 }
 
-/* ─── Light Theme ─── */
+/* ─── Premium Light Theme ─── */
 [data-theme="light"] {
-  --color-surface: #f4f4f5;
+  --color-surface: #fafafa; /* Zinc 50 */
   --color-surface-raised: #ffffff;
-  --color-surface-overlay: #e4e4e7;
+  --color-surface-overlay: #f4f4f5; /* Zinc 100 */
 
-  --color-border: #d4d4d8;
-  --color-border-active: #5b5fc7;
+  --color-border: #e4e4e7; /* Zinc 200 */
+  --color-border-active: #8b5cf6; /* Violet 500 */
 
-  --color-accent: #4f46e5;
-  --color-accent-hover: #4338ca;
-  --color-accent-muted: #a5b4fc;
-  --color-accent-soft: rgba(79, 70, 229, 0.08);
+  --color-accent: #8b5cf6; /* Violet 500 */
+  --color-accent-hover: #6d28d9; /* Violet 700 */
+  --color-accent-muted: #a78bfa; /* Violet 400 */
+  --color-accent-soft: rgba(139, 92, 246, 0.1);
 
-  --color-success: #16a34a;
-  --color-success-soft: rgba(22, 163, 74, 0.09);
-  --color-warning: #ca8a04;
-  --color-warning-soft: rgba(202, 138, 4, 0.09);
-  --color-danger: #dc2626;
-  --color-danger-soft: rgba(220, 38, 38, 0.09);
+  --color-success: #10b981;
+  --color-success-soft: rgba(16, 185, 129, 0.1);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.1);
+  --color-danger: #ef4444;
+  --color-danger-soft: rgba(239, 68, 68, 0.1);
 
-  --color-txt-primary: #18181b;
+  --color-txt-primary: #09090b;
   --color-txt-secondary: #3f3f46;
   --color-txt-muted: #71717a;
   --color-txt-faint: #a1a1aa;
   --color-txt-ghost: #d4d4d8;
 
-  --color-body-bg: #f4f4f5;
-  --color-body-text: #18181b;
+  --color-body-bg: #fafafa;
+  --color-body-text: #09090b;
 
   /* Mini-preview shades */
-  --mp-bg: #e4e4e7;
+  --mp-bg: #ffffff;
   --mp-bg-subtle: #f4f4f5;
-  --mp-border: rgba(212, 212, 216, 0.6);
+  --mp-border: rgba(228, 228, 231, 0.6);
 
   /* Scrollbar */
-  --scrollbar-thumb: #c4c4cc;
+  --scrollbar-thumb: #d4d4d8;
   --scrollbar-thumb-hover: #a1a1aa;
 }
 
@@ -89,11 +89,11 @@
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--color-body-bg);
   color: var(--color-body-text);
   overflow: hidden;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 ::-webkit-scrollbar {
@@ -113,15 +113,19 @@ body {
 
 /* Shared input styles */
 .ck-input {
-  @apply w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm outline-none transition-colors;
-  color: var(--color-txt-secondary);
+  @apply w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm outline-none transition-all duration-200 ease-out;
+  color: var(--color-txt-primary);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 .ck-input::placeholder {
   color: var(--color-txt-faint);
 }
+.ck-input:hover {
+  @apply border-border-active bg-surface-raised;
+}
 .ck-input:focus {
-  @apply border-accent;
-  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  @apply border-accent bg-surface-raised;
+  box-shadow: 0 4px 12px var(--color-accent-soft), 0 0 0 2px var(--color-accent-soft);
 }
 select.ck-input {
   @apply appearance-none cursor-pointer;
@@ -133,15 +137,15 @@ select.ck-input {
 
 /* Smooth drag overlay */
 .drag-overlay {
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(91, 95, 199, 0.4);
+  box-shadow: 0 24px 50px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(139, 92, 246, 0.5);
 }
 
 /* Canvas grid guide lines */
 .canvas-grid {
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(91, 95, 199, 0.04) 0px,
-    rgba(91, 95, 199, 0.04) 1px,
+    rgba(139, 92, 246, 0.04) 0px,
+    rgba(139, 92, 246, 0.04) 1px,
     transparent 1px,
     transparent calc(100% / 12)
   );
