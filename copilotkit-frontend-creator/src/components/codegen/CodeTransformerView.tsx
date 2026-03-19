@@ -115,12 +115,20 @@ export const CodeTransformerView: React.FC = () => {
 
   // Auto-fix: remove incompatible blocks after transform completes
   const [autoFixedBlocks, setAutoFixedBlocks] = useState<string[]>([]);
+  const autoFixRanRef = React.useRef<string | null>(null);
   useEffect(() => {
-    if (!blockCompatibility) return;
-    const incompatible = blockCompatibility.filter((c) => !c.compatible);
-    if (incompatible.length === 0) return;
+    if (!blockCompatibility || !result) return;
+    // Only auto-fix once per transform result (keyed by code hash)
+    const resultKey = result.code.slice(0, 100);
+    if (autoFixRanRef.current === resultKey) return;
 
-    // Remove incompatible blocks and notify
+    const incompatible = blockCompatibility.filter((c) => !c.compatible);
+    if (incompatible.length === 0) {
+      autoFixRanRef.current = resultKey;
+      return;
+    }
+
+    autoFixRanRef.current = resultKey;
     const removed: string[] = [];
     for (const { block } of incompatible) {
       removeBlock(block.id);
@@ -129,16 +137,19 @@ export const CodeTransformerView: React.FC = () => {
     if (removed.length > 0) {
       setAutoFixedBlocks(removed);
       addToast(
-        `Auto-removed ${removed.length} incompatible block${removed.length > 1 ? 's' : ''}: ${removed.join(', ')}. Your agent code doesn't support ${removed.length > 1 ? 'them' : 'it'}.`,
+        `Auto-removed ${removed.length} unsupported block${removed.length > 1 ? 's' : ''}: ${removed.join(', ')}`,
         'info'
       );
     }
-  }, [blockCompatibility]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [blockCompatibility, result]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Reset auto-fix state when starting a new transform
   const handleTransform = useCallback(async () => {
     if (!input.trim()) return;
     if (!hasApiKey) { setShowSettings(true); return; }
 
+    setAutoFixedBlocks([]);
+    autoFixRanRef.current = null;
     setIsTransforming(true);
     setTransformError(null);
     setResult(null);
