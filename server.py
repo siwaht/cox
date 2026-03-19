@@ -209,20 +209,47 @@ def mount_agent():
 
         # Strip out lines that would start a competing server
         filtered_lines = []
+        skip_block = False
+        block_indent = 0
         for line in code.splitlines():
             stripped = line.strip()
-            if stripped.startswith("uvicorn.run("):
+            # Skip uvicorn.run() calls
+            if "uvicorn.run(" in stripped:
                 continue
-            if stripped.startswith("app = FastAPI("):
+            # Skip standalone FastAPI app creation
+            if stripped.startswith("app = FastAPI(") or stripped.startswith("app=FastAPI("):
                 continue
+            # Skip middleware additions to a local app
             if stripped.startswith("app.add_middleware("):
                 continue
-            if stripped.startswith("add_langgraph_fastapi_endpoint(") or stripped.startswith("add_fastapi_endpoint("):
+            # Skip endpoint mounting (server.py does its own)
+            if "add_langgraph_fastapi_endpoint(" in stripped or "add_fastapi_endpoint(" in stripped:
                 continue
-            if stripped.startswith('@app.get("/health') or stripped.startswith('@app.get("/copilotkit'):
+            # Skip CopilotKitRemoteEndpoint creation
+            if "CopilotKitRemoteEndpoint(" in stripped:
                 continue
-            if stripped == 'def health():' or stripped == 'return {"status": "ok"}':
+            # Detect start of blocks to skip (route decorators, if __name__)
+            if (stripped.startswith('@app.get(') or stripped.startswith('@app.post(') or
+                    stripped.startswith('@app.route(') or stripped.startswith('@app.api_route(')):
+                skip_block = True
+                block_indent = 0
                 continue
+            if stripped == 'if __name__ == "__main__":' or stripped == "if __name__ == '__main__':":
+                skip_block = True
+                block_indent = 0
+                continue
+            # When skipping a block, skip the def line and its entire body
+            if skip_block:
+                if stripped.startswith("def ") or stripped.startswith("async def "):
+                    block_indent = len(line) - len(line.lstrip())
+                    continue
+                if stripped == "" or stripped.startswith("#"):
+                    continue
+                current_indent = len(line) - len(line.lstrip())
+                if current_indent > block_indent and stripped:
+                    continue
+                # We've exited the block
+                skip_block = False
             filtered_lines.append(line)
 
         namespace = {}
@@ -246,7 +273,7 @@ def mount_agent():
         if isinstance(agent_obj, LangGraphAGUIAgent):
             ck_agent = agent_obj
         else:
-            ck_agent = LangGraphAGUIAgent(name="default", description="Agent", graph=agent_obj)
+            ck_agent = LangGraphAGUIAgent(name="agent", description="Agent", graph=agent_obj)
 
         # Try the modern AG-UI endpoint first
         mounted = False

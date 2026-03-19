@@ -19,8 +19,15 @@ export function useLocalAgent() {
     const existing = store.connections.find((c) => c.name === LOCAL_AGENT_NAME);
 
     if (existing) {
+      const needsUpdate: Partial<typeof existing> = {};
       if (existing.baseUrl !== window.location.origin) {
-        store.updateConnection(existing.id, { baseUrl: window.location.origin });
+        needsUpdate.baseUrl = window.location.origin;
+      }
+      if (existing.agentId !== 'agent') {
+        needsUpdate.agentId = 'agent';
+      }
+      if (Object.keys(needsUpdate).length > 0) {
+        store.updateConnection(existing.id, needsUpdate);
       }
       if (store.activeConnectionId !== existing.id) {
         store.setActive(existing.id);
@@ -34,7 +41,7 @@ export function useLocalAgent() {
       frontend: 'copilotkit',
       runtime: 'langgraph',
       baseUrl: window.location.origin,
-      agentId: 'default',
+      agentId: 'agent',
       auth: { mode: 'none' },
       env: {},
     });

@@ -42,7 +42,7 @@ else:
     _checkpointer = MemorySaver()
     _compiled = create_react_agent(MODEL, tools=[get_weather, search], checkpointer=_checkpointer)
     graph = LangGraphAGUIAgent(
-        name="default",
+        name="agent",
         description="A helpful assistant with weather and search tools.",
         graph=_compiled,
     )
