@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import {
   Copy, Check, Wand2, AlertTriangle, ChevronDown,
   Loader2, Terminal, RotateCcw,
@@ -112,6 +112,28 @@ export const CodeTransformerView: React.FC = () => {
     const caps = detectCodeCapabilities(result.code, result.runtime);
     return checkBlockCompatibility(workspace.blocks, caps);
   }, [result, input, workspace.blocks]);
+
+  // Auto-fix: remove incompatible blocks after transform completes
+  const [autoFixedBlocks, setAutoFixedBlocks] = useState<string[]>([]);
+  useEffect(() => {
+    if (!blockCompatibility) return;
+    const incompatible = blockCompatibility.filter((c) => !c.compatible);
+    if (incompatible.length === 0) return;
+
+    // Remove incompatible blocks and notify
+    const removed: string[] = [];
+    for (const { block } of incompatible) {
+      removeBlock(block.id);
+      removed.push(block.label);
+    }
+    if (removed.length > 0) {
+      setAutoFixedBlocks(removed);
+      addToast(
+        `Auto-removed ${removed.length} incompatible block${removed.length > 1 ? 's' : ''}: ${removed.join(', ')}. Your agent code doesn't support ${removed.length > 1 ? 'them' : 'it'}.`,
+        'info'
+      );
+    }
+  }, [blockCompatibility]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTransform = useCallback(async () => {
     if (!input.trim()) return;
@@ -372,8 +394,27 @@ export const CodeTransformerView: React.FC = () => {
                 );
               })()}
 
-              {blockCompatibility && blockCompatibility.length > 0 && (
-                <BlockCompatibilityPanel compatibility={blockCompatibility} onRemoveBlock={removeBlock} />
+              {/* Auto-fix summary: show what was auto-removed */}
+              {autoFixedBlocks.length > 0 && (
+                <div className="px-3 py-2 bg-accent/10 border-b border-accent/20">
+                  <div className="flex items-start gap-1.5 text-2xs text-accent">
+                    <Sparkles size={10} className="mt-0.5 shrink-0" />
+                    <span>
+                      Auto-removed {autoFixedBlocks.length} block{autoFixedBlocks.length > 1 ? 's' : ''} not supported by your agent: {autoFixedBlocks.join(', ')}.
+                      Go to the Edit tab to adjust your layout.
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Show remaining compatible blocks */}
+              {blockCompatibility && blockCompatibility.length > 0 && blockCompatibility.every(c => c.compatible) && (
+                <div className="px-3 py-1.5 border-b border-border bg-surface-raised">
+                  <div className="flex items-center gap-1.5 text-2xs text-success">
+                    <CheckCircle2 size={10} className="shrink-0" />
+                    <span>All {blockCompatibility.length} blocks are compatible with your agent code</span>
+                  </div>
+                </div>
               )}
 
               <pre className="flex-1 overflow-auto p-4 text-xs font-mono text-txt-primary leading-relaxed bg-surface min-h-0">
