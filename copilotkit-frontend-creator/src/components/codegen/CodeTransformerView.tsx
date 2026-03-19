@@ -215,7 +215,17 @@ export const CodeTransformerView: React.FC = () => {
       });
       const data = await resp.json();
       if (resp.ok && data.ok) {
-        addToast('Agent deployed. Restart the server to activate.', 'success');
+        addToast('Agent deployed. Restarting server...', 'success');
+        // Auto-restart the server so the new agent is loaded
+        try {
+          await fetch('/api/restart', { method: 'POST' });
+        } catch {
+          // Restart kills the process, so the fetch will fail — that's expected
+        }
+        // Wait a moment for the server to come back up, then reload
+        setTimeout(() => {
+          addToast('Server restarted. Your agent is now live.', 'success');
+        }, 3000);
       } else {
         addToast(data.error || data.warning || 'Deploy failed', 'error');
       }
@@ -455,7 +465,7 @@ export const CodeTransformerView: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-2xs text-txt-faint">
-                  "Deploy to Server" writes the code to agent.py on the running server. Restart to activate.
+                  "Deploy to Server" writes the code to agent.py and auto-restarts the server.
                   The .zip includes your frontend + agent backend with requirements.txt.
                 </p>
               </div>

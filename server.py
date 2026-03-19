@@ -191,8 +191,15 @@ async def restart_server():
     """Restart the server process by re-executing itself."""
     if not DEPLOY_AGENT_ENABLED:
         return JSONResponse({"error": "Restart is disabled in this environment."}, status_code=403)
-    logger.info("Server restart requested")
-    os.execv(sys.executable, [sys.executable, __file__])
+    logger.info("Server restart requested — will restart in 0.5s")
+    import threading
+
+    def _do_restart():
+        time.sleep(0.5)
+        os.execv(sys.executable, [sys.executable, __file__])
+
+    threading.Thread(target=_do_restart, daemon=True).start()
+    return {"ok": True, "message": "Server restarting..."}
 
 
 # ─── Mount your agent ────────────────────────────────────────────────────────
