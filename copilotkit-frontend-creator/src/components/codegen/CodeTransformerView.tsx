@@ -354,15 +354,23 @@ export const CodeTransformerView: React.FC = () => {
                 </div>
               )}
 
-              {result.warnings.length > 0 && (
-                <div className="px-3 py-2 bg-warning/10 border-b border-warning/20">
-                  {result.warnings.map((w, i) => (
-                    <div key={i} className="flex items-start gap-1.5 text-2xs text-warning">
-                      <AlertTriangle size={10} className="mt-0.5 shrink-0" /><span>{w}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Show only non-block-related warnings (block issues are handled by the compatibility panel below) */}
+              {result.warnings.length > 0 && (() => {
+                const blockKeywords = ['block', 'frontend has', 'doesn\'t return', 'doesn\'t have', 'doesn\'t support'];
+                const nonBlockWarnings = result.warnings.filter(
+                  w => !blockKeywords.some(kw => w.toLowerCase().includes(kw))
+                );
+                if (nonBlockWarnings.length === 0) return null;
+                return (
+                  <div className="px-3 py-2 bg-warning/10 border-b border-warning/20 space-y-1">
+                    {nonBlockWarnings.map((w, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-2xs text-warning">
+                        <AlertTriangle size={10} className="mt-0.5 shrink-0" /><span>{w}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
 
               {blockCompatibility && blockCompatibility.length > 0 && (
                 <BlockCompatibilityPanel compatibility={blockCompatibility} onRemoveBlock={removeBlock} />

@@ -137,10 +137,10 @@ The output file MUST have this structure in order:
 After the Python code, add a line "---META---" followed by a JSON object:
 {
   "runtime": "langchain" | "langgraph" | "langsmith" | "deepagents",
-  "warnings": ["actionable warnings — for each unsupported block, say: '<BlockName> block: <what's wrong> → <specific fix or suggest removing it>'"],
+  "warnings": ["ONLY include warnings about general code issues like deprecated APIs, missing env vars, or import problems. Do NOT include warnings about frontend blocks — those are handled separately by the UI."],
   "deps": ["list", "of", "pip", "packages"],
   "runCommand": "uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload",
-  "explanation": "Brief explanation of what was changed and how frontend blocks are supported"
+  "explanation": "Brief 1-2 sentence summary of what was changed. Do NOT mention individual frontend blocks or their compatibility — that's shown separately."
 }`;
 
 // ─── API callers per provider ───
