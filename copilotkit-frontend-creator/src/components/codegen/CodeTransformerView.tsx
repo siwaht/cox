@@ -202,40 +202,6 @@ export const CodeTransformerView: React.FC = () => {
     addToast('Full project with agent code downloaded as .zip', 'success');
   }, [result, workspace, addToast]);
 
-  const [isDeploying, setIsDeploying] = useState(false);
-
-  const handleDeployToServer = useCallback(async () => {
-    if (!result) return;
-    setIsDeploying(true);
-    try {
-      const resp = await fetch('/api/deploy-agent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: result.code, deps: result.deps }),
-      });
-      const data = await resp.json();
-      if (resp.ok && data.ok) {
-        addToast('Agent deployed. Restarting server...', 'success');
-        // Auto-restart the server so the new agent is loaded
-        try {
-          await fetch('/api/restart', { method: 'POST' });
-        } catch {
-          // Restart kills the process, so the fetch will fail — that's expected
-        }
-        // Wait a moment for the server to come back up, then reload
-        setTimeout(() => {
-          addToast('Server restarted. Your agent is now live.', 'success');
-        }, 3000);
-      } else {
-        addToast(data.error || data.warning || 'Deploy failed', 'error');
-      }
-    } catch (err) {
-      addToast('Failed to deploy agent to server', 'error');
-    } finally {
-      setIsDeploying(false);
-    }
-  }, [result, addToast]);
-
   const [codeTab, setCodeTab] = useState<CodeTab>('backend');
   const modelLabel = AVAILABLE_MODELS.find((m) => m.id === llm.modelId)?.label || llm.modelId;
 
@@ -442,17 +408,10 @@ export const CodeTransformerView: React.FC = () => {
                 {result.code}
               </pre>
 
-              {/* Deploy & Download section */}
+              {/* Download section */}
               <div className="border-t border-border bg-surface-raised p-3 space-y-2">
-                <p className="text-2xs text-txt-muted font-medium">Deploy & Download</p>
+                <p className="text-2xs text-txt-muted font-medium">Download</p>
                 <div className="flex flex-wrap gap-2">
-                  <button onClick={handleDeployToServer} disabled={isDeploying}
-                    className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg
-                               bg-success hover:bg-success/80 text-white transition-colors
-                               disabled:opacity-40 disabled:cursor-not-allowed">
-                    {isDeploying ? <Loader2 size={13} className="animate-spin" /> : <Terminal size={13} />}
-                    {isDeploying ? 'Deploying...' : 'Deploy to Server'}
-                  </button>
                   <button onClick={handleDownloadFullProject}
                     className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg
                                bg-accent hover:bg-accent-hover text-white transition-colors">
@@ -465,8 +424,7 @@ export const CodeTransformerView: React.FC = () => {
                   </button>
                 </div>
                 <p className="text-2xs text-txt-faint">
-                  "Deploy to Server" writes the code to agent.py and auto-restarts the server.
-                  The .zip includes your frontend + agent backend with requirements.txt.
+                  The .zip includes your frontend + agent backend with requirements.txt — ready to deploy anywhere.
                 </p>
               </div>
             </div>

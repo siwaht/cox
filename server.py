@@ -11,7 +11,6 @@ HOW TO USE:
 
 import os
 import sys
-import ast
 import logging
 import time
 import uvicorn
@@ -31,8 +30,6 @@ logger = logging.getLogger("server")
 # ─── Environment ─────────────────────────────────────────────────────────────
 IS_PRODUCTION = os.environ.get("PYTHON_ENV", "development") == "production"
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
-MAX_AGENT_CODE_SIZE = 512 * 1024  # 512 KB
-DEPLOY_AGENT_ENABLED = os.environ.get("DEPLOY_AGENT_ENABLED", "true").lower() == "true"
 
 # ── Patch: fix Python SDK 0.1.79 bug where handler_v1 raises 400 on empty body
 def _patch_copilotkit_handler_v1():
@@ -115,93 +112,6 @@ async def ok():
     return {"status": "ok"}
 
 
-# ─── Deploy agent code from the frontend ─────────────────────────────────────
-@app.post("/api/deploy-agent")
-async def deploy_agent(request: Request):
-    """Receive agent code from the Code Transformer and write it to agent.py."""
-    if not DEPLOY_AGENT_ENABLED:
-        return JSONResponse(
-            {"error": "Agent deployment is disabled in this environment."},
-            status_code=403,
-        )
-
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
-
-    code = body.get("code", "")
-    deps = body.get("deps", [])
-
-    if not isinstance(code, str) or not code.strip():
-        return JSONResponse({"error": "No code provided"}, status_code=400)
-
-    if len(code) > MAX_AGENT_CODE_SIZE:
-        return JSONResponse(
-            {"error": f"Code exceeds maximum size ({MAX_AGENT_CODE_SIZE // 1024}KB)"},
-            status_code=400,
-        )
-
-    # Validate Python syntax before writing
-    try:
-        ast.parse(code)
-    except SyntaxError as e:
-        return JSONResponse(
-            {"error": f"Python syntax error at line {e.lineno}: {e.msg}"},
-            status_code=400,
-        )
-
-    if not isinstance(deps, list):
-        deps = []
-    # Sanitize dep names — only allow alphanumeric, hyphens, underscores, dots, brackets
-    import re
-    safe_deps = [d for d in deps if isinstance(d, str) and re.match(r'^[a-zA-Z0-9._\-\[\]<>=!,]+$', d)]
-
-    # 1. Install dependencies
-    if safe_deps:
-        import subprocess
-        try:
-            subprocess.check_call(
-                [sys.executable, "-m", "pip", "install", "--quiet"] + safe_deps,
-                timeout=120,
-            )
-            logger.info("Installed deps: %s", ", ".join(safe_deps))
-        except Exception as e:
-            logger.warning("Failed to install deps: %s", e)
-            return JSONResponse({
-                "ok": False,
-                "warning": f"Failed to install dependencies ({', '.join(safe_deps)}): {e}",
-            })
-
-    # 2. Write agent code
-    agent_path = os.path.join(os.path.dirname(__file__), "agent.py")
-    try:
-        with open(agent_path, "w", encoding="utf-8") as f:
-            f.write(code)
-        logger.info("Agent code deployed (%d bytes)", len(code))
-    except OSError as e:
-        logger.error("Failed to write agent.py: %s", e)
-        return JSONResponse({"error": "Failed to write agent file"}, status_code=500)
-
-    return {"ok": True, "message": "Agent deployed. Restart the server to activate."}
-
-
-@app.post("/api/restart")
-async def restart_server():
-    """Restart the server process by re-executing itself."""
-    if not DEPLOY_AGENT_ENABLED:
-        return JSONResponse({"error": "Restart is disabled in this environment."}, status_code=403)
-    logger.info("Server restart requested — will restart in 0.5s")
-    import threading
-
-    def _do_restart():
-        time.sleep(0.5)
-        os.execv(sys.executable, [sys.executable, __file__])
-
-    threading.Thread(target=_do_restart, daemon=True).start()
-    return {"ok": True, "message": "Server restarting..."}
-
-
 # ─── Mount your agent ────────────────────────────────────────────────────────
 def mount_agent():
     """Try to import agent.py and wire CopilotKit endpoints."""
@@ -214,28 +124,26 @@ def mount_agent():
         with open(agent_path, "r", encoding="utf-8") as f:
             code = f.read()
 
+        # Clear cached 'agent' module if it was previously imported
+        if 'agent' in sys.modules:
+            del sys.modules['agent']
+
         # Strip out lines that would start a competing server
         filtered_lines = []
         skip_block = False
         block_indent = 0
         for line in code.splitlines():
             stripped = line.strip()
-            # Skip uvicorn.run() calls
             if "uvicorn.run(" in stripped:
                 continue
-            # Skip standalone FastAPI app creation
             if stripped.startswith("app = FastAPI(") or stripped.startswith("app=FastAPI("):
                 continue
-            # Skip middleware additions to a local app
             if stripped.startswith("app.add_middleware("):
                 continue
-            # Skip endpoint mounting (server.py does its own)
             if "add_langgraph_fastapi_endpoint(" in stripped or "add_fastapi_endpoint(" in stripped:
                 continue
-            # Skip CopilotKitRemoteEndpoint creation
             if "CopilotKitRemoteEndpoint(" in stripped:
                 continue
-            # Detect start of blocks to skip (route decorators, if __name__)
             if (stripped.startswith('@app.get(') or stripped.startswith('@app.post(') or
                     stripped.startswith('@app.route(') or stripped.startswith('@app.api_route(')):
                 skip_block = True
@@ -245,7 +153,6 @@ def mount_agent():
                 skip_block = True
                 block_indent = 0
                 continue
-            # When skipping a block, skip the def line and its entire body
             if skip_block:
                 if stripped.startswith("def ") or stripped.startswith("async def "):
                     block_indent = len(line) - len(line.lstrip())
@@ -255,7 +162,6 @@ def mount_agent():
                 current_indent = len(line) - len(line.lstrip())
                 if current_indent > block_indent and stripped:
                     continue
-                # We've exited the block
                 skip_block = False
             filtered_lines.append(line)
 
@@ -337,7 +243,7 @@ _copilotkit_mounted = any(
 if not _copilotkit_mounted:
     _fallback_body = {
         "error": "No agent loaded. Create an agent.py that exports a `graph` or `agent` object.",
-        "hint": "Use the Code tab to generate and deploy agent code.",
+        "hint": "Use the Code tab to generate agent code, then download and deploy it.",
     }
 
     @app.api_route("/copilotkit", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
@@ -351,8 +257,6 @@ if not _copilotkit_mounted:
 
 # ─── Serve the built frontend ────────────────────────────────────────────────
 DIST_DIR = os.path.join("copilotkit-frontend-creator", "dist")
-
-# Cache-control for hashed assets (immutable, long-lived)
 ASSET_CACHE = "public, max-age=31536000, immutable"
 
 if os.path.isdir(DIST_DIR):
