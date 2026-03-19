@@ -59,6 +59,7 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
         headers={config.headers}
         properties={config.properties}
         agent={activeConn.agentId || 'agent'}
+        showDevConsole={false}
       >
         <CopilotLiveContext.Provider value={true}>
           {children}
