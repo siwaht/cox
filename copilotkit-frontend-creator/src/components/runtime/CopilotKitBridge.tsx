@@ -35,10 +35,12 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
     return (
       <>
         <div className="px-4 py-2 bg-danger-soft border-b border-danger/20 text-xs text-danger flex items-center gap-2">
-          <span>CopilotKit connection error: {bridgeError}</span>
+          <span className="line-clamp-2">
+            CopilotKit connection error: {bridgeError.length > 200 ? bridgeError.slice(0, 200) + '…' : bridgeError}
+          </span>
           <button
             onClick={() => setBridgeError(null)}
-            className="text-2xs underline hover:no-underline"
+            className="text-2xs underline hover:no-underline shrink-0"
           >
             Dismiss
           </button>

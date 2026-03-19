@@ -46,10 +46,10 @@ const DiagnosticCard: React.FC<{
       <div className={`flex items-start gap-2.5 px-3 py-2.5 rounded-lg border ${border} ${bg}`}>
         <Icon size={13} className={`${iconColor} shrink-0 mt-0.5`} />
         <div className="min-w-0 space-y-1">
-          <div className="text-xs text-txt-secondary leading-snug">{item.whatFailed}</div>
+          <div className="text-xs text-txt-secondary leading-snug line-clamp-2">{item.whatFailed}</div>
           <div className="flex items-start gap-1.5 text-xs text-accent">
             <ArrowRight size={11} className="shrink-0 mt-0.5" />
-            <span className="leading-snug">{item.nextAction}</span>
+            <span className="leading-snug line-clamp-2">{item.nextAction}</span>
           </div>
         </div>
       </div>
@@ -85,6 +85,8 @@ const DiagnosticCard: React.FC<{
 const InfoRow: React.FC<{ label: string; value: string; highlight?: boolean }> = ({ label, value, highlight }) => (
   <div className="flex gap-2">
     <span className="text-txt-faint shrink-0 w-12 font-medium">{label}</span>
-    <span className={highlight ? 'text-accent' : 'text-txt-secondary'}>{value}</span>
+    <span className={`${highlight ? 'text-accent' : 'text-txt-secondary'} line-clamp-3 break-words`}>
+      {value.length > 300 ? value.slice(0, 300) + '…' : value}
+    </span>
   </div>
 );

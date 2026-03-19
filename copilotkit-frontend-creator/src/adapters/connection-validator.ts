@@ -122,7 +122,16 @@ export async function validateConnection(
       return result('error', capabilities, errors, warnings);
     }
 
-    if (response.status === 404) {
+    if (response.status === 422) {
+      warnings.push({
+        code: 'VALIDATION_ERROR',
+        whatFailed: `The agent endpoint returned 422 (Unprocessable Entity) during health check.`,
+        likelyReason: 'The health endpoint may expect specific request parameters, or the agent SDK has a request validation issue.',
+        nextAction: 'This is non-blocking for the health check. The agent may still work for chat requests. Check agent server logs if issues persist.',
+        fixLocation: 'agent configuration',
+        severity: 'warning',
+      });
+    } else if (response.status === 404) {
       warnings.push({
         code: 'HEALTH_ENDPOINT_NOT_FOUND',
         whatFailed: `Health endpoint ${healthUrl} returned 404.`,
@@ -132,9 +141,18 @@ export async function validateConnection(
         severity: 'warning',
       });
     } else if (!response.ok) {
+      // Try to extract a clean error message from the response
+      let errorDetail = `${response.status} ${response.statusText}`;
+      try {
+        const body = await response.json();
+        if (body.error) errorDetail = body.error;
+        else if (body.detail) errorDetail = typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail).slice(0, 150);
+      } catch {
+        // Non-JSON error response, use status text
+      }
       errors.push({
         code: 'ENDPOINT_ERROR',
-        whatFailed: `The agent endpoint returned ${response.status} ${response.statusText}.`,
+        whatFailed: `The agent endpoint returned an error: ${errorDetail}`,
         likelyReason: 'The server is running but returned an unexpected error.',
         nextAction: 'Check the agent server logs for details.',
         fixLocation: 'agent configuration',

@@ -40,6 +40,10 @@ def _patch_copilotkit_handler_v1():
         async def _patched_handler_v1(sdk, method, path, body, context):
             if body is None:
                 body = {}
+            # Ensure required fields exist to prevent 422 validation errors
+            if isinstance(body, dict):
+                body.setdefault("method", "agent.run")
+                body.setdefault("params", {})
             return await _original_handler_v1(sdk=sdk, method=method, path=path, body=body, context=context)
 
         _ck_fastapi.handler_v1 = _patched_handler_v1
@@ -92,6 +96,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+from fastapi.exceptions import RequestValidationError
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Return cleaner error responses instead of raw Pydantic validation dumps."""
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Request validation failed",
+            "detail": str(exc).split("\n")[0][:200],
+            "hint": "Check the request body format. If using CopilotKit, ensure the SDK version matches the server.",
+        },
+    )
 
 
 # ─── Health check ────────────────────────────────────────────────────────────

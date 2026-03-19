@@ -59,6 +59,13 @@ export const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Sync theme to <html> so CSS variables cascade to body and all children
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.style.background = '';
+    document.body.style.color = '';
+  }, [theme]);
+
   // Global ? shortcut
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

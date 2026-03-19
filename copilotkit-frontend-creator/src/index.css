@@ -2,8 +2,40 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Apply dark theme by default at root level */
+:root {
+  --color-surface: #09090b;
+  --color-surface-raised: #18181b;
+  --color-surface-overlay: #27272a;
+  --color-border: #3f3f46;
+  --color-border-active: #8b5cf6;
+  --color-accent: #8b5cf6;
+  --color-accent-hover: #7c3aed;
+  --color-accent-muted: #6d28d9;
+  --color-accent-soft: rgba(139, 92, 246, 0.15);
+  --color-success: #10b981;
+  --color-success-soft: rgba(16, 185, 129, 0.1);
+  --color-warning: #f59e0b;
+  --color-warning-soft: rgba(245, 158, 11, 0.1);
+  --color-danger: #ef4444;
+  --color-danger-soft: rgba(239, 68, 68, 0.1);
+  --color-txt-primary: #fafafa;
+  --color-txt-secondary: #a1a1aa;
+  --color-txt-muted: #71717a;
+  --color-txt-faint: #52525b;
+  --color-txt-ghost: #3f3f46;
+  --color-body-bg: #000000;
+  --color-body-text: #fafafa;
+  --mp-bg: #18181b;
+  --mp-bg-subtle: #09090b;
+  --mp-border: rgba(63, 63, 70, 0.5);
+  --scrollbar-thumb: #3f3f46;
+  --scrollbar-thumb-hover: #52525b;
+}
+
 /* ─── Premium Dark Theme (default) ─── */
-[data-theme="dark"] {
+[data-theme="dark"],
+[data-theme="dark"] body {
   --color-surface: #09090b; /* Zinc 950 */
   --color-surface-raised: #18181b; /* Zinc 900 */
   --color-surface-overlay: #27272a; /* Zinc 800 */
@@ -43,7 +75,8 @@
 }
 
 /* ─── Premium Light Theme ─── */
-[data-theme="light"] {
+[data-theme="light"],
+[data-theme="light"] body {
   --color-surface: #fafafa; /* Zinc 50 */
   --color-surface-raised: #ffffff;
   --color-surface-overlay: #f4f4f5; /* Zinc 100 */

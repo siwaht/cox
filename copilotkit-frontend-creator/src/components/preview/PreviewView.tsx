@@ -97,7 +97,7 @@ export const PreviewView: React.FC = () => {
       </div>
 
       {hasErrors && isConnected && (
-        <div className="px-4 py-2.5 bg-danger-soft border-b border-danger/20">
+        <div className="px-4 py-2.5 bg-danger-soft border-b border-danger/20 max-h-32 overflow-y-auto">
           <DiagnosticsPanel errors={validationResult!.errors} warnings={validationResult!.warnings} compact />
         </div>
       )}
