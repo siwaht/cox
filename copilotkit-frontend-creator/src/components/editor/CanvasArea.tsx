@@ -1,63 +1,43 @@
-import React, { useCallback, useEffect } from 'react';
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
+import { useDroppable } from '@dnd-kit/core';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { SortableBlock } from './SortableBlock';
-import { DragPreview } from './DragPreview';
 import { TemplatePicker } from './TemplatePicker';
 import { Layers, Undo2, Plus, Plug, Eye, Grid3x3 } from 'lucide-react';
+import type { BlockConfig } from '@/types/blocks';
 
 interface Props {
   selectedBlockId: string | null;
   onSelectBlock: (id: string | null) => void;
+  isOverCanvas?: boolean;
 }
 
-export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) => {
+export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, isOverCanvas }) => {
   const { workspace, reorderBlocks, removeBlock, addBlock } = useWorkspaceStore();
-  const [activeId, setActiveId] = React.useState<string | null>(null);
   const [lastRemoved, setLastRemoved] = React.useState<{ type: string; label: string } | null>(null);
   const [showGrid, setShowGrid] = React.useState(false);
+  const [newBlockId, setNewBlockId] = React.useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveId(null);
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-
-    const ids = workspace.blocks.map((b) => b.id);
-    const oldIndex = ids.indexOf(active.id as string);
-    const newIndex = ids.indexOf(over.id as string);
-    if (oldIndex === -1 || newIndex === -1) return;
-
-    const newIds = [...ids];
-    newIds.splice(oldIndex, 1);
-    newIds.splice(newIndex, 0, active.id as string);
-    reorderBlocks(newIds);
-  };
+  // Track newly added blocks for entrance animation
+  const blockCount = workspace.blocks.length;
+  const prevCountRef = useRef(blockCount);
+  useEffect(() => {
+    if (blockCount > prevCountRef.current) {
+      const newest = workspace.blocks[workspace.blocks.length - 1];
+      if (newest) {
+        onSelectBlock(newest.id);
+        setNewBlockId(newest.id);
+        const timer = setTimeout(() => setNewBlockId(null), 400);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevCountRef.current = blockCount;
+  }, [blockCount, workspace.blocks, onSelectBlock]);
 
   const handleRemove = useCallback((id: string) => {
     const block = workspace.blocks.find((b) => b.id === id);
@@ -67,24 +47,13 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
     }
     removeBlock(id);
     if (selectedBlockId === id) onSelectBlock(null);
-  }, [removeBlock, selectedBlockId, onSelectBlock]); // workspace.blocks read inline is fine — no stale closure risk since we only read
+  }, [removeBlock, selectedBlockId, onSelectBlock, workspace.blocks]);
 
   const handleUndo = useCallback(() => {
     if (!lastRemoved) return;
     addBlock(lastRemoved.type as any);
     setLastRemoved(null);
   }, [lastRemoved, addBlock]);
-
-  // Auto-select newly added block
-  const blockCount = workspace.blocks.length;
-  const prevCountRef = React.useRef(blockCount);
-  useEffect(() => {
-    if (blockCount > prevCountRef.current) {
-      const newest = workspace.blocks[workspace.blocks.length - 1];
-      if (newest) onSelectBlock(newest.id);
-    }
-    prevCountRef.current = blockCount;
-  }, [blockCount, workspace.blocks, onSelectBlock]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -102,15 +71,20 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
     return () => window.removeEventListener('keydown', handler);
   }, [selectedBlockId, lastRemoved, handleRemove, handleUndo, onSelectBlock]);
 
-  const activeBlock = activeId ? workspace.blocks.find((b) => b.id === activeId) : null;
+  // Droppable for palette items
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: 'canvas-drop-zone' });
 
   if (workspace.blocks.length === 0) {
-    return <EmptyCanvas />;
+    return <EmptyCanvas isOver={isOverCanvas || isOver} setDropRef={setDropRef} />;
   }
 
   return (
-    <div className="flex-1 bg-surface overflow-y-auto p-4 sm:p-6 relative canvas-grid">
-      {/* Grid overlay toggle */}
+    <div
+      ref={setDropRef}
+      className={`flex-1 bg-surface overflow-y-auto p-4 sm:p-6 relative canvas-grid transition-colors
+        ${(isOverCanvas || isOver) ? 'canvas-drop-active' : ''}`}
+    >
+      {/* Toolbar */}
       <div className="max-w-5xl mx-auto flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <button
@@ -127,7 +101,6 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
           </button>
           <span className="text-2xs text-txt-ghost">12-column layout</span>
         </div>
-        {/* Row usage summary */}
         <RowUsageSummary blocks={workspace.blocks} />
       </div>
 
@@ -142,33 +115,33 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
         </div>
       )}
 
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
+      <SortableContext
+        items={workspace.blocks.map((b) => b.id)}
+        strategy={verticalListSortingStrategy}
       >
-        <SortableContext
-          items={workspace.blocks.map((b) => b.id)}
-          strategy={verticalListSortingStrategy}
-        >
-          <div className="max-w-5xl mx-auto grid grid-cols-6 sm:grid-cols-12 gap-2.5 auto-rows-min">
-            {workspace.blocks.map((block) => (
-              <SortableBlock
-                key={block.id}
-                block={block}
-                isSelected={selectedBlockId === block.id}
-                onSelect={() => onSelectBlock(block.id)}
-                onRemove={() => handleRemove(block.id)}
-              />
-            ))}
-          </div>
-        </SortableContext>
+        <div className="max-w-5xl mx-auto grid grid-cols-6 sm:grid-cols-12 gap-2.5 auto-rows-min">
+          {workspace.blocks.map((block) => (
+            <SortableBlock
+              key={block.id}
+              block={block}
+              isSelected={selectedBlockId === block.id}
+              isNew={newBlockId === block.id}
+              onSelect={() => onSelectBlock(block.id)}
+              onRemove={() => handleRemove(block.id)}
+            />
+          ))}
+        </div>
+      </SortableContext>
 
-        <DragOverlay dropAnimation={{ duration: 200, easing: 'ease' }}>
-          {activeBlock ? <DragPreview block={activeBlock} /> : null}
-        </DragOverlay>
-      </DndContext>
+      {/* Drop hint when dragging from palette */}
+      {(isOverCanvas || isOver) && (
+        <div className="max-w-5xl mx-auto mt-2.5">
+          <div className="border-2 border-dashed border-accent/40 rounded-xl p-4 flex items-center justify-center gap-2 bg-accent/5 animate-fade-in">
+            <Plus size={14} className="text-accent" />
+            <span className="text-xs text-accent font-medium">Drop here to add block</span>
+          </div>
+        </div>
+      )}
 
       {/* Undo toast */}
       {lastRemoved && (
@@ -179,7 +152,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
             </span>
             <button
               onClick={handleUndo}
-              className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover font-medium"
+              className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover font-medium transition-colors"
             >
               <Undo2 size={12} /> Undo
             </button>
@@ -191,10 +164,9 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) 
 };
 
 // Shows how blocks fill up rows in the 12-column grid
-const RowUsageSummary: React.FC<{ blocks: import('@/types/blocks').BlockConfig[] }> = ({ blocks }) => {
+const RowUsageSummary: React.FC<{ blocks: BlockConfig[] }> = ({ blocks }) => {
   if (blocks.length === 0) return null;
 
-  // Calculate rows: greedily fill 12 columns per row
   const rows: number[][] = [];
   let currentRow: number[] = [];
   let remaining = 12;
@@ -232,38 +204,46 @@ const RowUsageSummary: React.FC<{ blocks: import('@/types/blocks').BlockConfig[]
   );
 };
 
-const EmptyCanvas: React.FC = () => (
-  <div className="flex-1 flex items-center justify-center bg-surface p-6">
-    <div className="w-full max-w-lg animate-fade-in">
-      <div className="text-center mb-6">
-        <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto mb-5">
+const EmptyCanvas: React.FC<{ isOver: boolean; setDropRef: (el: HTMLElement | null) => void }> = ({ isOver, setDropRef }) => (
+  <div ref={setDropRef} className="flex-1 flex items-center justify-center bg-surface p-6">
+    <div className={`w-full max-w-lg animate-fade-in`}>
+      <div className={`text-center mb-6 p-8 rounded-2xl border-2 border-dashed transition-all duration-200 empty-canvas-drop-target
+        ${isOver ? 'is-over border-accent bg-accent/5' : 'border-border/50'}`}>
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-all duration-200
+          ${isOver ? 'bg-accent/20 scale-110' : 'bg-accent/10'}`}>
           <Layers size={28} className="text-accent" />
         </div>
         <h2 className="text-lg font-semibold text-txt-primary mb-2">
-          Build your AI frontend
+          {isOver ? 'Drop to add block' : 'Build your AI frontend'}
         </h2>
         <p className="text-sm text-txt-muted leading-relaxed max-w-sm mx-auto">
-          Pick a template to get started, or add blocks one by one from the palette on the left.
+          {isOver
+            ? 'Release to place this block on your canvas'
+            : 'Drag blocks from the palette, pick a template, or click any block to add it.'}
         </p>
       </div>
 
-      {/* Step indicators */}
-      <div className="flex items-center justify-center gap-6 mb-6">
-        {[
-          { step: '1', label: 'Add blocks', icon: <Plus size={12} /> },
-          { step: '2', label: 'Connect agent', icon: <Plug size={12} /> },
-          { step: '3', label: 'Preview & publish', icon: <Eye size={12} /> },
-        ].map((s, i) => (
-          <div key={i} className="flex items-center gap-2 text-2xs text-txt-muted">
-            <div className="w-5 h-5 rounded-full bg-accent/15 flex items-center justify-center text-accent">
-              {s.icon}
-            </div>
-            <span>{s.label}</span>
+      {!isOver && (
+        <>
+          {/* Step indicators */}
+          <div className="flex items-center justify-center gap-6 mb-6">
+            {[
+              { label: 'Add blocks', icon: <Plus size={12} /> },
+              { label: 'Connect agent', icon: <Plug size={12} /> },
+              { label: 'Preview & publish', icon: <Eye size={12} /> },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-2 text-2xs text-txt-muted">
+                <div className="w-5 h-5 rounded-full bg-accent/15 flex items-center justify-center text-accent">
+                  {s.icon}
+                </div>
+                <span>{s.label}</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <TemplatePicker />
+          <TemplatePicker />
+        </>
+      )}
     </div>
   </div>
 );

@@ -9,22 +9,27 @@ import {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
   Activity, FileInput, Table, BarChart3, LayoutDashboard,
   Layers, PanelTop, FileText,
+  GitBranch, ThumbsUp, Database, ClipboardList,
+  Brain, Network, Gauge,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
   Activity, FileInput, Table, BarChart3, LayoutDashboard,
   Layers, PanelTop, FileText,
+  GitBranch, ThumbsUp, Database, ClipboardList,
+  Brain, Network, Gauge,
 };
 
 interface Props {
   block: BlockConfig;
   isSelected: boolean;
+  isNew?: boolean;
   onSelect: () => void;
   onRemove: () => void;
 }
 
-export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, onRemove }) => {
+export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSelect, onRemove }) => {
   const { updateBlock, resizeBlock, duplicateBlock } = useWorkspaceStore();
   const def = getBlockDefinition(block.type);
   const Icon = def ? ICON_MAP[def.icon] || FileText : FileText;
@@ -57,7 +62,7 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
     transform: CSS.Transform.toString(transform),
     transition,
     gridColumn: `span ${block.w}`,
-    opacity: isDragging ? 0.4 : 1,
+    opacity: isDragging ? 0.3 : 1,
   };
 
   return (
@@ -66,11 +71,12 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
       style={style}
       onClick={onSelect}
       className={`
-        relative rounded-xl border-2 transition-all group cursor-pointer
-        ${isDragging ? 'z-10 drag-overlay' : ''}
+        sortable-block relative rounded-xl border-2 group cursor-pointer
+        ${isDragging ? 'z-10 is-dragging' : ''}
+        ${isNew ? 'animate-block-in' : ''}
         ${isSelected
-          ? 'border-accent bg-accent/5 shadow-lg shadow-accent/5'
-          : 'border-border/60 bg-surface-raised hover:border-txt-faint'}
+          ? 'border-accent bg-accent/5 shadow-lg shadow-accent/10 is-selected'
+          : 'border-border/60 bg-surface-raised hover:border-accent/30 hover:shadow-md hover:shadow-accent/5'}
         ${!block.visible ? 'opacity-40' : ''}
       `}
     >
@@ -80,8 +86,8 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
           <button
             {...attributes}
             {...listeners}
-            className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded text-txt-faint
-                       hover:text-txt-secondary hover:bg-surface-overlay touch-manipulation"
+            className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded-md text-txt-faint
+                       hover:text-accent hover:bg-accent/10 touch-manipulation transition-colors"
             aria-label="Drag to reorder"
           >
             <GripVertical size={14} />
@@ -103,7 +109,7 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
             />
           ) : (
             <span
-              className="text-xs font-medium text-txt-secondary truncate cursor-text"
+              className="text-xs font-medium text-txt-secondary truncate cursor-text hover:text-txt-primary transition-colors"
               onDoubleClick={(e) => { e.stopPropagation(); setRenameValue(block.label); setIsRenaming(true); }}
               title="Double-click to rename"
             >
@@ -112,20 +118,23 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
           )}
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+        {/* Controls — visible on hover/selected on desktop, always on mobile */}
+        <div className={`block-controls flex items-center gap-0.5 ${!isSelected ? 'block-controls-hidden' : ''}`}>
+          {/* Resize controls */}
           <button
             onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.max(2, block.w - 1), block.h); }}
-            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
-            title="Narrower"
+            className="p-1 text-txt-faint hover:text-accent rounded-md hover:bg-accent/10 transition-colors"
+            title="Narrower (−1 col)"
           >
             <ChevronLeft size={12} />
           </button>
-          <span className="text-2xs text-txt-faint text-center tabular-nums whitespace-nowrap" title={`${block.w} of 12 columns · ${Math.floor(12 / block.w)} per row`}>{block.w}<span className="text-txt-ghost">/{12}</span></span>
+          <span className="text-2xs text-txt-faint text-center tabular-nums whitespace-nowrap min-w-[28px]" title={`${block.w} of 12 columns`}>
+            {block.w}<span className="text-txt-ghost">/12</span>
+          </span>
           <button
             onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.min(12, block.w + 1), block.h); }}
-            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
-            title="Wider"
+            className="p-1 text-txt-faint hover:text-accent rounded-md hover:bg-accent/10 transition-colors"
+            title="Wider (+1 col)"
           >
             <ChevronRight size={12} />
           </button>
@@ -134,22 +143,22 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
 
           <button
             onClick={(e) => { e.stopPropagation(); duplicateBlock(block.id); }}
-            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
-            title="Duplicate"
+            className="p-1 text-txt-faint hover:text-accent rounded-md hover:bg-accent/10 transition-colors"
+            title="Duplicate block"
           >
             <Copy size={12} />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); updateBlock(block.id, { visible: !block.visible }); }}
-            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
-            title={block.visible ? 'Hide' : 'Show'}
+            className="p-1 text-txt-faint hover:text-accent rounded-md hover:bg-accent/10 transition-colors"
+            title={block.visible ? 'Hide block' : 'Show block'}
           >
             {block.visible ? <Eye size={12} /> : <EyeOff size={12} />}
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); onRemove(); }}
-            className="p-1 text-txt-faint hover:text-danger rounded hover:bg-danger-soft"
-            title="Remove"
+            className="p-1 text-txt-faint hover:text-danger rounded-md hover:bg-danger-soft transition-colors"
+            title="Remove block"
           >
             <X size={12} />
           </button>
@@ -160,6 +169,11 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, onSelect, on
       <div className="px-3 py-3 flex flex-col items-center justify-center" style={{ minHeight: `${block.h * 40}px` }}>
         <BlockMiniPreview type={block.type} />
       </div>
+
+      {/* Selected indicator bar */}
+      {isSelected && (
+        <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-accent rounded-full" />
+      )}
     </div>
   );
 };
@@ -307,6 +321,74 @@ const BlockMiniPreview: React.FC<{ type: string }> = ({ type }) => {
         <div className="h-12 rounded-lg bg-surface border border-txt-ghost/50 flex items-center justify-center">
           <div className="text-[8px] text-txt-faint">Content area</div>
         </div>
+      </div>
+    ),
+    // LangSmith blocks
+    traceViewer: (
+      <div className="w-full max-w-[180px] space-y-1 opacity-50">
+        {[{ w: '100%', indent: 0 }, { w: '80%', indent: 1 }, { w: '60%', indent: 2 }, { w: '70%', indent: 1 }].map((r, i) => (
+          <div key={i} className="flex items-center gap-1" style={{ paddingLeft: `${r.indent * 8}px` }}>
+            <div className="w-1.5 h-1.5 rounded-full bg-accent/40" />
+            <div className="h-1.5 rounded bg-txt-ghost" style={{ width: r.w }} />
+          </div>
+        ))}
+      </div>
+    ),
+    feedback: (
+      <div className="w-full max-w-[120px] flex items-center justify-center gap-3 opacity-50">
+        <div className="w-6 h-6 rounded-full bg-success/20 flex items-center justify-center text-[8px]">👍</div>
+        <div className="w-6 h-6 rounded-full bg-danger/20 flex items-center justify-center text-[8px]">👎</div>
+      </div>
+    ),
+    dataset: (
+      <div className="w-full max-w-[160px] opacity-50">
+        <div className="flex gap-0.5 mb-0.5">
+          {[1, 1, 1].map((_, i) => <div key={i} className="h-1.5 rounded bg-accent/30 flex-1" />)}
+        </div>
+        {[0, 1, 2].map((r) => (
+          <div key={r} className="flex gap-0.5 mb-0.5">
+            {[1, 1, 1].map((_, i) => <div key={i} className="h-1.5 rounded bg-surface flex-1" />)}
+          </div>
+        ))}
+      </div>
+    ),
+    annotationQueue: (
+      <div className="w-full max-w-[140px] space-y-1 opacity-50">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-1.5 px-1.5 py-1 rounded bg-surface">
+            <div className="w-1.5 h-1.5 rounded bg-warning/50" />
+            <div className="h-1 rounded bg-txt-ghost flex-1" />
+          </div>
+        ))}
+      </div>
+    ),
+    reasoningChain: (
+      <div className="w-full max-w-[140px] space-y-1 opacity-50">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex items-center gap-1">
+            <div className="w-3 h-3 rounded-full border border-accent/30 flex items-center justify-center">
+              <div className="w-1 h-1 rounded-full bg-accent/50" />
+            </div>
+            <div className="h-1 rounded bg-txt-ghost flex-1" />
+          </div>
+        ))}
+      </div>
+    ),
+    subAgentTree: (
+      <div className="w-full max-w-[140px] space-y-0.5 opacity-50">
+        <div className="h-1.5 rounded bg-accent/30 w-1/2 mx-auto" />
+        <div className="flex gap-2 justify-center">
+          <div className="h-1.5 rounded bg-txt-ghost w-1/4" />
+          <div className="h-1.5 rounded bg-txt-ghost w-1/4" />
+        </div>
+      </div>
+    ),
+    depthIndicator: (
+      <div className="w-full max-w-[100px] opacity-50">
+        <div className="h-2 rounded-full bg-surface w-full overflow-hidden">
+          <div className="h-full rounded-full bg-accent/50 w-3/5" />
+        </div>
+        <div className="text-[7px] text-txt-faint text-center mt-0.5">Depth 3/5</div>
       </div>
     ),
   };

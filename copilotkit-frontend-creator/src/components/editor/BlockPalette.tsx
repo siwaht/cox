@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useDraggable } from '@dnd-kit/core';
 import { BLOCK_REGISTRY } from '@/registry/block-registry';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import type { BlockType } from '@/types/blocks';
@@ -7,18 +8,23 @@ import {
   Activity, FileInput, Table, BarChart3, LayoutDashboard,
   Layers, PanelTop, FileText, X, Plus, Search, Grid3X3, List,
   GitBranch, ThumbsUp, Database, ClipboardList,
-  Brain, Network, Gauge,
+  Brain, Network, Gauge, GripVertical, ChevronDown, ChevronRight,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
   Activity, FileInput, Table, BarChart3, LayoutDashboard,
   Layers, PanelTop, FileText,
-  // LangSmith blocks
   GitBranch, ThumbsUp, Database, ClipboardList,
-  // Deep Agent blocks
   Brain, Network, Gauge,
 };
+
+// Category definitions
+const CATEGORIES = [
+  { id: 'core', label: 'Core Blocks', types: ['chat','results','toolActivity','approvals','logs','status','form','table','chart','dashboard','cards','panel','markdown'] },
+  { id: 'langsmith', label: 'LangSmith', types: ['traceViewer','feedback','dataset','annotationQueue'] },
+  { id: 'deepagent', label: 'Deep Agent', types: ['reasoningChain','subAgentTree','depthIndicator'] },
+] as const;
 
 interface Props { onClose?: () => void; }
 
@@ -26,6 +32,7 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
   const addBlock = useWorkspaceStore((s) => s.addBlock);
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
 
   const filtered = useMemo(() => {
     if (!search.trim()) return BLOCK_REGISTRY;
@@ -35,13 +42,23 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
     );
   }, [search]);
 
+  const toggleCategory = (id: string) => {
+    setCollapsedCategories(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const isSearching = search.trim().length > 0;
+
   return (
     <aside className="h-full bg-surface-raised border-r border-border flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">Add Blocks</h2>
+        <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">Blocks</h2>
         <div className="flex items-center gap-1">
           <button onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
-            className="p-1 text-txt-muted hover:text-accent rounded" title="Toggle view">
+            className="p-1.5 text-txt-muted hover:text-accent rounded-lg hover:bg-accent-soft transition-colors" title="Toggle view">
             {viewMode === 'list' ? <Grid3X3 size={13} /> : <List size={13} />}
           </button>
           {onClose && (
@@ -54,41 +71,105 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-txt-faint" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter blocks..." className="ck-input text-xs pl-8 py-1.5" />
+            placeholder="Search blocks..." className="ck-input text-xs pl-8 py-1.5" />
         </div>
+        <p className="text-[9px] text-txt-ghost mt-1.5 px-1">Drag blocks onto the canvas or click to add</p>
       </div>
 
-      <div className={`flex-1 overflow-y-auto p-2.5 ${viewMode === 'grid' ? 'grid grid-cols-2 gap-2 auto-rows-min content-start' : 'space-y-1'}`}>
+      <div className="flex-1 overflow-y-auto pb-2">
         {filtered.length === 0 && (
-          <p className="text-2xs text-txt-faint text-center py-4 col-span-2">No blocks match &quot;{search}&quot;</p>
+          <p className="text-2xs text-txt-faint text-center py-8">No blocks match &quot;{search}&quot;</p>
         )}
-        {filtered.map((def) => {
-          const Icon = ICON_MAP[def.icon] || FileText;
-          if (viewMode === 'grid') {
+
+        {isSearching ? (
+          /* Flat list when searching */
+          <div className={`p-2.5 ${viewMode === 'grid' ? 'grid grid-cols-2 gap-2 auto-rows-min content-start' : 'space-y-0.5'}`}>
+            {filtered.map((def) => (
+              <PaletteItem key={def.type} def={def} viewMode={viewMode} onAdd={() => { addBlock(def.type as BlockType); onClose?.(); }} />
+            ))}
+          </div>
+        ) : (
+          /* Categorized list */
+          CATEGORIES.map((cat) => {
+            const items = filtered.filter(d => (cat.types as readonly string[]).includes(d.type));
+            if (items.length === 0) return null;
+            const isCollapsed = collapsedCategories.has(cat.id);
             return (
-              <button key={def.type} onClick={() => { addBlock(def.type as BlockType); onClose?.(); }}
-                className="flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border hover:border-accent/50 hover:bg-accent-soft transition-all group active:scale-[0.97]">
-                <BlockThumbnail type={def.type} Icon={Icon} />
-                <span className="text-[10px] text-txt-secondary text-center leading-tight">{def.label}</span>
-              </button>
+              <div key={cat.id}>
+                <button
+                  onClick={() => toggleCategory(cat.id)}
+                  className="palette-category-header w-full flex items-center gap-2 px-4 py-2 text-2xs font-semibold text-txt-muted uppercase tracking-wider hover:text-txt-secondary transition-colors bg-surface-raised/80"
+                >
+                  {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
+                  {cat.label}
+                  <span className="text-txt-ghost font-normal ml-auto">{items.length}</span>
+                </button>
+                {!isCollapsed && (
+                  <div className={`px-2.5 pb-1 ${viewMode === 'grid' ? 'grid grid-cols-2 gap-2 auto-rows-min content-start' : 'space-y-0.5'}`}>
+                    {items.map((def) => (
+                      <PaletteItem key={def.type} def={def} viewMode={viewMode} onAdd={() => { addBlock(def.type as BlockType); onClose?.(); }} />
+                    ))}
+                  </div>
+                )}
+              </div>
             );
-          }
-          return (
-            <button key={def.type} onClick={() => { addBlock(def.type as BlockType); onClose?.(); }}
-              className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left hover:bg-accent-soft transition-all group active:scale-[0.98]">
-              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0 group-hover:bg-accent/20 transition-colors">
-                <Icon size={15} className="text-accent" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm text-txt-primary leading-tight">{def.label}</div>
-                <div className="text-2xs text-txt-muted leading-tight mt-0.5 truncate">{def.description}</div>
-              </div>
-              <Plus size={14} className="text-txt-faint group-hover:text-accent shrink-0 transition-colors" />
-            </button>
-          );
-        })}
+          })
+        )}
       </div>
     </aside>
+  );
+};
+
+// Individual palette item — draggable + clickable
+const PaletteItem: React.FC<{
+  def: (typeof BLOCK_REGISTRY)[number];
+  viewMode: 'list' | 'grid';
+  onAdd: () => void;
+}> = ({ def, viewMode, onAdd }) => {
+  const Icon = ICON_MAP[def.icon] || FileText;
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `palette-${def.type}`,
+    data: { fromPalette: true, blockType: def.type },
+  });
+
+  if (viewMode === 'grid') {
+    return (
+      <div
+        ref={setNodeRef}
+        className={`palette-draggable flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border
+                    hover:border-accent/50 hover:bg-accent-soft transition-all group cursor-grab active:cursor-grabbing
+                    ${isDragging ? 'opacity-40 scale-95' : ''}`}
+        onClick={onAdd}
+        {...attributes}
+        {...listeners}
+      >
+        <BlockThumbnail type={def.type} Icon={Icon} />
+        <span className="text-[10px] text-txt-secondary text-center leading-tight">{def.label}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`palette-draggable flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left
+                  hover:bg-accent-soft transition-all group cursor-grab active:cursor-grabbing
+                  ${isDragging ? 'opacity-40 scale-95' : ''}`}
+      onClick={onAdd}
+      {...attributes}
+      {...listeners}
+    >
+      <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0 group-hover:bg-accent/20 transition-colors">
+        <Icon size={15} className="text-accent" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm text-txt-primary leading-tight">{def.label}</div>
+        <div className="text-2xs text-txt-muted leading-tight mt-0.5 truncate">{def.description}</div>
+      </div>
+      <div className="flex items-center gap-1 shrink-0">
+        <GripVertical size={12} className="text-txt-ghost group-hover:text-txt-faint transition-colors" />
+      </div>
+    </div>
   );
 };
 
