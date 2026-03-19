@@ -2,15 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { useToastStore } from '@/store/toast-store';
 import { ExportModal } from '@/components/publish/ExportModal';
+import { PromptModal } from '@/components/publish/PromptModal';
 import { encodeWorkspaceToUrl } from '@/utils/share-url';
 import { useThemeStore } from '@/store/theme-store';
-import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon } from 'lucide-react';
+import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon, Sparkles } from 'lucide-react';
 
 export const TopBar: React.FC = () => {
   const { mode, setMode, workspace, updateWorkspace, savedWorkspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace } = useWorkspaceStore();
   const { theme, toggleTheme } = useThemeStore();
   const addToast = useToastStore((s) => s.addToast);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showPromptModal, setShowPromptModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showWorkspaces, setShowWorkspaces] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -132,6 +134,13 @@ export const TopBar: React.FC = () => {
             <Download size={13} /> Download Project
           </button>
 
+          <button onClick={() => setShowPromptModal(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-accent/50
+                       hover:bg-accent-soft text-accent hover:text-accent transition-all font-medium active:scale-95"
+            title="Generate an AI prompt to recreate this frontend">
+            <Sparkles size={13} /> AI Prompt
+          </button>
+
           <button onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: '?' }))}
             className="p-1.5 text-txt-faint hover:text-txt-secondary rounded-lg hover:bg-surface-overlay transition-all"
             title="Keyboard shortcuts (?)">
@@ -162,6 +171,11 @@ export const TopBar: React.FC = () => {
                          hover:bg-accent-hover text-white font-medium">
               <Download size={13} /> Download Project
             </button>
+            <button onClick={() => { setShowPromptModal(true); setMobileMenuOpen(false); }}
+              className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs rounded-lg border border-accent/50
+                         text-accent hover:bg-accent-soft font-medium">
+              <Sparkles size={13} /> AI Prompt
+            </button>
           </div>
           <div className="flex gap-2">
             <button onClick={() => { handleSave(); setMobileMenuOpen(false); }}
@@ -184,6 +198,7 @@ export const TopBar: React.FC = () => {
       )}
 
       {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
+      {showPromptModal && <PromptModal onClose={() => setShowPromptModal(false)} />}
     </>
   );
 };

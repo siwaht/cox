@@ -9,7 +9,9 @@ import {
   Layers, PanelTop, FileText, X, Plus, Search, Grid3X3, List,
   GitBranch, ThumbsUp, Database, ClipboardList,
   Brain, Network, Gauge, GripVertical, ChevronDown, ChevronRight,
+  CheckCircle2, XCircle,
 } from 'lucide-react';
+import { useCodeAnalysisStore } from '@/store/code-analysis-store';
 
 const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
@@ -33,6 +35,27 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
+  const codeAnalysis = useCodeAnalysisStore((s) => s.analysis);
+
+  // Determine which block types are compatible with current agent code
+  const compatibilityMap = useMemo(() => {
+    const map = new Map<string, 'compatible' | 'incompatible' | 'unknown'>();
+    if (!codeAnalysis) {
+      // No code analyzed — everything is unknown
+      BLOCK_REGISTRY.forEach((def) => map.set(def.type, 'unknown'));
+      return map;
+    }
+    for (const def of BLOCK_REGISTRY) {
+      const required = def.requiredCapabilities;
+      if (required.length === 0) {
+        map.set(def.type, 'compatible');
+        continue;
+      }
+      const allMet = required.every((cap) => codeAnalysis.capabilities.has(cap));
+      map.set(def.type, allMet ? 'compatible' : 'incompatible');
+    }
+    return map;
+  }, [codeAnalysis]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return BLOCK_REGISTRY;
@@ -74,6 +97,14 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
             placeholder="Search blocks..." className="ck-input text-xs pl-8 py-1.5" />
         </div>
         <p className="text-[9px] text-txt-ghost mt-1.5 px-1">Drag blocks onto the canvas or click to add</p>
+        {codeAnalysis && (
+          <div className="mt-1.5 flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-accent/5 border border-accent/10">
+            <CheckCircle2 size={9} className="text-accent shrink-0" />
+            <span className="text-[9px] text-accent">
+              {Array.from(compatibilityMap.values()).filter(v => v === 'compatible').length} compatible with your agent
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto pb-2">
@@ -84,8 +115,18 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
         {isSearching ? (
           /* Flat list when searching */
           <div className={`p-2.5 ${viewMode === 'grid' ? 'grid grid-cols-2 gap-2 auto-rows-min content-start' : 'space-y-0.5'}`}>
-            {filtered.map((def) => (
-              <PaletteItem key={def.type} def={def} viewMode={viewMode} onAdd={() => { addBlock(def.type as BlockType); onClose?.(); }} />
+            {filtered
+              .slice()
+              .sort((a, b) => {
+                const ca = compatibilityMap.get(a.type) || 'unknown';
+                const cb = compatibilityMap.get(b.type) || 'unknown';
+                const order = { compatible: 0, unknown: 1, incompatible: 2 };
+                return order[ca] - order[cb];
+              })
+              .map((def) => (
+              <PaletteItem key={def.type} def={def} viewMode={viewMode}
+                compatibility={compatibilityMap.get(def.type) || 'unknown'}
+                onAdd={() => { addBlock(def.type as BlockType); onClose?.(); }} />
             ))}
           </div>
         ) : (
@@ -94,6 +135,7 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
             const items = filtered.filter(d => (cat.types as readonly string[]).includes(d.type));
             if (items.length === 0) return null;
             const isCollapsed = collapsedCategories.has(cat.id);
+            const compatCount = items.filter(d => compatibilityMap.get(d.type) === 'compatible').length;
             return (
               <div key={cat.id}>
                 <button
@@ -102,12 +144,27 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
                 >
                   {isCollapsed ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
                   {cat.label}
-                  <span className="text-txt-ghost font-normal ml-auto">{items.length}</span>
+                  <span className="text-txt-ghost font-normal ml-auto flex items-center gap-1">
+                    {codeAnalysis && compatCount > 0 && (
+                      <span className="text-success">{compatCount}✓</span>
+                    )}
+                    {items.length}
+                  </span>
                 </button>
                 {!isCollapsed && (
                   <div className={`px-2.5 pb-1 ${viewMode === 'grid' ? 'grid grid-cols-2 gap-2 auto-rows-min content-start' : 'space-y-0.5'}`}>
-                    {items.map((def) => (
-                      <PaletteItem key={def.type} def={def} viewMode={viewMode} onAdd={() => { addBlock(def.type as BlockType); onClose?.(); }} />
+                    {items
+                      .slice()
+                      .sort((a, b) => {
+                        const ca = compatibilityMap.get(a.type) || 'unknown';
+                        const cb = compatibilityMap.get(b.type) || 'unknown';
+                        const order = { compatible: 0, unknown: 1, incompatible: 2 };
+                        return order[ca] - order[cb];
+                      })
+                      .map((def) => (
+                      <PaletteItem key={def.type} def={def} viewMode={viewMode}
+                        compatibility={compatibilityMap.get(def.type) || 'unknown'}
+                        onAdd={() => { addBlock(def.type as BlockType); onClose?.(); }} />
                     ))}
                   </div>
                 )}
@@ -120,30 +177,47 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
   );
 };
 
-// Individual palette item — draggable + clickable
+// Individual palette item — draggable + clickable with compatibility indicator
 const PaletteItem: React.FC<{
   def: (typeof BLOCK_REGISTRY)[number];
   viewMode: 'list' | 'grid';
+  compatibility: 'compatible' | 'incompatible' | 'unknown';
   onAdd: () => void;
-}> = ({ def, viewMode, onAdd }) => {
+}> = ({ def, viewMode, compatibility, onAdd }) => {
   const Icon = ICON_MAP[def.icon] || FileText;
+  const isIncompatible = compatibility === 'incompatible';
+  const isCompatible = compatibility === 'compatible';
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `palette-${def.type}`,
     data: { fromPalette: true, blockType: def.type },
   });
 
+  const compatBadge = isCompatible ? (
+    <CheckCircle2 size={10} className="text-success shrink-0" />
+  ) : isIncompatible ? (
+    <XCircle size={10} className="text-danger/50 shrink-0" />
+  ) : null;
+
   if (viewMode === 'grid') {
     return (
       <div
         ref={setNodeRef}
-        className={`palette-draggable flex flex-col items-center gap-1.5 p-3 rounded-xl border border-border
-                    hover:border-accent/50 hover:bg-accent-soft transition-all group cursor-grab active:cursor-grabbing
+        className={`palette-draggable flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all group cursor-grab active:cursor-grabbing
+                    ${isIncompatible
+                      ? 'border-danger/20 opacity-50 hover:opacity-70 hover:border-danger/30'
+                      : isCompatible
+                        ? 'border-success/20 hover:border-accent/50 hover:bg-accent-soft'
+                        : 'border-border hover:border-accent/50 hover:bg-accent-soft'}
                     ${isDragging ? 'opacity-40 scale-95' : ''}`}
-        onClick={onAdd}
+        onClick={isIncompatible ? undefined : onAdd}
+        title={isIncompatible ? 'Not compatible with your agent code' : undefined}
         {...attributes}
         {...listeners}
       >
-        <BlockThumbnail type={def.type} Icon={Icon} />
+        <div className="relative w-full">
+          <BlockThumbnail type={def.type} Icon={Icon} />
+          {compatBadge && <div className="absolute -top-1 -right-1">{compatBadge}</div>}
+        </div>
         <span className="text-[10px] text-txt-secondary text-center leading-tight">{def.label}</span>
       </div>
     );
@@ -152,18 +226,27 @@ const PaletteItem: React.FC<{
   return (
     <div
       ref={setNodeRef}
-      className={`palette-draggable flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left
-                  hover:bg-accent-soft transition-all group cursor-grab active:cursor-grabbing
+      className={`palette-draggable flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left transition-all group cursor-grab active:cursor-grabbing
+                  ${isIncompatible
+                    ? 'opacity-50 hover:opacity-70'
+                    : isCompatible
+                      ? 'hover:bg-accent-soft ring-1 ring-inset ring-success/10'
+                      : 'hover:bg-accent-soft'}
                   ${isDragging ? 'opacity-40 scale-95' : ''}`}
-      onClick={onAdd}
+      onClick={isIncompatible ? undefined : onAdd}
+      title={isIncompatible ? 'Not compatible with your agent code' : undefined}
       {...attributes}
       {...listeners}
     >
-      <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0 group-hover:bg-accent/20 transition-colors">
-        <Icon size={15} className="text-accent" />
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors
+                       ${isIncompatible ? 'bg-danger/5' : 'bg-accent/10 group-hover:bg-accent/20'}`}>
+        <Icon size={15} className={isIncompatible ? 'text-txt-faint' : 'text-accent'} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="text-sm text-txt-primary leading-tight">{def.label}</div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm text-txt-primary leading-tight">{def.label}</span>
+          {compatBadge}
+        </div>
         <div className="text-2xs text-txt-muted leading-tight mt-0.5 truncate">{def.description}</div>
       </div>
       <div className="flex items-center gap-1 shrink-0">

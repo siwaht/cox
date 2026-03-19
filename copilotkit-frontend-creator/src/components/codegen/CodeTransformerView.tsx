@@ -4,6 +4,10 @@ import {
   Loader2, Terminal, RotateCcw,
   Key, X, Trash2, CheckCircle2, XCircle, Download,
   Settings, Brain, Sparkles, Eye, EyeOff, FileCode, ChevronRight, BookOpen,
+  Plus, MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
+  Activity, FileInput, Table, BarChart3, LayoutDashboard,
+  Layers, PanelTop, FileText, GitBranch, ThumbsUp, Database,
+  ClipboardList, Network, Gauge,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { useLLMStore, AVAILABLE_MODELS } from '@/store/llm-store';
@@ -13,9 +17,12 @@ import { llmTransformCode } from '@/adapters/llm-transformer';
 import type { LLMTransformResult, FrontendContext } from '@/adapters/llm-transformer';
 import { getDocsCacheStatus, clearDocsCache } from '@/adapters/docs-fetcher';
 import { getBlockDefinition } from '@/registry/block-registry';
-import type { RuntimeCapability, BlockConfig } from '@/types/blocks';
+import type { RuntimeCapability, BlockConfig, BlockType } from '@/types/blocks';
 import type { WorkspaceConfig } from '@/types/workspace';
 import { generateProjectFiles, generateFullProjectFiles, downloadProject, downloadFullProject, getProjectCodePreview } from '@/utils/project-generator';
+import { analyzeAgentCode } from '@/adapters/code-analyzer';
+import type { CodeAnalysis, BlockSuggestion, IncompatibleBlock } from '@/adapters/code-analyzer';
+import { useCodeAnalysisStore } from '@/store/code-analysis-store';
 
 type RuntimeType = 'langchain' | 'langgraph' | 'deepagents';
 type CodeTab = 'backend' | 'frontend';
@@ -106,6 +113,62 @@ export const CodeTransformerView: React.FC = () => {
 
   const hasApiKey = !!llm.getActiveKey();
   const docsStatus = getDocsCacheStatus();
+
+  // ─── Live code analysis: runs as user types/pastes code ───
+  const [codeAnalysis, setCodeAnalysis] = useState<CodeAnalysis | null>(null);
+  const analysisTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced analysis of raw input code
+  useEffect(() => {
+    if (analysisTimerRef.current) clearTimeout(analysisTimerRef.current);
+    if (!input.trim()) {
+      setCodeAnalysis(null);
+      useCodeAnalysisStore.getState().setAnalysis(null);
+      useCodeAnalysisStore.getState().setRawCode('');
+      return;
+    }
+    analysisTimerRef.current = setTimeout(() => {
+      const analysis = analyzeAgentCode(input, workspace.blocks);
+      setCodeAnalysis(analysis);
+      useCodeAnalysisStore.getState().setAnalysis(analysis);
+      useCodeAnalysisStore.getState().setRawCode(input);
+    }, 400); // 400ms debounce
+    return () => { if (analysisTimerRef.current) clearTimeout(analysisTimerRef.current); };
+  }, [input, workspace.blocks]);
+
+  // Auto-remove incompatible blocks when code analysis detects them
+  const autoRemoveRanRef = React.useRef<string | null>(null);
+  const [autoRemovedFromAnalysis, setAutoRemovedFromAnalysis] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!codeAnalysis || codeAnalysis.incompatibleBlocks.length === 0) return;
+    // Key by input hash to only auto-remove once per code change
+    const inputKey = input.slice(0, 80);
+    if (autoRemoveRanRef.current === inputKey) return;
+    autoRemoveRanRef.current = inputKey;
+
+    const removed: string[] = [];
+    for (const { block } of codeAnalysis.incompatibleBlocks) {
+      removeBlock(block.id);
+      removed.push(block.label);
+    }
+    if (removed.length > 0) {
+      setAutoRemovedFromAnalysis(removed);
+      addToast(
+        `Auto-removed ${removed.length} block${removed.length > 1 ? 's' : ''} incompatible with your code: ${removed.join(', ')}`,
+        'info',
+      );
+      // Clear after 8 seconds
+      setTimeout(() => setAutoRemovedFromAnalysis([]), 8000);
+    }
+  }, [codeAnalysis]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Handle adding a suggested block
+  const handleAddSuggested = useCallback((type: BlockType) => {
+    const { addBlock } = useWorkspaceStore.getState();
+    addBlock(type);
+    addToast(`Added ${type} block to your workspace`, 'success');
+  }, [addToast]);
 
   const blockCompatibility = useMemo(() => {
     if (!result || !input.trim()) return null;
@@ -261,6 +324,16 @@ export const CodeTransformerView: React.FC = () => {
             placeholder={PLACEHOLDER} spellCheck={false}
             className="flex-1 w-full p-4 bg-surface text-txt-primary text-xs font-mono
                        resize-none outline-none placeholder:text-txt-ghost/50 leading-relaxed" />
+
+          {/* Live code analysis: suggestions + auto-removal notice */}
+          {codeAnalysis && input.trim() && (
+            <CodeAnalysisPanel
+              analysis={codeAnalysis}
+              autoRemoved={autoRemovedFromAnalysis}
+              onAddBlock={handleAddSuggested}
+            />
+          )}
+
           <div className="px-3 py-2 border-t border-border bg-surface-raised flex items-center gap-2">
             <button onClick={handleTransform} disabled={!input.trim() || isTransforming}
               className="flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg
@@ -777,4 +850,118 @@ function getFixSuggestion(blockType: string, missing: RuntimeCapability[]): { pr
     action: `Fix: Add the missing capability to your agent code — or remove this block.`,
   };
 }
+
+// ─── Code Analysis Panel (live suggestions + auto-removal) ───
+const CodeAnalysisPanel: React.FC<{
+  analysis: CodeAnalysis;
+  autoRemoved: string[];
+  onAddBlock: (type: BlockType) => void;
+}> = ({ analysis, autoRemoved, onAddBlock }) => {
+  const [expanded, setExpanded] = useState(true);
+  const suggestedCount = analysis.suggestedBlocks.length;
+  const hasSuggestions = suggestedCount > 0;
+
+  if (!hasSuggestions && autoRemoved.length === 0 && analysis.codeSummary === '') return null;
+
+  return (
+    <div className="border-t border-border bg-surface-raised/80">
+      {/* Summary bar */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full px-3 py-2 text-2xs hover:bg-surface-overlay transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <Sparkles size={11} className="text-accent" />
+          {analysis.codeSummary && (
+            <span className="text-txt-secondary font-medium">{analysis.codeSummary}</span>
+          )}
+          {hasSuggestions && (
+            <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent text-2xs font-medium">
+              {suggestedCount} block{suggestedCount !== 1 ? 's' : ''} suggested
+            </span>
+          )}
+        </div>
+        <ChevronDown size={10} className={`text-txt-muted transition-transform ${expanded ? 'rotate-180' : ''}`} />
+      </button>
+
+      {expanded && (
+        <div className="px-3 pb-2.5 space-y-2 animate-fade-in">
+          {/* Auto-removed notice */}
+          {autoRemoved.length > 0 && (
+            <div className="flex items-start gap-1.5 text-2xs text-accent bg-accent/5 rounded-lg px-2.5 py-2 border border-accent/10">
+              <Sparkles size={10} className="mt-0.5 shrink-0" />
+              <span>
+                Auto-removed {autoRemoved.length} incompatible block{autoRemoved.length > 1 ? 's' : ''}: {autoRemoved.join(', ')}
+              </span>
+            </div>
+          )}
+
+          {/* Suggested blocks */}
+          {hasSuggestions && (
+            <div className="space-y-1">
+              <p className="text-2xs text-txt-muted font-medium px-0.5">
+                Compatible blocks you can add:
+              </p>
+              <div className="grid grid-cols-2 gap-1.5 max-h-40 overflow-y-auto">
+                {analysis.suggestedBlocks.map((suggestion) => (
+                  <SuggestionCard
+                    key={suggestion.type}
+                    suggestion={suggestion}
+                    onAdd={() => onAddBlock(suggestion.type)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Detected capabilities */}
+          {analysis.capabilities.size > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {Array.from(analysis.capabilities).map((cap) => (
+                <span key={cap} className="px-1.5 py-0.5 rounded bg-success/10 text-success text-[9px] font-medium border border-success/10">
+                  {cap}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Suggestion Card ───
+const SuggestionCard: React.FC<{
+  suggestion: BlockSuggestion;
+  onAdd: () => void;
+}> = ({ suggestion, onAdd }) => {
+  const SUGGESTION_ICONS: Record<string, React.FC<{ size?: number; className?: string }>> = {
+    MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
+    Activity, FileInput, Table, BarChart3, LayoutDashboard,
+    Layers, PanelTop, FileText,
+    GitBranch, ThumbsUp, Database, ClipboardList,
+    Brain, Network, Gauge,
+  };
+  const Icon = SUGGESTION_ICONS[suggestion.icon] || FileText;
+
+  return (
+    <button
+      onClick={onAdd}
+      className="flex items-start gap-2 px-2.5 py-2 rounded-lg border border-border
+                 hover:border-accent/40 hover:bg-accent-soft text-left transition-all group"
+    >
+      <div className="w-6 h-6 rounded-md bg-accent/10 flex items-center justify-center shrink-0 mt-0.5
+                      group-hover:bg-accent/20 transition-colors">
+        <Icon size={12} className="text-accent" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="text-2xs font-medium text-txt-primary">{suggestion.label}</span>
+          <Plus size={9} className="text-accent opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+        <p className="text-[9px] text-txt-muted leading-tight mt-0.5 line-clamp-2">{suggestion.reason}</p>
+      </div>
+    </button>
+  );
+};
 
