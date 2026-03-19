@@ -4,7 +4,7 @@ from a single process.
 
 HOW TO USE:
 1. Paste your agent code in agent.py (see the placeholder there)
-2. Make sure your agent exposes a FastAPI `app` or a LangGraph graph
+2. Make sure your agent exports a `graph` variable (compiled LangGraph graph)
 3. This server auto-wires /copilotkit and /health endpoints
 4. Run: python server.py
 """
@@ -14,10 +14,15 @@ import sys
 import logging
 import time
 import uvicorn
+from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from starlette.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
+from dotenv import load_dotenv
+
+# Load .env from the project root
+load_dotenv(Path(__file__).parent / ".env")
 
 # ─── Logging ─────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -30,27 +35,6 @@ logger = logging.getLogger("server")
 # ─── Environment ─────────────────────────────────────────────────────────────
 IS_PRODUCTION = os.environ.get("PYTHON_ENV", "development") == "production"
 ALLOWED_ORIGINS = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
-
-# ── Patch: fix Python SDK 0.1.79 bug where handler_v1 raises 400 on empty body
-def _patch_copilotkit_handler_v1():
-    try:
-        import copilotkit.integrations.fastapi as _ck_fastapi
-        _original_handler_v1 = _ck_fastapi.handler_v1
-
-        async def _patched_handler_v1(sdk, method, path, body, context):
-            if body is None:
-                body = {}
-            # Ensure required fields exist to prevent 422 validation errors
-            if isinstance(body, dict):
-                body.setdefault("method", "agent.run")
-                body.setdefault("params", {})
-            return await _original_handler_v1(sdk=sdk, method=method, path=path, body=body, context=context)
-
-        _ck_fastapi.handler_v1 = _patched_handler_v1
-    except Exception:
-        pass
-
-_patch_copilotkit_handler_v1()
 
 
 # ─── Security Headers Middleware ─────────────────────────────────────────────
@@ -133,121 +117,58 @@ async def ok():
 
 # ─── Mount your agent ────────────────────────────────────────────────────────
 def mount_agent():
-    """Try to import agent.py and wire CopilotKit endpoints."""
-    agent_path = os.path.join(os.path.dirname(__file__), "agent.py")
+    """Import agent.py and wire the CopilotKit/AG-UI endpoint."""
+    # Ensure agent.py's directory is importable
+    agent_dir = os.path.dirname(os.path.abspath(__file__))
+    if agent_dir not in sys.path:
+        sys.path.insert(0, agent_dir)
+
+    agent_path = os.path.join(agent_dir, "agent.py")
     if not os.path.isfile(agent_path):
         logger.warning("No agent.py found. /copilotkit won't be available.")
         return
 
     try:
-        with open(agent_path, "r", encoding="utf-8") as f:
-            code = f.read()
+        # Clear cached module so changes are picked up
+        if "agent" in sys.modules:
+            del sys.modules["agent"]
 
-        # Clear cached 'agent' module if it was previously imported
-        if 'agent' in sys.modules:
-            del sys.modules['agent']
+        import agent as agent_module
 
-        # Strip out lines that would start a competing server
-        filtered_lines = []
-        skip_block = False
-        block_indent = 0
-        for line in code.splitlines():
-            stripped = line.strip()
-            if "uvicorn.run(" in stripped:
-                continue
-            if stripped.startswith("app = FastAPI(") or stripped.startswith("app=FastAPI("):
-                continue
-            if stripped.startswith("app.add_middleware("):
-                continue
-            if "add_langgraph_fastapi_endpoint(" in stripped or "add_fastapi_endpoint(" in stripped:
-                continue
-            if "CopilotKitRemoteEndpoint(" in stripped:
-                continue
-            if (stripped.startswith('@app.get(') or stripped.startswith('@app.post(') or
-                    stripped.startswith('@app.route(') or stripped.startswith('@app.api_route(')):
-                skip_block = True
-                block_indent = 0
-                continue
-            if stripped == 'if __name__ == "__main__":' or stripped == "if __name__ == '__main__':":
-                skip_block = True
-                block_indent = 0
-                continue
-            if skip_block:
-                if stripped.startswith("def ") or stripped.startswith("async def "):
-                    block_indent = len(line) - len(line.lstrip())
-                    continue
-                if stripped == "" or stripped.startswith("#"):
-                    continue
-                current_indent = len(line) - len(line.lstrip())
-                if current_indent > block_indent and stripped:
-                    continue
-                skip_block = False
-            filtered_lines.append(line)
+        # Look for the graph/agent object
+        agent_obj = getattr(agent_module, "graph", None) or getattr(agent_module, "agent", None)
 
-        namespace = {}
-        exec("\n".join(filtered_lines), namespace)
-
-        # Look for the agent/graph/executor object
-        agent_obj = (
-            namespace.get("graph")
-            or namespace.get("agent")
-            or namespace.get("executor")
-            or namespace.get("workflow")
-        )
-
-        if not agent_obj:
-            logger.warning("agent.py found but no `graph`, `agent`, `executor`, or `workflow` exported.")
+        if agent_obj is None:
+            logger.warning("agent.py found but no `graph` or `agent` variable exported.")
             return
 
+        # Wrap in LangGraphAGUIAgent if it's a raw compiled graph
         from copilotkit import LangGraphAGUIAgent
 
-        # Wrap in LangGraphAGUIAgent if it's a raw compiled graph
         if isinstance(agent_obj, LangGraphAGUIAgent):
             ck_agent = agent_obj
         else:
-            ck_agent = LangGraphAGUIAgent(name="agent", description="Agent", graph=agent_obj)
+            ck_agent = LangGraphAGUIAgent(
+                name="agent",
+                description="A helpful assistant.",
+                graph=agent_obj,
+            )
 
-        # Try the modern AG-UI endpoint first
-        mounted = False
-        try:
-            from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-            add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
-            mounted = True
-            logger.info("Mounted agent at /copilotkit (ag-ui-langgraph)")
-        except ImportError:
-            pass
-        except Exception as e:
-            logger.warning("ag_ui_langgraph mount failed (%s), trying SDK fallback...", e)
+        # Mount using ag_ui_langgraph — this speaks the AG-UI protocol that
+        # CopilotKit React frontend (v1.8+) uses when the `agent` prop is set.
+        from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
-        # Fallback: CopilotKitRemoteEndpoint + add_fastapi_endpoint
-        if not mounted:
-            try:
-                from copilotkit import CopilotKitRemoteEndpoint
-                from copilotkit.integrations.fastapi import add_fastapi_endpoint
-
-                try:
-                    from ag_ui_langgraph import LangGraphAgent as _AguiBase
-                    if not hasattr(_AguiBase, 'dict_repr'):
-                        def _agui_dict_repr(self):
-                            return {'name': getattr(self, 'name', ''), 'description': getattr(self, 'description', '')}
-                        _AguiBase.dict_repr = _agui_dict_repr
-                except ImportError:
-                    pass
-
-                sdk = CopilotKitRemoteEndpoint(agents=[ck_agent])
-                add_fastapi_endpoint(app, sdk, "/copilotkit")
-                mounted = True
-                logger.info("Mounted agent at /copilotkit (SDK fallback)")
-            except Exception as e2:
-                logger.error("SDK fallback also failed: %s", e2)
-
-        if not mounted:
-            logger.error("Could not mount agent. Install: pip install ag-ui-langgraph copilotkit")
+        add_langgraph_fastapi_endpoint(
+            app=app,
+            agent=ck_agent,
+            path="/copilotkit",
+        )
+        logger.info("✓ Mounted agent at /copilotkit (ag-ui-langgraph)")
 
     except ImportError as e:
-        logger.error("copilotkit package issue: %s. Run: pip install copilotkit ag-ui-langgraph", e)
+        logger.error("Missing dependency: %s. Run: pip install copilotkit ag-ui-langgraph", e)
     except Exception as e:
-        logger.error("Could not load agent.py: %s", e)
+        logger.error("Could not load agent.py: %s", e, exc_info=True)
 
 
 mount_agent()
@@ -255,13 +176,13 @@ mount_agent()
 
 # ─── Fallback /copilotkit if no agent was mounted ────────────────────────────
 _copilotkit_mounted = any(
-    hasattr(r, 'path') and '/copilotkit' in str(r.path)
+    hasattr(r, "path") and "/copilotkit" in str(r.path)
     for r in app.routes
 )
 
 if not _copilotkit_mounted:
     _fallback_body = {
-        "error": "No agent loaded. Create an agent.py that exports a `graph` or `agent` object.",
+        "error": "No agent loaded. Create an agent.py that exports a `graph` variable.",
         "hint": "Use the Code tab to generate agent code, then download and deploy it.",
     }
 
