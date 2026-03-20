@@ -2,17 +2,18 @@
 set -euo pipefail
 
 echo "=== Installing Python dependencies ==="
-pip install --quiet \
-  fastapi \
+pip install --quiet --upgrade \
+  "fastapi>=0.115.0,<1.0.0" \
   "uvicorn[standard]" \
-  copilotkit \
+  "copilotkit>=0.1.81" \
   python-dotenv \
-  langchain \
-  langchain-openai \
-  langchain-core \
-  langgraph \
-  langgraph-checkpoint \
-  ag-ui-langgraph
+  "langchain>=1.2.0" \
+  "langchain-openai>=1.1.11" \
+  "langchain-core>=1.2.20" \
+  "langgraph>=0.3.25,<1.1.0" \
+  "langgraph-checkpoint>=2.0.0" \
+  "ag-ui-langgraph[fastapi]>=0.0.27" \
+  "deepagents>=0.4.11"
 
 echo "=== Building frontend ==="
 cd copilotkit-frontend-creator

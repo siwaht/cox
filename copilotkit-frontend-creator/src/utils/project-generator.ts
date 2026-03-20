@@ -1370,20 +1370,21 @@ function genAgentRequirements(code: string): string {
   const deps = detectAgentDeps(code);
   // Pin versions to known-compatible combinations to avoid breakage
   const versionMap: Record<string, string> = {
-    'copilotkit': 'copilotkit>=0.1.79',
-    'ag-ui-langgraph': 'ag-ui-langgraph[fastapi]>=0.0.26',
+    'copilotkit': 'copilotkit>=0.1.81',
+    'ag-ui-langgraph': 'ag-ui-langgraph[fastapi]>=0.0.27',
     'langgraph': 'langgraph>=0.3.25,<1.1.0',
-    'langchain': 'langchain>=0.3.0',
-    'langchain-openai': 'langchain-openai>=0.3.0',
-    'langchain-anthropic': 'langchain-anthropic>=0.3.0',
+    'langchain': 'langchain>=1.2.0',
+    'langchain-openai': 'langchain-openai>=1.1.11',
+    'langchain-anthropic': 'langchain-anthropic>=1.4.0',
     'langchain-google-genai': 'langchain-google-genai>=2.0.0',
-    'langchain-community': 'langchain-community>=0.3.0',
-    'langchain-core': 'langchain-core>=0.3.0',
-    'langsmith': 'langsmith>=0.2.0',
+    'langchain-community': 'langchain-community>=1.0.0',
+    'langchain-core': 'langchain-core>=1.2.20',
+    'langsmith': 'langsmith>=0.3.45',
     'fastapi': 'fastapi>=0.115.0,<1.0.0',
     'uvicorn': 'uvicorn[standard]>=0.30.0',
     'python-dotenv': 'python-dotenv>=1.0.0',
     'pydantic': 'pydantic>=2.0.0',
+    'deepagents': 'deepagents>=0.4.11',
   };
   return deps.map((d) => versionMap[d] || d).join('\n') + '\n';
 }

@@ -139,10 +139,11 @@ NEVER USE:
 - OR \`from langchain.tools import tool\`
 
 ### Required Package Versions (MUST be compatible)
-- copilotkit>=0.1.79
-- ag-ui-langgraph[fastapi]>=0.0.26
+- copilotkit>=0.1.81
+- ag-ui-langgraph[fastapi]>=0.0.27
 - langgraph>=0.3.25,<1.1.0
-- langchain>=0.3.0
+- langchain>=1.2.0
+- langchain-core>=1.2.20
 - fastapi>=0.115.0,<1.0.0
 
 ## Required Output Structure (in this exact order)
@@ -681,7 +682,7 @@ function parseResponse(raw: string): LLMTransformResult {
     code: code + '\n',
     runtime: (meta.runtime as string) || 'langchain',
     warnings: allWarnings,
-    deps: (meta.deps as string[]) || ['fastapi>=0.115.0', 'uvicorn[standard]>=0.30.0', 'copilotkit>=0.1.79', 'ag-ui-langgraph[fastapi]>=0.0.26', 'python-dotenv>=1.0.0', 'langchain>=0.3.0', 'langchain-openai>=0.3.0', 'langgraph>=0.3.25,<1.1.0'],
+    deps: (meta.deps as string[]) || ['fastapi>=0.115.0', 'uvicorn[standard]>=0.30.0', 'copilotkit>=0.1.81', 'ag-ui-langgraph[fastapi]>=0.0.27', 'python-dotenv>=1.0.0', 'langchain>=1.2.0', 'langchain-openai>=1.1.11', 'langgraph>=0.3.25,<1.1.0'],
     runCommand: (meta.runCommand as string) || 'uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload',
     explanation: (meta.explanation as string) || '',
   };
