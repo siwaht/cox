@@ -222,9 +222,11 @@ export function generatePrompt(options: PromptOptions): string {
 
   // Integration notes
   lines.push('## CopilotKit Integration');
-  lines.push('- Wrap the entire app in `<CopilotKit runtimeUrl="http://localhost:8000/copilotkit">` pointing to the agent backend.');
+  lines.push('- Wrap the entire app in `<CopilotKit runtimeUrl="http://localhost:8000/copilotkit" agent="agent">` pointing to the agent backend.');
+  lines.push('- The `agent="agent"` prop MUST match the agent name registered on the backend.');
   lines.push('- Import `CopilotKit` from `@copilotkit/react-core` and `CopilotChat` from `@copilotkit/react-ui`.');
   lines.push('- Import CopilotKit styles: `import "@copilotkit/react-ui/styles.css"`.');
+  lines.push('- Use @copilotkit/react-core v1.54.0+ and @copilotkit/react-ui v1.54.0+.');
   lines.push('- The chat block should use `<CopilotChat />` for real-time streaming with the agent.');
   lines.push('- Use `useCopilotReadable` to expose frontend state to the agent.');
   lines.push('- Use `useCopilotAction` to let the agent trigger UI updates (results, table data, chart data, etc.).');

@@ -166,9 +166,23 @@ def mount_agent():
         logger.info("✓ Mounted agent at /copilotkit (ag-ui-langgraph)")
 
     except ImportError as e:
-        logger.error("Missing dependency: %s. Run: pip install copilotkit ag-ui-langgraph", e)
+        logger.error(
+            "Missing dependency: %s. Run: pip install copilotkit>=0.1.79 'ag-ui-langgraph[fastapi]>=0.0.26'",
+            e,
+        )
     except Exception as e:
         logger.error("Could not load agent.py: %s", e, exc_info=True)
+        # Check for common issues
+        err_str = str(e)
+        if "dict_repr" in err_str:
+            logger.error(
+                "HINT: dict_repr error — upgrade SDK: pip install --upgrade copilotkit ag-ui-langgraph"
+            )
+        elif "thread_id" in err_str:
+            logger.error(
+                "HINT: thread_id error — remove checkpointer from graph.compile(). "
+                "ag-ui-langgraph manages state externally."
+            )
 
 
 mount_agent()
