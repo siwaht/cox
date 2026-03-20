@@ -131,15 +131,36 @@ export const PreviewView: React.FC = () => {
 
 import type { BlockConfig } from '@/types/blocks';
 
-const BlockGrid: React.FC<{ blocks: BlockConfig[] }> = ({ blocks }) => (
-  <div className="p-3 sm:p-6">
-    <div className="max-w-6xl mx-auto grid grid-cols-6 sm:grid-cols-12 gap-2.5 auto-rows-min">
-      {blocks.map((block) => (
-        <RuntimeBlockRenderer key={block.id} block={block} />
-      ))}
+const BlockGrid: React.FC<{ blocks: BlockConfig[] }> = ({ blocks }) => {
+  // Group blocks into rows by y-coordinate so the preview matches the editor layout order
+  const rows: BlockConfig[][] = [];
+  const rowMap = new Map<number, BlockConfig[]>();
+  for (const block of blocks) {
+    const existing = rowMap.get(block.y);
+    if (existing) {
+      existing.push(block);
+    } else {
+      rowMap.set(block.y, [block]);
+    }
+  }
+  Array.from(rowMap.entries())
+    .sort(([a], [b]) => a - b)
+    .forEach(([, rowBlocks]) => rows.push(rowBlocks.sort((a, b) => a.x - b.x)));
+
+  return (
+    <div className="p-3 sm:p-6">
+      <div className="max-w-6xl mx-auto flex flex-col gap-2.5">
+        {rows.map((rowBlocks, rowIdx) => (
+          <div key={rowIdx} className="grid grid-cols-6 sm:grid-cols-12 gap-2.5 auto-rows-min">
+            {rowBlocks.map((block) => (
+              <RuntimeBlockRenderer key={block.id} block={block} />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const ViewportToggle: React.FC<{
   viewport: ViewportSize;
