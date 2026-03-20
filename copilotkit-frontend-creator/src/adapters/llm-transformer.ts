@@ -452,19 +452,16 @@ function postProcessCode(code: string): string {
     return l;
   });
 
-  // 4. Fix: replace deprecated create_agent / AgentExecutor
+  // 4. Fix: ensure create_react_agent is imported from langgraph.prebuilt
+  // Note: create_agent from langchain.agents is the newer v1 API but
+  // create_react_agent from langgraph.prebuilt still works and is what
+  // the ag-ui-langgraph adapter expects (a compiled LangGraph graph).
   lines = lines.map((l) => {
-    if (/from\s+langchain\.agents\s+import.*\bcreate_agent\b/.test(l)) {
-      return l.replace(/from\s+langchain\.agents\s+import\s+create_agent/, 'from langgraph.prebuilt import create_react_agent');
-    }
     if (/from\s+langchain\.agents\s+import.*\bAgentExecutor\b/.test(l)) {
       return '# AgentExecutor is deprecated — use create_react_agent from langgraph.prebuilt';
     }
     if (/from\s+langchain\.agents\s+import.*\bcreate_tool_calling_agent\b/.test(l)) {
       return l.replace(/from\s+langchain\.agents\s+import\s+create_tool_calling_agent/, 'from langgraph.prebuilt import create_react_agent');
-    }
-    if (/\bcreate_agent\(/.test(l) && !/create_react_agent/.test(l) && !/^#/.test(l.trim())) {
-      return l.replace(/\bcreate_agent\(/, 'create_react_agent(');
     }
     return l;
   });

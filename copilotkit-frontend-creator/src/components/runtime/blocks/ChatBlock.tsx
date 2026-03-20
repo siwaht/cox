@@ -36,17 +36,10 @@ const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
     setInput('');
     setSending(true);
     try {
-      // appendMessage expects a GQL-format message object
-      // Try dynamic import of the GQL types first, fall back to plain object
-      try {
-        const gql = await import('@copilotkit/runtime-client-gql');
-        await appendMessage(
-          new gql.TextMessage({ content: text, role: gql.MessageRole.User }),
-        );
-      } catch {
-        // GQL module not available — use plain object shape
-        await appendMessage({ id: crypto.randomUUID(), content: text, role: 'user' } as any);
-      }
+      const { TextMessage, MessageRole } = await import('@copilotkit/runtime-client-gql');
+      await appendMessage(
+        new TextMessage({ content: text, role: MessageRole.User }),
+      );
     } catch (err) {
       console.error('[ChatBlock] Failed to send message:', err);
     } finally {
@@ -138,14 +131,14 @@ const ChatUI: React.FC<{
         )}
         {messages.map((msg, i) => (
           <div key={i} className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
-              msg.role === 'user' ? 'bg-accent/20' : 'bg-surface-overlay'
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ring-1 ring-border/30 ${
+              msg.role === 'user' ? 'bg-accent/15' : 'bg-surface-overlay'
             }`}>
               {msg.role === 'user' ? <User size={13} className="text-accent" /> : <Bot size={13} className="text-txt-secondary" />}
             </div>
             <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
               msg.role === 'user'
-                ? 'bg-accent text-white rounded-br-md'
+                ? 'bg-accent text-white rounded-br-md shadow-lg shadow-accent/15'
                 : 'bg-surface-overlay text-txt-secondary rounded-bl-md'
             }`}>
               {msg.content}
@@ -167,7 +160,7 @@ const ChatUI: React.FC<{
           </div>
         )}
       </div>
-      <div className="p-2.5 border-t border-border/40">
+      <div className="p-3 border-t border-border/30">
         <div className="flex gap-2">
           <input
             type="text"
@@ -180,8 +173,9 @@ const ChatUI: React.FC<{
           <button
             onClick={onSend}
             disabled={!input.trim() || isStreaming}
-            className="px-3.5 py-2 bg-accent hover:bg-accent-hover text-white rounded-lg
-                       transition-colors disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            className="px-3.5 py-2 bg-accent hover:bg-accent-hover text-white rounded-xl
+                       transition-all disabled:opacity-40 disabled:cursor-not-allowed shrink-0
+                       shadow-lg shadow-accent/20 hover:shadow-accent/30 active:scale-[0.97]"
           >
             <Send size={15} />
           </button>
@@ -198,7 +192,7 @@ export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
 };
 
 export const BlockHeader: React.FC<{ label: string }> = ({ label }) => (
-  <div className="px-3.5 py-2.5 border-b border-border/40 text-xs font-medium text-txt-muted uppercase tracking-wider">
+  <div className="px-3.5 py-2.5 border-b border-border/30 text-xs font-medium text-txt-muted uppercase tracking-wider" style={{ background: 'linear-gradient(180deg, var(--color-surface-overlay), transparent)' }}>
     {label}
   </div>
 );

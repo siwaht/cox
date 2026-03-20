@@ -23,35 +23,35 @@ const DOC_SOURCES: Record<string, { urls: string[]; label: string }> = {
   copilotkit: {
     label: 'CopilotKit',
     urls: [
-      'https://docs.copilotkit.ai/langgraph/quickstart',
-      'https://docs.copilotkit.ai/reference/sdk/python/LangGraphAGUIAgent',
+      'https://docs.copilotkit.ai/integrations/langgraph/quickstart',
+      'https://docs.copilotkit.ai/reference/sdk/python/LangGraph',
     ],
   },
   langchain: {
     label: 'LangChain',
     urls: [
-      'https://python.langchain.com/docs/how_to/create_agent/',
-      'https://python.langchain.com/docs/concepts/agents/',
+      'https://docs.langchain.com/oss/python/langchain/agents',
+      'https://docs.langchain.com/oss/python/migrate/langchain-v1',
     ],
   },
   langgraph: {
     label: 'LangGraph',
     urls: [
-      'https://langchain-ai.github.io/langgraph/tutorials/get-started/1-build-basic-chatbot/',
-      'https://langchain-ai.github.io/langgraph/how-tos/create-react-agent/',
+      'https://docs.langchain.com/oss/python/langgraph/overview',
+      'https://docs.langchain.com/oss/python/langgraph/persistence',
     ],
   },
   langsmith: {
     label: 'LangSmith',
     urls: [
-      'https://docs.smith.langchain.com/how_to_guides/tracing',
-      'https://docs.smith.langchain.com/how_to_guides/evaluation',
+      'https://docs.langchain.com/langsmith/faq',
+      'https://docs.langchain.com/langsmith/generative-ui-react',
     ],
   },
   deepagents: {
     label: 'Deep Agents',
     urls: [
-      'https://deepagents.ai/docs/quickstart',
+      'https://docs.langchain.com/oss/python/deepagents/customization',
     ],
   },
 };
@@ -85,37 +85,41 @@ from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 from copilotkit import LangGraphAGUIAgent
 
-# Wrap ANY agent (LangChain, LangGraph, or custom) with LangGraphAGUIAgent
+# Wrap ANY compiled LangGraph graph with LangGraphAGUIAgent
 agent = LangGraphAGUIAgent(
     name="agent",
     description="My agent",
-    graph=my_compiled_agent  # NOTE: parameter is 'graph=', NOT 'agent='
+    graph=my_compiled_graph  # NOTE: parameter is 'graph=', NOT 'agent='
 )
 
 # Register with FastAPI using the AG-UI endpoint
 add_langgraph_fastapi_endpoint(app=app, agent=agent, path="/copilotkit")
 \`\`\`
 
-### Alternative Pattern (SDK-based, also works)
-\`\`\`python
-from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint
-from copilotkit.integrations.fastapi import add_fastapi_endpoint
+### IMPORTANT: Checkpointer Handling
+Do NOT compile a checkpointer (MemorySaver) into the graph when using
+ag-ui-langgraph. The AG-UI adapter manages thread state externally.
+Baking in a checkpointer causes "thread_id required" errors.
 
-agent = LangGraphAGUIAgent(name="agent", description="My agent", graph=my_compiled_agent)
-sdk = CopilotKitRemoteEndpoint(agents=[agent])
-add_fastapi_endpoint(app, sdk, "/copilotkit")
+\`\`\`python
+# WRONG — causes errors with ag-ui-langgraph
+graph = create_react_agent("openai:gpt-4o-mini", tools=[...], checkpointer=MemorySaver())
+
+# CORRECT — let ag-ui-langgraph handle state
+graph = create_react_agent("openai:gpt-4o-mini", tools=[...])
 \`\`\`
 
 ### DEPRECATED / BROKEN — NEVER USE
 - \`CopilotKitSDK\` — removed from SDK
-- \`LangGraphAgent\` — rejected by SDK, must use LangGraphAGUIAgent
+- \`CopilotKitRemoteEndpoint\` — deprecated, use add_langgraph_fastapi_endpoint
+- \`LangGraphAgent\` — use LangGraphAGUIAgent instead
 
 ### Frontend React Setup
 \`\`\`tsx
 import { CopilotKit } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 
-<CopilotKit runtimeUrl="http://localhost:8000/copilotkit">
+<CopilotKit runtimeUrl="http://localhost:8000/copilotkit" agent="agent">
   <CopilotChat />
 </CopilotKit>
 \`\`\``,
@@ -132,7 +136,9 @@ import { CopilotChat } from "@copilotkit/react-ui";
 pip install langchain langchain-openai langgraph
 \`\`\`
 
-### Creating Agents (Current API — use LangGraph's create_react_agent)
+### Creating Agents — Two Options
+
+#### Option 1: LangGraph's create_react_agent (works with CopilotKit)
 \`\`\`python
 from langgraph.prebuilt import create_react_agent
 from langchain_core.tools import tool
@@ -146,10 +152,27 @@ def search(query: str) -> str:
 agent = create_react_agent("openai:gpt-4o-mini", tools=[search])
 \`\`\`
 
+#### Option 2: LangChain v1's create_agent (newer API, also works)
+\`\`\`python
+from langchain.agents import create_agent
+
+agent = create_agent(
+    model="openai:gpt-4o-mini",
+    tools=[search],
+    system_prompt="You are a helpful assistant."
+)
+\`\`\`
+
+Note: Both produce a compiled LangGraph graph. Either works with CopilotKit.
+The \`prompt\` parameter in create_react_agent maps to \`system_prompt\` in create_agent.
+
 ### DEPRECATED APIs — Do NOT use
-- \`create_agent\` from \`langchain.agents\` — does NOT exist
-- \`AgentExecutor\` — use \`create_react_agent\` from langgraph.prebuilt
-- \`create_tool_calling_agent\` — use \`create_react_agent\`
+- \`AgentExecutor\` — use create_react_agent or create_agent
+- \`create_tool_calling_agent\` — use create_react_agent or create_agent
+
+### IMPORTANT: No checkpointer with ag-ui-langgraph
+Do NOT pass checkpointer=MemorySaver() when the graph will be served
+via ag-ui-langgraph. The adapter manages thread state externally.
 
 ### With CopilotKit
 \`\`\`python
@@ -196,18 +219,26 @@ graph.add_edge("chatbot", END)
 compiled = graph.compile()
 \`\`\`
 
-### Human-in-the-Loop (Approvals)
+### Checkpointer / Memory
 \`\`\`python
-from langgraph.checkpoint.memory import MemorySaver
-memory = MemorySaver()
-compiled = graph.compile(checkpointer=memory, interrupt_before=["action_node"])
+from langgraph.checkpoint.memory import InMemorySaver
+# Note: In latest LangGraph, MemorySaver is renamed to InMemorySaver
+memory = InMemorySaver()
+compiled = graph.compile(checkpointer=memory)
 \`\`\`
+
+### IMPORTANT: Checkpointer + CopilotKit
+When serving via ag-ui-langgraph (CopilotKit), do NOT compile a
+checkpointer into the graph. The AG-UI adapter manages thread state.
+Only use checkpointer for standalone LangGraph usage or human-in-the-loop.
 
 ### With CopilotKit
 \`\`\`python
 from copilotkit import LangGraphAGUIAgent
 from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
+# No checkpointer here — ag-ui-langgraph handles it
+compiled = graph.compile()
 ck_agent = LangGraphAGUIAgent(name="agent", description="...", graph=compiled)
 add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
 \`\`\``,

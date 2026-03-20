@@ -239,7 +239,7 @@ function getHealthEndpoint(profile: ConnectionProfile): string {
   const base = profile.baseUrl.replace(/\/+$/, '');
   switch (profile.runtime) {
     case 'langgraph':
-      return `${base}/ok`;
+      return `${base}/health`;
     case 'langsmith':
       return `${base}/health`;
     case 'deepagents':
