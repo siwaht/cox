@@ -1372,6 +1372,7 @@ function detectAgentDeps(code: string): string[] {
   if (!deps.includes('uvicorn')) deps.push('uvicorn');
   if (!deps.includes('fastapi')) deps.push('fastapi');
   if (!deps.includes('python-dotenv')) deps.push('python-dotenv');
+  if (!deps.includes('deepagents')) deps.push('deepagents');
   return [...new Set(deps)];
 }
 
@@ -1389,9 +1390,9 @@ function genAgentRequirements(code: string): string {
     'langchain-community': 'langchain-community>=1.0.0',
     'langchain-core': 'langchain-core>=1.2.20',
     'langsmith': 'langsmith>=0.3.45',
-    'fastapi': 'fastapi>=0.115.0,<1.0.0',
-    'uvicorn': 'uvicorn[standard]>=0.30.0',
-    'python-dotenv': 'python-dotenv>=1.0.0',
+    'fastapi': 'fastapi>=0.135.1',
+    'uvicorn': 'uvicorn[standard]>=0.42.0',
+    'python-dotenv': 'python-dotenv>=1.2.2',
     'pydantic': 'pydantic>=2.0.0',
     'deepagents': 'deepagents>=0.4.11',
   };
