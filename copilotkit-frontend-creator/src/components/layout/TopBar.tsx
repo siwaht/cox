@@ -5,10 +5,10 @@ import { ExportModal } from '@/components/publish/ExportModal';
 import { PromptModal } from '@/components/publish/PromptModal';
 import { encodeWorkspaceToUrl } from '@/utils/share-url';
 import { useThemeStore } from '@/store/theme-store';
-import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon, Sparkles } from 'lucide-react';
+import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon, Sparkles, Undo2, Redo2 } from 'lucide-react';
 
 export const TopBar: React.FC = () => {
-  const { mode, setMode, workspace, updateWorkspace, savedWorkspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace } = useWorkspaceStore();
+  const { mode, setMode, workspace, updateWorkspace, savedWorkspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace, undo, redo, canUndo, canRedo } = useWorkspaceStore();
   const { theme, toggleTheme } = useThemeStore();
   const addToast = useToastStore((s) => s.addToast);
   const [showExportModal, setShowExportModal] = useState(false);
@@ -98,6 +98,22 @@ export const TopBar: React.FC = () => {
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-2">
           <ModeToggle mode={mode} setMode={setMode} />
+
+          {/* Undo / Redo */}
+          <div className="flex items-center gap-0.5">
+            <button onClick={() => canUndo() && undo()}
+              disabled={!canUndo()}
+              className={`p-1.5 rounded-lg transition-all ${canUndo() ? 'text-txt-muted hover:text-accent hover:bg-accent-soft' : 'text-txt-ghost cursor-not-allowed'}`}
+              title="Undo (Ctrl+Z)">
+              <Undo2 size={14} />
+            </button>
+            <button onClick={() => canRedo() && redo()}
+              disabled={!canRedo()}
+              className={`p-1.5 rounded-lg transition-all ${canRedo() ? 'text-txt-muted hover:text-accent hover:bg-accent-soft' : 'text-txt-ghost cursor-not-allowed'}`}
+              title="Redo (Ctrl+Shift+Z)">
+              <Redo2 size={14} />
+            </button>
+          </div>
 
           {/* Save / Load / Share */}
           <div className="relative flex items-center gap-0.5">

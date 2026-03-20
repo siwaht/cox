@@ -113,9 +113,27 @@ const ChatUI: React.FC<{
       <BlockHeader label={block.label} />
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3">
         {messages.length === 0 && (
-          <div className="text-center py-8">
-            <Bot size={24} className="text-txt-ghost mx-auto mb-2" />
-            <p className="text-xs text-txt-faint">Send a message to start</p>
+          <div className="space-y-3 opacity-60">
+            {[
+              { role: 'user' as const, content: 'Analyze the Q4 sales data and find the top performing regions.' },
+              { role: 'assistant' as const, content: 'I\'ll analyze the Q4 sales data now. Let me pull the regional breakdown and identify the top performers.' },
+              { role: 'user' as const, content: 'Also compare it with Q3 numbers.' },
+            ].map((msg, i) => (
+              <div key={i} className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${
+                  msg.role === 'user' ? 'bg-accent/20' : 'bg-surface-overlay'
+                }`}>
+                  {msg.role === 'user' ? <User size={13} className="text-accent" /> : <Bot size={13} className="text-txt-secondary" />}
+                </div>
+                <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
+                  msg.role === 'user'
+                    ? 'bg-accent/60 text-white/80 rounded-br-md'
+                    : 'bg-surface-overlay text-txt-muted rounded-bl-md'
+                }`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
           </div>
         )}
         {messages.map((msg, i) => (

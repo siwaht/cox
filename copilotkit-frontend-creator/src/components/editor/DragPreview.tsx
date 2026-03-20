@@ -1,13 +1,12 @@
 import React from 'react';
 import type { BlockConfig } from '@/types/blocks';
 import { getBlockDefinition } from '@/registry/block-registry';
-import type { BlockDefinition } from '@/types/blocks';
 import {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
   Activity, FileInput, Table, BarChart3, LayoutDashboard,
   Layers, PanelTop, FileText, GripVertical,
   GitBranch, ThumbsUp, Database, ClipboardList,
-  Brain, Network, Gauge,
+  Brain, Network, Gauge, ArrowDown,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
@@ -29,7 +28,7 @@ export const DragPreview: React.FC<{ block: BlockConfig }> = ({ block }) => {
         <GripVertical size={12} className="text-accent" />
         <Icon size={14} className="text-accent" />
         <span className="text-xs font-medium text-txt-primary truncate">{block.label}</span>
-        <span className="text-[9px] text-accent/60 ml-auto shrink-0">{block.w}/12</span>
+        <span className="text-[9px] text-accent/60 ml-auto shrink-0 tabular-nums">{block.w}×{block.h}</span>
       </div>
       <div className="px-3 py-2">
         <div className="text-2xs text-txt-muted leading-relaxed">{def?.description}</div>
@@ -57,8 +56,8 @@ export const PaletteDragPreview: React.FC<{ blockType: string }> = ({ blockType 
       </div>
       <div className="px-3 pb-2">
         <div className="flex items-center gap-1.5 text-[9px] text-accent/70">
-          <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
-          Drop to add · {def.defaultW}/12 cols
+          <ArrowDown size={10} className="animate-bounce" />
+          Drop to add · {def.defaultW}/12 cols · {def.defaultH} row{def.defaultH > 1 ? 's' : ''}
         </div>
       </div>
     </div>

@@ -1,12 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { useDraggable } from '@dnd-kit/core';
 import { BLOCK_REGISTRY } from '@/registry/block-registry';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import type { BlockType } from '@/types/blocks';
 import {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
   Activity, FileInput, Table, BarChart3, LayoutDashboard,
-  Layers, PanelTop, FileText, X, Plus, Search, Grid3X3, List,
+  Layers, PanelTop, FileText, X, Search, Grid3X3, List,
   GitBranch, ThumbsUp, Database, ClipboardList,
   Brain, Network, Gauge, GripVertical, ChevronDown, ChevronRight,
   CheckCircle2, XCircle,
@@ -94,7 +93,7 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
         <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-txt-faint" />
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search blocks..." className="ck-input text-xs pl-8 py-1.5" />
+            placeholder="Search blocks..." className="ck-input text-xs pl-8 py-1.5" aria-label="Search blocks" />
         </div>
         <p className="text-[9px] text-txt-ghost mt-1.5 px-1">Drag blocks onto the canvas or click to add</p>
         {codeAnalysis && (
@@ -177,7 +176,7 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
   );
 };
 
-// Individual palette item — draggable + clickable with compatibility indicator
+// Individual palette item — native HTML draggable + clickable with compatibility indicator
 const PaletteItem: React.FC<{
   def: (typeof BLOCK_REGISTRY)[number];
   viewMode: 'list' | 'grid';
@@ -187,10 +186,14 @@ const PaletteItem: React.FC<{
   const Icon = ICON_MAP[def.icon] || FileText;
   const isIncompatible = compatibility === 'incompatible';
   const isCompatible = compatibility === 'compatible';
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: `palette-${def.type}`,
-    data: { fromPalette: true, blockType: def.type },
-  });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/block-type', def.type);
+    e.dataTransfer.effectAllowed = 'copy';
+    setIsDragging(true);
+  };
+  const handleDragEnd = () => setIsDragging(false);
 
   const compatBadge = isCompatible ? (
     <CheckCircle2 size={10} className="text-success shrink-0" />
@@ -201,7 +204,9 @@ const PaletteItem: React.FC<{
   if (viewMode === 'grid') {
     return (
       <div
-        ref={setNodeRef}
+        draggable={!isIncompatible}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
         className={`palette-draggable flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all group cursor-grab active:cursor-grabbing
                     ${isIncompatible
                       ? 'border-danger/20 opacity-50 hover:opacity-70 hover:border-danger/30'
@@ -211,8 +216,6 @@ const PaletteItem: React.FC<{
                     ${isDragging ? 'opacity-40 scale-95' : ''}`}
         onClick={isIncompatible ? undefined : onAdd}
         title={isIncompatible ? 'Not compatible with your agent code' : undefined}
-        {...attributes}
-        {...listeners}
       >
         <div className="relative w-full">
           <BlockThumbnail type={def.type} Icon={Icon} />
@@ -225,7 +228,9 @@ const PaletteItem: React.FC<{
 
   return (
     <div
-      ref={setNodeRef}
+      draggable={!isIncompatible}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       className={`palette-draggable flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left transition-all group cursor-grab active:cursor-grabbing
                   ${isIncompatible
                     ? 'opacity-50 hover:opacity-70'
@@ -235,8 +240,6 @@ const PaletteItem: React.FC<{
                   ${isDragging ? 'opacity-40 scale-95' : ''}`}
       onClick={isIncompatible ? undefined : onAdd}
       title={isIncompatible ? 'Not compatible with your agent code' : undefined}
-      {...attributes}
-      {...listeners}
     >
       <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors
                        ${isIncompatible ? 'bg-danger/5' : 'bg-accent/10 group-hover:bg-accent/20'}`}>

@@ -1,15 +1,13 @@
-import React, { useCallback, useEffect, useRef } from 'react';
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { useDroppable } from '@dnd-kit/core';
+import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { SortableBlock } from './SortableBlock';
 import { TemplatePicker } from './TemplatePicker';
-import { Layers, Undo2, Plus, Plug, Eye, Grid3x3 } from 'lucide-react';
-import type { BlockConfig } from '@/types/blocks';
+import { Layers, Undo2, Redo2, Plus, Plug, Eye, Grid3x3, Hash } from 'lucide-react';
+import type { BlockConfig, BlockType } from '@/types/blocks';
+
+const GRID_COLS = 12;
+const ROW_HEIGHT = 80; // px per grid row
+const GAP = 10; // px gap between cells
 
 interface Props {
   selectedBlockId: string | null;
@@ -18,10 +16,27 @@ interface Props {
 }
 
 export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, isOverCanvas }) => {
-  const { workspace, reorderBlocks, removeBlock, addBlock } = useWorkspaceStore();
-  const [lastRemoved, setLastRemoved] = React.useState<{ type: string; label: string } | null>(null);
-  const [showGrid, setShowGrid] = React.useState(false);
-  const [newBlockId, setNewBlockId] = React.useState<string | null>(null);
+  const { workspace, removeBlock, addBlock, undo, redo, canUndo, canRedo, selectedBlockIds, selectBlock, clearSelection } = useWorkspaceStore();
+  const [showGrid, setShowGrid] = useState(false);
+  const [newBlockId, setNewBlockId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(960);
+
+  // Measure container width for grid calculations
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width);
+      }
+    });
+    observer.observe(el);
+    setContainerWidth(el.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+
+  const colWidth = (containerWidth - (GRID_COLS - 1) * GAP) / GRID_COLS;
 
   // Track newly added blocks for entrance animation
   const blockCount = workspace.blocks.length;
@@ -40,53 +55,98 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
   }, [blockCount, workspace.blocks, onSelectBlock]);
 
   const handleRemove = useCallback((id: string) => {
-    const block = workspace.blocks.find((b) => b.id === id);
-    if (block) {
-      setLastRemoved({ type: block.type, label: block.label });
-      setTimeout(() => setLastRemoved(null), 5000);
-    }
     removeBlock(id);
     if (selectedBlockId === id) onSelectBlock(null);
-  }, [removeBlock, selectedBlockId, onSelectBlock, workspace.blocks]);
+  }, [removeBlock, selectedBlockId, onSelectBlock]);
 
-  const handleUndo = useCallback(() => {
-    if (!lastRemoved) return;
-    addBlock(lastRemoved.type as any);
-    setLastRemoved(null);
-  }, [lastRemoved, addBlock]);
+  const handleBlockClick = useCallback((id: string, e?: React.MouseEvent) => {
+    if (e && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+      selectBlock(id, true);
+    } else {
+      clearSelection();
+      onSelectBlock(id);
+    }
+  }, [selectBlock, clearSelection, onSelectBlock]);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Delete' && selectedBlockId && !['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement).tagName)) {
-        handleRemove(selectedBlockId);
-      }
-      if (e.key === 'Escape') onSelectBlock(null);
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && lastRemoved) {
-        e.preventDefault();
-        handleUndo();
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [selectedBlockId, lastRemoved, handleRemove, handleUndo, onSelectBlock]);
+  // Click on canvas background to deselect
+  const handleCanvasClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvasBg !== undefined) {
+      clearSelection();
+      onSelectBlock(null);
+    }
+  }, [clearSelection, onSelectBlock]);
 
-  // Droppable for palette items
-  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: 'canvas-drop-zone' });
+  // Handle drop from palette (simple drop zone)
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const blockType = e.dataTransfer.getData('application/block-type');
+    if (blockType) {
+      addBlock(blockType as BlockType);
+    }
+  }, [addBlock]);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  }, []);
+
+  // Compute total grid height from blocks
+  const totalRows = useMemo(() => {
+    if (workspace.blocks.length === 0) return 4;
+    return Math.max(4, ...workspace.blocks.map(b => b.y + b.h)) + 2; // +2 for breathing room
+  }, [workspace.blocks]);
+
+  const canvasHeight = totalRows * ROW_HEIGHT + (totalRows - 1) * GAP;
+
+  // Row usage info
+  const rowInfo = useMemo(() => computeRows(workspace.blocks), [workspace.blocks]);
 
   if (workspace.blocks.length === 0) {
-    return <EmptyCanvas isOver={isOverCanvas || isOver} setDropRef={setDropRef} />;
+    return <EmptyCanvas isOver={!!isOverCanvas} onDrop={handleDrop} onDragOver={handleDragOver} />;
   }
 
   return (
     <div
-      ref={setDropRef}
+      onClick={handleCanvasClick}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
       className={`flex-1 bg-surface overflow-y-auto p-4 sm:p-6 relative canvas-grid transition-colors
-        ${(isOverCanvas || isOver) ? 'canvas-drop-active' : ''}`}
+        ${isOverCanvas ? 'canvas-drop-active' : ''}`}
     >
       {/* Toolbar */}
       <div className="max-w-5xl mx-auto flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
+          <div className="flex items-center gap-0.5 mr-1">
+            <button
+              onClick={() => canUndo() && undo()}
+              disabled={!canUndo()}
+              className={`p-1.5 rounded-lg text-2xs transition-colors ${
+                canUndo()
+                  ? 'text-txt-muted hover:text-accent hover:bg-accent-soft'
+                  : 'text-txt-ghost cursor-not-allowed'
+              }`}
+              title="Undo (Ctrl+Z)"
+              aria-label="Undo"
+            >
+              <Undo2 size={13} />
+            </button>
+            <button
+              onClick={() => canRedo() && redo()}
+              disabled={!canRedo()}
+              className={`p-1.5 rounded-lg text-2xs transition-colors ${
+                canRedo()
+                  ? 'text-txt-muted hover:text-accent hover:bg-accent-soft'
+                  : 'text-txt-ghost cursor-not-allowed'
+              }`}
+              title="Redo (Ctrl+Shift+Z)"
+              aria-label="Redo"
+            >
+              <Redo2 size={13} />
+            </button>
+          </div>
+
+          <div className="w-px h-4 bg-border/50" />
+
           <button
             onClick={() => setShowGrid(!showGrid)}
             className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-2xs font-medium transition-colors ${
@@ -95,46 +155,77 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
                 : 'bg-surface-raised text-txt-muted border border-border hover:text-txt-secondary'
             }`}
             title="Toggle 12-column grid overlay"
+            aria-pressed={showGrid}
           >
             <Grid3x3 size={12} />
             {showGrid ? 'Grid On' : 'Grid'}
           </button>
-          <span className="text-2xs text-txt-ghost">12-column layout</span>
+
+          <span className="text-2xs text-txt-ghost hidden sm:inline">
+            <Hash size={10} className="inline mr-0.5" />{workspace.blocks.length} blocks · {rowInfo.rows} row{rowInfo.rows !== 1 ? 's' : ''}
+          </span>
+
+          {selectedBlockIds.size > 1 && (
+            <span className="text-2xs text-accent font-medium animate-fade-in">
+              {selectedBlockIds.size} selected
+            </span>
+          )}
         </div>
-        <RowUsageSummary blocks={workspace.blocks} />
+        <RowUsageSummary rowInfo={rowInfo} />
       </div>
 
-      {/* 12-column grid overlay */}
-      {showGrid && (
-        <div className="max-w-5xl mx-auto grid grid-cols-12 gap-2.5 pointer-events-none absolute inset-x-4 sm:inset-x-6 top-14" style={{ zIndex: 1 }}>
-          {Array.from({ length: 12 }).map((_, i) => (
-            <div key={i} className="h-full min-h-[60vh] bg-accent/[0.03] border-x border-accent/[0.06] rounded-sm relative">
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 text-[9px] text-accent/20 font-mono">{i + 1}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <SortableContext
-        items={workspace.blocks.map((b) => b.id)}
-        strategy={verticalListSortingStrategy}
+      {/* Grid container */}
+      <div
+        ref={containerRef}
+        className="max-w-5xl mx-auto relative"
+        style={{ height: canvasHeight }}
+        data-canvas-bg
       >
-        <div className="max-w-5xl mx-auto grid grid-cols-6 sm:grid-cols-12 gap-2.5 auto-rows-min">
-          {workspace.blocks.map((block) => (
-            <SortableBlock
-              key={block.id}
-              block={block}
-              isSelected={selectedBlockId === block.id}
-              isNew={newBlockId === block.id}
-              onSelect={() => onSelectBlock(block.id)}
-              onRemove={() => handleRemove(block.id)}
-            />
-          ))}
-        </div>
-      </SortableContext>
+        {/* 12-column grid overlay */}
+        {showGrid && (
+          <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
+            {Array.from({ length: GRID_COLS }).map((_, i) => {
+              const left = i * (colWidth + GAP);
+              return (
+                <div
+                  key={i}
+                  className="absolute top-0 bottom-0 bg-accent/[0.03] border-x border-accent/[0.06] rounded-sm"
+                  style={{ left, width: colWidth }}
+                >
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 text-[9px] text-accent/20 font-mono">{i + 1}</span>
+                </div>
+              );
+            })}
+            {/* Row lines */}
+            {Array.from({ length: totalRows }).map((_, i) => {
+              const top = i * (ROW_HEIGHT + GAP);
+              return (
+                <div
+                  key={`row-${i}`}
+                  className="absolute left-0 right-0 border-t border-accent/[0.04]"
+                  style={{ top }}
+                />
+              );
+            })}
+          </div>
+        )}
+
+        {/* Blocks */}
+        {workspace.blocks.map((block) => (
+          <SortableBlock
+            key={block.id}
+            block={block}
+            isSelected={selectedBlockId === block.id || selectedBlockIds.has(block.id)}
+            isMultiSelected={selectedBlockIds.has(block.id) && selectedBlockIds.size > 1}
+            isNew={newBlockId === block.id}
+            onSelect={(e?: React.MouseEvent) => handleBlockClick(block.id, e)}
+            onRemove={() => handleRemove(block.id)}
+          />
+        ))}
+      </div>
 
       {/* Drop hint when dragging from palette */}
-      {(isOverCanvas || isOver) && (
+      {isOverCanvas && (
         <div className="max-w-5xl mx-auto mt-2.5">
           <div className="border-2 border-dashed border-accent/40 rounded-xl p-4 flex items-center justify-center gap-2 bg-accent/5 animate-fade-in">
             <Plus size={14} className="text-accent" />
@@ -142,71 +233,66 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
           </div>
         </div>
       )}
-
-      {/* Undo toast */}
-      {lastRemoved && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 animate-slide-up">
-          <div className="flex items-center gap-3 bg-surface-raised border border-border rounded-xl px-4 py-2.5 shadow-xl">
-            <span className="text-xs text-txt-secondary">
-              Removed <span className="text-txt-primary">{lastRemoved.label}</span>
-            </span>
-            <button
-              onClick={handleUndo}
-              className="flex items-center gap-1 text-xs text-accent hover:text-accent-hover font-medium transition-colors"
-            >
-              <Undo2 size={12} /> Undo
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
 
-// Shows how blocks fill up rows in the 12-column grid
-const RowUsageSummary: React.FC<{ blocks: BlockConfig[] }> = ({ blocks }) => {
-  if (blocks.length === 0) return null;
 
-  const rows: number[][] = [];
-  let currentRow: number[] = [];
-  let remaining = 12;
-  for (const b of blocks) {
-    if (b.w > remaining) {
-      if (currentRow.length > 0) rows.push(currentRow);
-      currentRow = [b.w];
-      remaining = 12 - b.w;
-    } else {
-      currentRow.push(b.w);
-      remaining -= b.w;
+// ─── Row computation ───
+interface RowInfo {
+  rows: number;
+  totalUsed: number;
+  rowWidths: number[];
+}
+
+function computeRows(blocks: BlockConfig[]): RowInfo {
+  if (blocks.length === 0) return { rows: 0, totalUsed: 0, rowWidths: [] };
+  const maxRow = Math.max(...blocks.map(b => b.y + b.h));
+  const totalUsed = blocks.reduce((sum, b) => sum + b.w * b.h, 0);
+  // Compute how much of each row is used
+  const rowWidths: number[] = [];
+  for (let r = 0; r < maxRow; r++) {
+    let used = 0;
+    for (const b of blocks) {
+      if (r >= b.y && r < b.y + b.h) {
+        used += b.w;
+      }
     }
+    rowWidths.push(Math.min(used, 12));
   }
-  if (currentRow.length > 0) rows.push(currentRow);
+  return { rows: maxRow, totalUsed, rowWidths };
+}
+
+const RowUsageSummary: React.FC<{ rowInfo: RowInfo }> = ({ rowInfo }) => {
+  const { rowWidths } = rowInfo;
+  if (rowWidths.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-2xs text-txt-ghost">{rows.length} row{rows.length !== 1 ? 's' : ''}</span>
+    <div className="flex items-center gap-2" aria-label={`${rowWidths.length} rows used`}>
       <div className="flex gap-1">
-        {rows.map((row, ri) => {
-          const used = row.reduce((a, b) => a + b, 0);
-          return (
-            <div key={ri} className="flex gap-px" title={`Row ${ri + 1}: ${row.join('+')} = ${used}/12 cols`}>
-              {row.map((w, bi) => (
-                <div key={bi} className="h-2 rounded-sm bg-accent/40" style={{ width: `${(w / 12) * 40}px` }} />
-              ))}
-              {used < 12 && (
-                <div className="h-2 rounded-sm bg-surface-overlay" style={{ width: `${((12 - used) / 12) * 40}px` }} />
-              )}
-            </div>
-          );
-        })}
+        {rowWidths.slice(0, 8).map((used, ri) => (
+          <div key={ri} className="flex gap-px" title={`Row ${ri + 1}: ${used}/12 cols used`}>
+            <div className="h-2 rounded-sm bg-accent/40 transition-all" style={{ width: `${(used / 12) * 40}px` }} />
+            {used < 12 && (
+              <div className="h-2 rounded-sm bg-surface-overlay" style={{ width: `${((12 - used) / 12) * 40}px` }} />
+            )}
+          </div>
+        ))}
+        {rowWidths.length > 8 && (
+          <span className="text-2xs text-txt-ghost">+{rowWidths.length - 8}</span>
+        )}
       </div>
     </div>
   );
 };
 
-const EmptyCanvas: React.FC<{ isOver: boolean; setDropRef: (el: HTMLElement | null) => void }> = ({ isOver, setDropRef }) => (
-  <div ref={setDropRef} className="flex-1 flex items-center justify-center bg-surface p-6">
-    <div className={`w-full max-w-lg animate-fade-in`}>
+const EmptyCanvas: React.FC<{
+  isOver: boolean;
+  onDrop: (e: React.DragEvent) => void;
+  onDragOver: (e: React.DragEvent) => void;
+}> = ({ isOver, onDrop, onDragOver }) => (
+  <div onDrop={onDrop} onDragOver={onDragOver} className="flex-1 flex items-center justify-center bg-surface p-6">
+    <div className="w-full max-w-lg animate-fade-in">
       <div className={`text-center mb-6 p-8 rounded-2xl border-2 border-dashed transition-all duration-200 empty-canvas-drop-target
         ${isOver ? 'is-over border-accent bg-accent/5' : 'border-border/50'}`}>
         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-all duration-200
@@ -225,7 +311,6 @@ const EmptyCanvas: React.FC<{ isOver: boolean; setDropRef: (el: HTMLElement | nu
 
       {!isOver && (
         <>
-          {/* Step indicators */}
           <div className="flex items-center justify-center gap-6 mb-6">
             {[
               { label: 'Add blocks', icon: <Plus size={12} /> },

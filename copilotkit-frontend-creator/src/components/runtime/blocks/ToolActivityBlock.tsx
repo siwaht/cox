@@ -12,8 +12,21 @@ export const ToolActivityBlock: React.FC<{ block: BlockConfig }> = ({ block }) =
       <BlockHeader label={block.label} />
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {toolCalls.length === 0 ? (
-          <div className="text-txt-faint text-xs text-center mt-4">
-            Tool calls will appear here as the agent works
+          <div className="opacity-60 space-y-2">
+            {[
+              { name: 'query_database', status: 'success', duration: '1.2s' },
+              { name: 'calculate_growth', status: 'success', duration: '0.3s' },
+              { name: 'generate_chart', status: 'running', duration: '' },
+            ].map((tc, i) => (
+              <div key={i} className="bg-surface rounded-lg p-2.5 border border-border/50">
+                <div className="flex items-center gap-2">
+                  <StatusIcon status={tc.status} />
+                  <span className="text-xs font-medium text-txt-secondary">{tc.name}</span>
+                  <span className="text-[10px] text-txt-faint">{tc.duration}</span>
+                </div>
+              </div>
+            ))}
+            <p className="text-[10px] text-txt-ghost text-center">Tool calls appear here as the agent works</p>
           </div>
         ) : (
           toolCalls.map((tc, i) => (

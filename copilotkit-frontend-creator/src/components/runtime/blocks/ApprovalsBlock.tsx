@@ -12,8 +12,31 @@ export const ApprovalsBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
       <BlockHeader label={block.label} />
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {approvals.length === 0 ? (
-          <div className="text-txt-faint text-xs text-center mt-4">
-            Approval requests will appear here
+          <div className="opacity-60 space-y-2">
+            <div className="bg-surface rounded-lg p-3 border border-warning/40">
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck size={12} className="text-warning" />
+                <span className="text-xs font-medium text-txt-secondary">Send report via email</span>
+              </div>
+              <div className="text-[10px] text-txt-secondary mb-2">Send the Q4 analysis report to the sales team (12 recipients).</div>
+              <div className="flex gap-2">
+                <span className="flex items-center gap-1 px-2 py-1 text-[10px] bg-success/20 text-success rounded">
+                  <Check size={10} /> Approve
+                </span>
+                <span className="flex items-center gap-1 px-2 py-1 text-[10px] bg-danger/20 text-danger rounded">
+                  <X size={10} /> Reject
+                </span>
+              </div>
+            </div>
+            <div className="bg-surface rounded-lg p-3 border border-border/50">
+              <div className="flex items-center gap-2 mb-1">
+                <ShieldCheck size={12} className="text-warning" />
+                <span className="text-xs font-medium text-txt-secondary">Update dashboard</span>
+              </div>
+              <div className="text-[10px] text-txt-secondary mb-1">Push updated metrics to the shared analytics dashboard.</div>
+              <span className="text-[10px] text-success">✓ Approved</span>
+            </div>
+            <p className="text-[10px] text-txt-ghost text-center">Approval requests appear here</p>
           </div>
         ) : (
           approvals.map((a, i) => (

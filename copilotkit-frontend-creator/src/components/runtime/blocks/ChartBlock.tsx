@@ -15,8 +15,22 @@ export const ChartBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
     return (
       <div className="flex flex-col h-full">
         <BlockHeader label={block.label} />
-        <div className="flex-1 p-3 text-txt-faint text-xs text-center mt-4">
-          Chart data will render here when available
+        <div className="flex-1 p-3 flex items-end gap-1 opacity-60">
+          {[
+            { label: 'West', value: 85 },
+            { label: 'East', value: 63 },
+            { label: 'Central', value: 36 },
+            { label: 'South', value: 52 },
+          ].map((d, i) => (
+            <div key={i} className="flex-1 flex flex-col items-center gap-1">
+              <div className="text-[9px] text-txt-muted">{d.value}</div>
+              <div
+                className="w-full bg-accent/60 rounded-t transition-all"
+                style={{ height: `${d.value}%` }}
+              />
+              <div className="text-[8px] text-txt-faint truncate w-full text-center">{d.label}</div>
+            </div>
+          ))}
         </div>
       </div>
     );

@@ -10,18 +10,16 @@ interface Props {
 }
 
 export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock, onOpenTheme }) => {
-  const { workspace, updateBlock, resizeBlock, reorderBlocks, duplicateBlock } = useWorkspaceStore();
+  const { workspace, updateBlock, resizeBlock, duplicateBlock, selectedBlockIds, removeSelected, duplicateSelected } = useWorkspaceStore();
   const block = workspace.blocks.find((b) => b.id === selectedBlockId);
+  const multiCount = selectedBlockIds.size;
 
-  const moveBlock = (id: string, direction: -1 | 1) => {
-    const ids = workspace.blocks.map((b) => b.id);
-    const idx = ids.indexOf(id);
-    if (idx === -1) return;
-    const newIdx = idx + direction;
-    if (newIdx < 0 || newIdx >= ids.length) return;
-    const newIds = [...ids];
-    [newIds[idx], newIds[newIdx]] = [newIds[newIdx], newIds[idx]];
-    reorderBlocks(newIds);
+  const moveBlockOrder = (id: string, direction: -1 | 1) => {
+    const block = workspace.blocks.find((b) => b.id === id);
+    if (!block) return;
+    // Move the block up or down by one row on the grid
+    const newY = Math.max(0, block.y + direction);
+    useWorkspaceStore.getState().moveBlock(id, block.x, newY);
   };
 
   const copyBlockCode = (b: BlockConfig) => {
@@ -31,7 +29,7 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
   };
 
   return (
-    <aside className="h-full bg-surface-raised border-l border-border flex flex-col">
+    <aside className="h-full bg-surface-raised border-l border-border flex flex-col" role="complementary" aria-label="Block properties">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">Properties</h2>
         <div className="flex items-center gap-1">
@@ -47,10 +45,29 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
       </div>
 
       <div className="flex-1 overflow-y-auto p-4">
+        {/* Multi-select batch actions */}
+        {multiCount > 1 && (
+          <div className="mb-4 p-3 rounded-xl bg-accent/5 border border-accent/20 animate-fade-in">
+            <div className="text-xs text-accent font-medium mb-2">{multiCount} blocks selected</div>
+            <div className="flex gap-1.5">
+              <button onClick={duplicateSelected}
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-accent
+                           rounded-lg border border-accent/30 hover:bg-accent/10 transition-colors">
+                <Copy size={11} /> Duplicate All
+              </button>
+              <button onClick={removeSelected}
+                className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-danger
+                           rounded-lg border border-danger/30 hover:bg-danger-soft transition-colors">
+                <X size={11} /> Remove All
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Block selector */}
         <div className="mb-4">
           <label className="text-2xs text-txt-muted block mb-1.5">Select Block</label>
-          <select value={selectedBlockId || ''} onChange={(e) => onSelectBlock(e.target.value || null)} className="ck-input text-xs">
+          <select value={selectedBlockId || ''} onChange={(e) => onSelectBlock(e.target.value || null)} className="ck-input text-xs" aria-label="Select a block">
             <option value="">— Choose a block —</option>
             {workspace.blocks.map((b) => (
               <option key={b.id} value={b.id}>{b.label} ({b.type})</option>
@@ -64,13 +81,13 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
 
             {/* Quick actions */}
             <div className="flex gap-1.5 mt-4 pt-4 border-t border-border">
-              <button onClick={() => moveBlock(block.id, -1)}
+              <button onClick={() => moveBlockOrder(block.id, -1)}
                 className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-txt-muted
                            hover:text-txt-secondary rounded-lg border border-border hover:border-txt-faint transition-colors"
                 title="Move up">
                 <ChevronUp size={11} /> Up
               </button>
-              <button onClick={() => moveBlock(block.id, 1)}
+              <button onClick={() => moveBlockOrder(block.id, 1)}
                 className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-2xs text-txt-muted
                            hover:text-txt-secondary rounded-lg border border-border hover:border-txt-faint transition-colors"
                 title="Move down">
@@ -147,6 +164,30 @@ const BlockProperties: React.FC<{
       <Field label="Label">
         <input type="text" value={block.label}
           onChange={(e) => onUpdate(block.id, { label: e.target.value })} className="ck-input text-xs" />
+      </Field>
+
+      {/* Position */}
+      <Field label={`Position — col ${block.x + 1}, row ${block.y + 1}`}>
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="text-[9px] text-txt-ghost block mb-0.5">Column (0–{12 - block.w})</label>
+            <input type="number" min={0} max={12 - block.w} value={block.x}
+              onChange={(e) => {
+                const v = Math.max(0, Math.min(12 - block.w, Number(e.target.value)));
+                useWorkspaceStore.getState().moveBlock(block.id, v, block.y);
+              }}
+              className="ck-input text-xs" />
+          </div>
+          <div className="flex-1">
+            <label className="text-[9px] text-txt-ghost block mb-0.5">Row (0+)</label>
+            <input type="number" min={0} value={block.y}
+              onChange={(e) => {
+                const v = Math.max(0, Number(e.target.value));
+                useWorkspaceStore.getState().moveBlock(block.id, block.x, v);
+              }}
+              className="ck-input text-xs" />
+          </div>
+        </div>
       </Field>
 
       {/* Width — column presets */}

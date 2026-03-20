@@ -21,7 +21,7 @@ export default defineConfig(({ mode }): UserConfig => {
         output: {
           manualChunks: {
             vendor: ['react', 'react-dom'],
-            ui: ['lucide-react', '@dnd-kit/core', '@dnd-kit/sortable'],
+            ui: ['lucide-react'],
             copilotkit: ['@copilotkit/react-core', '@copilotkit/react-ui'],
             state: ['zustand', 'uuid'],
           },

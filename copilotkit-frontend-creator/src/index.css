@@ -177,8 +177,8 @@ select.ck-input {
 .canvas-grid {
   background-image: repeating-linear-gradient(
     90deg,
-    rgba(139, 92, 246, 0.04) 0px,
-    rgba(139, 92, 246, 0.04) 1px,
+    rgba(139, 92, 246, 0.03) 0px,
+    rgba(139, 92, 246, 0.03) 1px,
     transparent 1px,
     transparent calc(100% / 12)
   );
@@ -214,9 +214,10 @@ select.ck-input {
       0deg,
       transparent,
       transparent 10px,
-      rgba(91, 95, 199, 0.08) 10px,
-      rgba(91, 95, 199, 0.08) 20px
+      rgba(139, 92, 246, 0.06) 10px,
+      rgba(139, 92, 246, 0.06) 20px
     );
+  box-shadow: inset 0 0 40px rgba(139, 92, 246, 0.05);
 }
 
 /* Insertion line between blocks */
@@ -259,16 +260,30 @@ select.ck-input {
 
 /* Sortable block smooth transitions */
 .sortable-block {
-  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 200ms ease,
+  transition: box-shadow 200ms ease,
               border-color 200ms ease,
-              opacity 200ms ease;
+              opacity 200ms ease,
+              background-color 200ms ease;
+  will-change: transform, left, top, width, height;
 }
 .sortable-block:hover {
-  transform: translateY(-1px);
+  transform: none;
 }
 .sortable-block.is-dragging {
+  transform: none !important;
+}
+.sortable-block:active:not(.is-dragging) {
   transform: none;
+}
+
+/* Resize handle visibility */
+.sortable-block .resize-handle {
+  opacity: 0;
+  transition: opacity 150ms ease;
+}
+.sortable-block:hover .resize-handle,
+.sortable-block.is-selected .resize-handle {
+  opacity: 1;
 }
 
 /* Block controls toolbar */
@@ -282,7 +297,8 @@ select.ck-input {
     pointer-events: none;
   }
   .sortable-block:hover .block-controls-hidden,
-  .sortable-block.is-selected .block-controls-hidden {
+  .sortable-block.is-selected .block-controls-hidden,
+  .sortable-block:focus-within .block-controls-hidden {
     opacity: 1;
     transform: translateY(0);
     pointer-events: auto;
@@ -294,16 +310,16 @@ select.ck-input {
   position: sticky;
   top: 0;
   z-index: 2;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 /* Drag preview floating card */
 .drag-preview-card {
   box-shadow:
     0 20px 60px rgba(0, 0, 0, 0.35),
-    0 0 0 1px rgba(91, 95, 199, 0.5),
-    0 0 20px rgba(91, 95, 199, 0.15);
+    0 0 0 1px rgba(139, 92, 246, 0.5),
+    0 0 20px rgba(139, 92, 246, 0.15);
   transform: rotate(-1.5deg) scale(1.02);
   animation: dragFloat 0.2s ease-out;
 }
@@ -321,11 +337,12 @@ select.ck-input {
 
 /* Empty canvas drop target */
 .empty-canvas-drop-target {
-  transition: border-color 200ms ease, background-color 200ms ease;
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
 }
 .empty-canvas-drop-target.is-over {
   border-color: var(--color-accent);
   background-color: var(--color-accent-soft);
+  transform: scale(1.01);
 }
 
 /* Tooltip */
@@ -337,9 +354,31 @@ select.ck-input {
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Focus visible ring for accessibility */
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-accent-soft), 0 0 0 3px var(--color-accent);
+}
+
+/* Smooth scrollbar appearance */
+.overflow-y-auto {
+  scrollbar-gutter: stable;
+}
+
 /* Mobile grid: clamp block spans to 6 cols max */
 @media (max-width: 639px) {
   .grid-cols-6 > [style*="grid-column: span"] {
     grid-column: span 6 !important;
+  }
+}
+
+/* Reduced motion preferences */
+@media (prefers-reduced-motion: reduce) {
+  .sortable-block,
+  .block-controls,
+  .drag-preview-card,
+  .empty-canvas-drop-target {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
   }
 }
