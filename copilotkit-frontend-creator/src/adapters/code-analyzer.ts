@@ -256,7 +256,7 @@ function buildSuggestions(
 function getSuggestionReason(
   blockType: string,
   matched: RuntimeCapability[],
-  runtime: CodeAnalysis['runtime'],
+  _runtime: CodeAnalysis['runtime'],
 ): string {
   const reasons: Record<string, string> = {
     chat: 'Your agent supports chat — add a Chat panel for interactive conversations',

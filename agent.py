@@ -20,6 +20,12 @@ def get_weather(city: str) -> str:
     return f"The weather in {city} is sunny with a temperature of 25°C."
 
 
+@tool
+def search_web(query: str) -> str:
+    """Search the web for information about a topic."""
+    return f"Search results for '{query}': This is a placeholder. Connect a real search API for production use."
+
+
 MODEL = os.getenv("AGENT_MODEL", "openai:gpt-4o-mini")
 
 _api_key = (
@@ -34,8 +40,11 @@ if not _api_key:
 else:
     graph = create_react_agent(
         MODEL,
-        tools=[get_weather],
+        tools=[get_weather, search_web],
         checkpointer=MemorySaver(),
-        prompt="You are a helpful assistant. Use your tools when needed to answer questions accurately.",
+        prompt=(
+            "You are a helpful assistant. Use your tools when needed to answer questions accurately. "
+            "Always explain your reasoning and provide clear, structured responses."
+        ),
     )
     print(f"✓ Agent graph created with model={MODEL}")

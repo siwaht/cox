@@ -3,7 +3,7 @@
 // to recreate the exact same frontend layout.
 
 import type { BlockConfig, BlockType } from '@/types/blocks';
-import type { WorkspaceConfig, ThemeConfig, DEFAULT_THEME } from '@/types/workspace';
+import type { WorkspaceConfig } from '@/types/workspace';
 import { getBlockDefinition } from '@/registry/block-registry';
 
 export interface PromptOptions {
@@ -39,7 +39,7 @@ const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   depthIndicator: 'a compact depth/progress gauge showing how deep the agent is in its reasoning process',
 };
 
-function describeGridPosition(block: BlockConfig, totalBlocks: number): string {
+function describeGridPosition(block: BlockConfig): string {
   const widthPercent = Math.round((block.w / 12) * 100);
   let widthDesc: string;
   if (block.w === 12) widthDesc = 'full width';
@@ -182,7 +182,7 @@ export function generatePrompt(options: PromptOptions): string {
     const def = getBlockDefinition(block.type);
     const desc = BLOCK_DESCRIPTIONS[block.type] || def?.description || block.type;
     const propsDesc = describeBlockProps(block);
-    const sizeDesc = describeGridPosition(block, visible.length);
+    const sizeDesc = describeGridPosition(block);
 
     lines.push(`### ${index + 1}. ${block.label || def?.label || block.type}`);
     lines.push(`- **Type**: ${block.type}`);
@@ -221,11 +221,25 @@ export function generatePrompt(options: PromptOptions): string {
   }
 
   // Integration notes
-  lines.push('## Integration Notes');
-  lines.push('- Wrap the entire app in a `<CopilotKit runtimeUrl="...">` provider pointing to the agent backend.');
-  lines.push('- The chat block should use CopilotKit\'s chat components for real-time streaming.');
-  lines.push('- Tool activity, results, and status blocks should subscribe to the agent\'s state/events.');
-  lines.push('- All blocks should handle loading and empty states gracefully.');
+  lines.push('## CopilotKit Integration');
+  lines.push('- Wrap the entire app in `<CopilotKit runtimeUrl="http://localhost:8000/copilotkit">` pointing to the agent backend.');
+  lines.push('- Import `CopilotKit` from `@copilotkit/react-core` and `CopilotChat` from `@copilotkit/react-ui`.');
+  lines.push('- Import CopilotKit styles: `import "@copilotkit/react-ui/styles.css"`.');
+  lines.push('- The chat block should use `<CopilotChat />` for real-time streaming with the agent.');
+  lines.push('- Use `useCopilotReadable` to expose frontend state to the agent.');
+  lines.push('- Use `useCopilotAction` to let the agent trigger UI updates (results, table data, chart data, etc.).');
+  lines.push('- Tool activity, results, and status blocks should subscribe to CopilotKit\'s action state.');
+  lines.push('- All blocks must handle loading, empty, and error states gracefully.');
+  lines.push('- Use `useCopilotChat` hook for programmatic chat control if needed.');
+  lines.push('');
+
+  // Accessibility notes
+  lines.push('## Accessibility');
+  lines.push('- All interactive elements must have visible focus indicators.');
+  lines.push('- Use semantic HTML elements (main, nav, section, article) for layout.');
+  lines.push('- Buttons and links must have accessible labels (aria-label where text is not visible).');
+  lines.push('- Color contrast must meet WCAG AA standards (4.5:1 for normal text).');
+  lines.push('- Status changes should use aria-live regions for screen reader announcements.');
   lines.push('');
 
   // Concise summary

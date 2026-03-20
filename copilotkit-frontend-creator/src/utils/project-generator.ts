@@ -40,105 +40,569 @@ export function ChatBlock() {
   );
 }`,
 
-  results: (b) => `export function ResultsBlock() {
+  results: (b) => `import { useState } from 'react';
+import { useCopilotAction } from '@copilotkit/react-core';
+
+interface ResultItem {
+  id: string;
+  title: string;
+  content: string;
+  type?: string;
+}
+
+export function ResultsBlock() {
+  const [results, setResults] = useState<ResultItem[]>([]);
+  const [format, setFormat] = useState<'auto' | 'json' | 'text'>('${(b.props as Record<string, unknown>).format || 'auto'}');
+
+  useCopilotAction({
+    name: "displayResults",
+    description: "Display structured results in the results panel",
+    parameters: [
+      { name: "items", type: "object[]", description: "Array of result items with id, title, content, and optional type" },
+    ],
+    handler: async ({ items }) => {
+      setResults(items as ResultItem[]);
+    },
+  });
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
-      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-        ${b.label}
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">${b.label}</span>
+        {results.length > 0 && (
+          <span className="text-xs text-zinc-600">{results.length} result(s)</span>
+        )}
       </div>
-      <div className="p-4 text-sm text-zinc-400">
-        <p>Agent results will appear here when connected.</p>
+      <div className="flex-1 overflow-auto p-4">
+        {results.length === 0 ? (
+          <p className="text-sm text-zinc-500">Agent results will appear here.</p>
+        ) : format === 'json' ? (
+          <pre className="text-xs font-mono text-zinc-300 whitespace-pre-wrap">{JSON.stringify(results, null, 2)}</pre>
+        ) : (
+          <div className="space-y-2">
+            {results.map((r) => (
+              <div key={r.id} className="bg-zinc-800 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-zinc-200">{r.title}</h4>
+                <p className="text-xs text-zinc-400 mt-1">{r.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }`,
 
-  toolActivity: (b) => `export function ToolActivityBlock() {
+  toolActivity: (b) => `import { useState } from 'react';
+import { useCopilotAction } from '@copilotkit/react-core';
+
+interface ToolCall {
+  id: string;
+  name: string;
+  args: Record<string, unknown>;
+  result?: string;
+  status: 'running' | 'done' | 'error';
+  timestamp: string;
+}
+
+export function ToolActivityBlock() {
+  const [calls, setCalls] = useState<ToolCall[]>([]);
+
+  useCopilotAction({
+    name: "reportToolActivity",
+    description: "Report a tool call to the activity feed",
+    parameters: [
+      { name: "toolName", type: "string", description: "Name of the tool being called" },
+      { name: "args", type: "object", description: "Arguments passed to the tool" },
+      { name: "result", type: "string", description: "Result of the tool call", required: false },
+      { name: "status", type: "string", description: "Status: running, done, or error" },
+    ],
+    handler: async ({ toolName, args, result, status }) => {
+      setCalls((prev) => {
+        const existing = prev.find((c) => c.name === toolName && c.status === 'running');
+        if (existing && status !== 'running') {
+          return prev.map((c) => c.id === existing.id ? { ...c, result: result || '', status: status as ToolCall['status'] } : c);
+        }
+        return [...prev, { id: crypto.randomUUID(), name: toolName, args: args as Record<string, unknown>, result, status: status as ToolCall['status'], timestamp: new Date().toLocaleTimeString() }];
+      });
+    },
+  });
+
+  const statusIcon = (s: ToolCall['status']) => s === 'running' ? '⏳' : s === 'done' ? '✅' : '❌';
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
-      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-        ${b.label}
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">${b.label}</span>
+        {calls.length > 0 && <span className="text-xs text-zinc-600">{calls.length} call(s)</span>}
       </div>
-      <div className="p-4 text-sm text-zinc-400">Tool calls will stream here.</div>
+      <div className="flex-1 overflow-auto p-3 space-y-2">
+        {calls.length === 0 ? (
+          <p className="text-sm text-zinc-500">Tool calls will stream here.</p>
+        ) : calls.map((c) => (
+          <div key={c.id} className="bg-zinc-800 rounded-lg p-2.5 text-xs">
+            <div className="flex items-center gap-2">
+              <span>{statusIcon(c.status)}</span>
+              <span className="font-medium text-zinc-200">{c.name}</span>
+              <span className="text-zinc-600 ml-auto">{c.timestamp}</span>
+            </div>
+            ${(b.props as Record<string, unknown>).showArgs ? `{Object.keys(c.args).length > 0 && (
+              <pre className="mt-1 text-zinc-500 whitespace-pre-wrap">{JSON.stringify(c.args, null, 2)}</pre>
+            )}` : ''}
+            ${(b.props as Record<string, unknown>).showResults ? `{c.result && <p className="mt-1 text-zinc-400">{c.result}</p>}` : ''}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }`,
 
-  approvals: (b) => `export function ApprovalsBlock() {
+  approvals: (b) => `import { useState } from 'react';
+import { useCopilotAction } from '@copilotkit/react-core';
+
+interface ApprovalRequest {
+  id: string;
+  action: string;
+  description: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
+export function ApprovalsBlock() {
+  const [requests, setRequests] = useState<ApprovalRequest[]>([]);
+
+  useCopilotAction({
+    name: "requestApproval",
+    description: "Request human approval before executing an action",
+    parameters: [
+      { name: "action", type: "string", description: "The action requiring approval" },
+      { name: "description", type: "string", description: "Description of what will happen" },
+    ],
+    handler: async ({ action, description }) => {
+      const id = crypto.randomUUID();
+      setRequests((prev) => [...prev, { id, action, description, status: 'pending' }]);
+      return \`Approval request \${id} created for: \${action}\`;
+    },
+  });
+
+  const handleDecision = (id: string, decision: 'approved' | 'rejected') => {
+    setRequests((prev) => prev.map((r) => r.id === id ? { ...r, status: decision } : r));
+  };
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
-      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-        ${b.label}
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">${b.label}</span>
+        {requests.filter((r) => r.status === 'pending').length > 0 && (
+          <span className="text-xs text-yellow-500">{requests.filter((r) => r.status === 'pending').length} pending</span>
+        )}
       </div>
-      <div className="p-4 text-sm text-zinc-400">Approval requests appear here.</div>
+      <div className="flex-1 overflow-auto p-3 space-y-2">
+        {requests.length === 0 ? (
+          <p className="text-sm text-zinc-500">Approval requests appear here.</p>
+        ) : requests.map((r) => (
+          <div key={r.id} className="bg-zinc-800 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-zinc-200">{r.action}</span>
+              <span className={\`text-xs px-2 py-0.5 rounded-full \${
+                r.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                r.status === 'approved' ? 'bg-green-500/20 text-green-400' :
+                'bg-red-500/20 text-red-400'
+              }\`}>{r.status}</span>
+            </div>
+            <p className="text-xs text-zinc-400 mt-1">{r.description}</p>
+            {r.status === 'pending' && (
+              <div className="flex gap-2 mt-2">
+                <button onClick={() => handleDecision(r.id, 'approved')}
+                  className="px-3 py-1 text-xs rounded-md bg-green-600 hover:bg-green-500 text-white transition-colors">
+                  Approve
+                </button>
+                <button onClick={() => handleDecision(r.id, 'rejected')}
+                  className="px-3 py-1 text-xs rounded-md bg-red-600 hover:bg-red-500 text-white transition-colors">
+                  Reject
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }`,
 
-  logs: (b) => `export function LogsBlock() {
+  logs: (b) => `import { useState, useRef, useEffect } from 'react';
+import { useCopilotAction } from '@copilotkit/react-core';
+
+type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+
+interface LogEntry {
+  id: string;
+  level: LogLevel;
+  message: string;
+  timestamp: string;
+}
+
+export function LogsBlock() {
+  const [logs, setLogs] = useState<LogEntry[]>([]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const minLevel = '${(b.props as Record<string, unknown>).level || 'info'}';
+
+  useCopilotAction({
+    name: "addLog",
+    description: "Add a log entry to the execution log panel",
+    parameters: [
+      { name: "level", type: "string", description: "Log level: info, warn, error, or debug" },
+      { name: "message", type: "string", description: "Log message" },
+    ],
+    handler: async ({ level, message }) => {
+      setLogs((prev) => [...prev.slice(-200), {
+        id: crypto.randomUUID(),
+        level: level as LogLevel,
+        message,
+        timestamp: new Date().toLocaleTimeString(),
+      }]);
+    },
+  });
+
+  useEffect(() => {
+    ${(b.props as Record<string, unknown>).autoScroll ? 'scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });' : ''}
+  }, [logs]);
+
+  const levelColor: Record<LogLevel, string> = {
+    info: 'text-blue-400',
+    warn: 'text-yellow-400',
+    error: 'text-red-400',
+    debug: 'text-zinc-500',
+  };
+
+  const levelOrder: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+  const filtered = logs.filter((l) => levelOrder[l.level] >= levelOrder[minLevel as LogLevel]);
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
-      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
-        ${b.label}
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 flex items-center justify-between">
+        <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">${b.label}</span>
+        <div className="flex items-center gap-2">
+          {logs.length > 0 && <span className="text-xs text-zinc-600">{filtered.length} entries</span>}
+          {logs.length > 0 && (
+            <button onClick={() => setLogs([])} className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors">Clear</button>
+          )}
+        </div>
       </div>
-      <div className="p-4 font-mono text-xs text-zinc-500">Logs will appear here.</div>
+      <div ref={scrollRef} className="flex-1 overflow-auto p-3 font-mono text-xs space-y-0.5">
+        {filtered.length === 0 ? (
+          <p className="text-zinc-500">Logs will appear here.</p>
+        ) : filtered.map((l) => (
+          <div key={l.id} className="flex gap-2 py-0.5">
+            <span className="text-zinc-600 shrink-0">{l.timestamp}</span>
+            <span className={\`shrink-0 uppercase font-semibold w-12 \${levelColor[l.level]}\`}>{l.level}</span>
+            <span className="text-zinc-300">{l.message}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }`,
 
-  form: (b) => `export function FormBlock() {
+  form: (b) => `import { useState } from 'react';
+import { useCopilotAction, useCopilotReadable } from '@copilotkit/react-core';
+
+export function FormBlock() {
+  const [fields, setFields] = useState<Record<string, string>>({});
+  const [submitted, setSubmitted] = useState(false);
+
+  useCopilotReadable({
+    description: "Current form field values submitted by the user",
+    value: fields,
+  });
+
+  useCopilotAction({
+    name: "setFormFields",
+    description: "Pre-fill form fields with suggested values",
+    parameters: [
+      { name: "fields", type: "object", description: "Key-value pairs to set as form field values" },
+    ],
+    handler: async ({ fields: f }) => {
+      setFields((prev) => ({ ...prev, ...(f as Record<string, string>) }));
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+    setTimeout(() => setSubmitted(false), 2000);
+  };
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
       <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
         ${b.label}
       </div>
-      <div className="p-4 text-sm text-zinc-400">Form inputs go here.</div>
+      <form onSubmit={handleSubmit} className="flex-1 p-4 space-y-3">
+        <div>
+          <label className="block text-xs text-zinc-500 mb-1">Input</label>
+          <input type="text" value={fields['input'] || ''} onChange={(e) => setFields((p) => ({ ...p, input: e.target.value }))}
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-300 placeholder-zinc-600 focus:border-indigo-500 focus:outline-none transition-colors"
+            placeholder="Enter a value..." />
+        </div>
+        <button type="submit"
+          className={\`px-4 py-2 text-xs font-medium rounded-lg transition-colors \${
+            submitted ? 'bg-green-600 text-white' : 'bg-indigo-600 hover:bg-indigo-500 text-white'
+          }\`}>
+          {submitted ? '✓ Submitted' : 'Submit'}
+        </button>
+      </form>
     </div>
   );
 }`,
 
-  table: (b) => `export function TableBlock() {
+  table: (b) => `import { useState } from 'react';
+import { useCopilotAction } from '@copilotkit/react-core';
+
+interface TableData {
+  columns: string[];
+  rows: Record<string, string | number>[];
+}
+
+export function TableBlock() {
+  const [data, setData] = useState<TableData>({ columns: [], rows: [] });
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortAsc, setSortAsc] = useState(true);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+
+  useCopilotAction({
+    name: "displayTable",
+    description: "Display data in the table block",
+    parameters: [
+      { name: "columns", type: "string[]", description: "Column names" },
+      { name: "rows", type: "object[]", description: "Array of row objects" },
+    ],
+    handler: async ({ columns, rows }) => {
+      setData({ columns: columns as string[], rows: rows as Record<string, string | number>[] });
+      setPage(0);
+    },
+  });
+
+  const sorted = [...data.rows].sort((a, b) => {
+    if (!sortCol) return 0;
+    const av = a[sortCol] ?? '';
+    const bv = b[sortCol] ?? '';
+    const cmp = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv));
+    return sortAsc ? cmp : -cmp;
+  });
+
+  const paged = ${(b.props as Record<string, unknown>).pagination ? 'sorted.slice(page * pageSize, (page + 1) * pageSize)' : 'sorted'};
+  const totalPages = Math.ceil(sorted.length / pageSize);
+
+  const handleSort = (col: string) => {
+    if (sortCol === col) setSortAsc(!sortAsc);
+    else { setSortCol(col); setSortAsc(true); }
+  };
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
       <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
         ${b.label}
       </div>
-      <div className="p-4 text-sm text-zinc-400">Table data renders here.</div>
+      {data.columns.length === 0 ? (
+        <div className="p-4 text-sm text-zinc-500">Table data renders here.</div>
+      ) : (
+        <>
+          <div className="flex-1 overflow-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-zinc-800">
+                  {data.columns.map((col) => (
+                    <th key={col} onClick={() => handleSort(col)}
+                      className="px-3 py-2 text-left text-zinc-500 font-medium cursor-pointer hover:text-zinc-300 transition-colors">
+                      {col} {sortCol === col ? (sortAsc ? '↑' : '↓') : ''}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {paged.map((row, i) => (
+                  <tr key={i} className="border-b border-zinc-800/50 hover:bg-zinc-800/30 transition-colors">
+                    {data.columns.map((col) => (
+                      <td key={col} className="px-3 py-2 text-zinc-300">{String(row[col] ?? '')}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          ${(b.props as Record<string, unknown>).pagination ? `{totalPages > 1 && (
+            <div className="px-3 py-2 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-500">
+              <span>{sorted.length} rows</span>
+              <div className="flex gap-1">
+                <button onClick={() => setPage(Math.max(0, page - 1))} disabled={page === 0}
+                  className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 transition-colors">Prev</button>
+                <span className="px-2 py-1">{page + 1}/{totalPages}</span>
+                <button onClick={() => setPage(Math.min(totalPages - 1, page + 1))} disabled={page >= totalPages - 1}
+                  className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 disabled:opacity-30 transition-colors">Next</button>
+              </div>
+            </div>
+          )}` : ''}
+        </>
+      )}
     </div>
   );
 }`,
 
-  chart: (b) => `export function ChartBlock() {
+  chart: (b) => `import { useState } from 'react';
+import { useCopilotAction } from '@copilotkit/react-core';
+
+interface ChartDataPoint {
+  label: string;
+  value: number;
+  color?: string;
+}
+
+export function ChartBlock() {
+  const [data, setData] = useState<ChartDataPoint[]>([]);
+  const [chartType] = useState<'bar' | 'line' | 'pie'>('${(b.props as Record<string, unknown>).chartType || 'bar'}');
+
+  useCopilotAction({
+    name: "displayChart",
+    description: "Display data in the chart visualization",
+    parameters: [
+      { name: "data", type: "object[]", description: "Array of { label, value, color? } data points" },
+    ],
+    handler: async ({ data: d }) => {
+      setData(d as ChartDataPoint[]);
+    },
+  });
+
+  const maxVal = Math.max(...data.map((d) => d.value), 1);
+  const colors = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#8b5cf6', '#14b8a6'];
+
   return (
-    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
       <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
         ${b.label}
       </div>
-      <div className="p-4 text-sm text-zinc-400 flex items-center justify-center min-h-[100px]">Chart visualization</div>
+      <div className="flex-1 p-4 flex items-end gap-2 min-h-[100px]">
+        {data.length === 0 ? (
+          <p className="text-sm text-zinc-500 m-auto">Chart visualization</p>
+        ) : chartType === 'bar' ? (
+          data.map((d, i) => (
+            <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
+              <div className="w-full rounded-t transition-all duration-500"
+                style={{ height: \`\${(d.value / maxVal) * 100}%\`, minHeight: 4, backgroundColor: d.color || colors[i % colors.length] }} />
+              <span className="text-2xs text-zinc-500 truncate max-w-full">{d.label}</span>
+              <span className="text-2xs text-zinc-400 font-medium">{d.value}</span>
+            </div>
+          ))
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-sm text-zinc-500">
+            {chartType} chart — {data.length} data points
+          </div>
+        )}
+      </div>
     </div>
   );
 }`,
 
-  dashboard: (b) => `export function DashboardBlock() {
+  dashboard: (b) => `import { useState } from 'react';
+import { useCopilotAction } from '@copilotkit/react-core';
+
+interface KPIMetric {
+  label: string;
+  value: string | number;
+  change?: string;
+  trend?: 'up' | 'down' | 'flat';
+}
+
+export function DashboardBlock() {
+  const [metrics, setMetrics] = useState<KPIMetric[]>([]);
+
+  useCopilotAction({
+    name: "updateDashboard",
+    description: "Update KPI metrics on the dashboard",
+    parameters: [
+      { name: "metrics", type: "object[]", description: "Array of { label, value, change?, trend? } metrics" },
+    ],
+    handler: async ({ metrics: m }) => {
+      setMetrics(m as KPIMetric[]);
+    },
+  });
+
+  const trendIcon = (t?: string) => t === 'up' ? '↑' : t === 'down' ? '↓' : '→';
+  const trendColor = (t?: string) => t === 'up' ? 'text-green-400' : t === 'down' ? 'text-red-400' : 'text-zinc-500';
+
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
       <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
         ${b.label}
       </div>
-      <div className="p-4 text-sm text-zinc-400">Dashboard metrics go here.</div>
+      <div className="p-4">
+        {metrics.length === 0 ? (
+          <p className="text-sm text-zinc-500">Dashboard metrics go here.</p>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {metrics.map((m) => (
+              <div key={m.label} className="bg-zinc-800 rounded-lg p-3">
+                <p className="text-xs text-zinc-500">{m.label}</p>
+                <p className="text-lg font-semibold text-zinc-100 mt-1">{m.value}</p>
+                {m.change && (
+                  <p className={\`text-xs mt-0.5 \${trendColor(m.trend)}\`}>
+                    {trendIcon(m.trend)} {m.change}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }`,
 
-  status: (b) => `export function StatusBlock() {
+  status: (b) => `import { useState } from 'react';
+import { useCopilotAction } from '@copilotkit/react-core';
+
+export function StatusBlock() {
+  const [status, setStatus] = useState<'idle' | 'running' | 'done' | 'error'>('idle');
+  const [message, setMessage] = useState('Ready');
+  const [progress, setProgress] = useState(0);
+
+  useCopilotAction({
+    name: "updateStatus",
+    description: "Update the agent status indicator",
+    parameters: [
+      { name: "status", type: "string", description: "Status: idle, running, done, or error" },
+      { name: "message", type: "string", description: "Status message to display" },
+      { name: "progress", type: "number", description: "Progress percentage 0-100", required: false },
+    ],
+    handler: async ({ status: s, message: m, progress: p }) => {
+      setStatus(s as typeof status);
+      setMessage(m);
+      if (p !== undefined) setProgress(p as number);
+    },
+  });
+
+  const statusColor = {
+    idle: 'bg-zinc-500',
+    running: 'bg-blue-500 animate-pulse',
+    done: 'bg-green-500',
+    error: 'bg-red-500',
+  };
+
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full">
       <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
         ${b.label}
       </div>
-      <div className="p-4 flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-green-500" />
-        <span className="text-sm text-zinc-300">Connected</span>
+      <div className="p-4 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className={\`w-2 h-2 rounded-full \${statusColor[status]}\`} />
+          <span className="text-sm text-zinc-300">{message}</span>
+        </div>
+        {progress > 0 && (
+          <div className="w-full bg-zinc-800 rounded-full h-1.5 overflow-hidden">
+            <div className="h-full bg-blue-500 rounded-full transition-all duration-300" style={{ width: \`\${progress}%\` }} />
+          </div>
+        )}
       </div>
     </div>
   );
@@ -430,8 +894,9 @@ function genPackageJson(name: string, _connection?: ConnectionProfile | null): s
     type: 'module',
     scripts: {
       dev: 'vite',
-      build: 'vite build',
+      build: 'tsc && vite build',
       preview: 'vite preview',
+      lint: 'tsc --noEmit',
     },
     dependencies: deps,
     devDependencies: {
@@ -572,17 +1037,32 @@ function genAppTsx(
 import '@copilotkit/react-ui/styles.css';
 ${imports}
 
+function ErrorFallback({ error, resetErrorBoundary }: { error: Error; resetErrorBoundary: () => void }) {
+  return (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+      <div className="bg-zinc-900 border border-red-500/30 rounded-xl p-6 max-w-md text-center">
+        <h2 className="text-red-400 font-semibold mb-2">Something went wrong</h2>
+        <p className="text-sm text-zinc-400 mb-4">{error.message}</p>
+        <button onClick={resetErrorBoundary}
+          className="px-4 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 rounded-lg transition-colors">
+          Try again
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
   const runtimeUrl = ${runtimeUrl};
 
   return (
-    <CopilotKit runtimeUrl={runtimeUrl}>
+    <CopilotKit runtimeUrl={runtimeUrl} agent="agent">
       <div className="min-h-screen bg-zinc-950 text-zinc-200">
         <header className="flex items-center justify-between px-5 py-3 bg-zinc-900 border-b border-zinc-800">
           <h1 className="text-sm font-semibold">${title}</h1>
           <div className="flex items-center gap-1.5 text-xs text-zinc-500">
-            <span className="w-2 h-2 rounded-full bg-green-500" />
-            Connected
+            <span className="w-2 h-2 rounded-full bg-green-500" aria-hidden="true" />
+            <span>Connected</span>
           </div>
         </header>
         <main className="p-4 sm:p-6">
