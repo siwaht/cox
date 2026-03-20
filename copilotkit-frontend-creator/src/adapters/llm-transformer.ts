@@ -88,13 +88,12 @@ graph = create_react_agent("openai:gpt-4o-mini", tools=[my_tool])
 \`\`\`python
 # Custom state graph (for complex workflows)
 from langgraph.graph import StateGraph, MessagesState, START, END
-from langgraph.checkpoint.memory import MemorySaver
 
 builder = StateGraph(MessagesState)
 builder.add_node("agent", agent_node)
 builder.add_edge(START, "agent")
 builder.add_edge("agent", END)
-graph = builder.compile(checkpointer=MemorySaver())
+graph = builder.compile()
 \`\`\`
 
 DEPRECATED — NEVER USE:
