@@ -17,7 +17,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
   const { workspace, removeBlock, addBlock, undo, redo, canUndo, canRedo, selectedBlockIds, selectBlock, clearSelection, updateWorkspace } = useWorkspaceStore();
   const [showGrid, setShowGrid] = useState(false);
   const [newBlockId, setNewBlockId] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<{ rowIdx: number; position: 'before' | 'after' | 'into' } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{ rowIdx: number; position: 'before' | 'after' | 'into'; hoverCol?: number } | null>(null);
 
   // Use refs for drag state so it's always current in event handlers (no stale closures)
   const draggedBlockIdRef = useRef<string | null>(null);
@@ -123,15 +123,46 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
 
     if (dt.position === 'into' && targetRow) {
       const rowY = targetRow[0].y;
-      const usedCols = targetRow.filter(b => b.id !== block.id).reduce((sum, b) => sum + b.w, 0);
+      const otherBlocksInRow = targetRow.filter(b => b.id !== block.id);
+      const usedCols = otherBlocksInRow.reduce((sum, b) => sum + b.w, 0);
       const remainingCols = GRID_COLS - usedCols;
       if (remainingCols <= 0) return;
+      
       const newW = Math.min(block.w, Math.max(2, remainingCols));
-      const newX = usedCols;
-      const newBlocks = blocks.map(b => {
-        if (b.id === block.id) return { ...b, x: newX, y: rowY, w: newW };
-        return b;
+      const modifiedBlock = { ...block, w: newW };
+
+      otherBlocksInRow.sort((a, b) => a.x - b.x);
+      let insertIndex = otherBlocksInRow.length;
+      
+      if (dt.hoverCol !== undefined) {
+          let currentX = 0;
+          for (let i = 0; i < otherBlocksInRow.length; i++) {
+              const b = otherBlocksInRow[i];
+              if (dt.hoverCol <= currentX + b.w / 2) {
+                  insertIndex = i;
+                  break;
+              }
+              currentX += b.w;
+          }
+      }
+      
+      otherBlocksInRow.splice(insertIndex, 0, modifiedBlock);
+      
+      let currentX = 0;
+      otherBlocksInRow.forEach(b => {
+         b.x = currentX;
+         currentX += b.w;
       });
+      
+      const updatedIds = new Set(otherBlocksInRow.map(b => b.id));
+      const newBlocks = blocks.map(b => {
+         if (updatedIds.has(b.id)) {
+             const updated = otherBlocksInRow.find(ob => ob.id === b.id)!;
+             return { ...b, x: updated.x, y: rowY, w: updated.w };
+         }
+         return b;
+      });
+      
       updateWorkspace({ blocks: normalizeBlockPositions(newBlocks) });
     } else if (dt.position === 'before' || dt.position === 'after') {
       const targetRowY = dt.position === 'before'
@@ -170,8 +201,12 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
     e.dataTransfer.dropEffect = 'move';
 
     const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const edgeZone = Math.max(20, rect.height * 0.22);
+
+    const colWidth = rect.width / GRID_COLS;
+    const hoverCol = Math.max(0, Math.min(GRID_COLS - 1, Math.floor(x / colWidth)));
 
     let position: 'before' | 'after' | 'into';
     if (y < edgeZone) {
@@ -182,7 +217,11 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
       const currentRows = rowsRef.current;
       const rowBlocks = currentRows[rowIdx] || [];
       const usedCols = rowBlocks.filter(b => b.id !== draggedBlockIdRef.current).reduce((sum, b) => sum + b.w, 0);
-      if (usedCols < GRID_COLS) {
+      const draggedBlockInfo = blocksRef.current.find(b => b.id === draggedBlockIdRef.current);
+      const draggedBlockW = draggedBlockInfo ? draggedBlockInfo.w : 0;
+      
+      const isAlreadyInRow = rowBlocks.some(b => b.id === draggedBlockIdRef.current);
+      if (usedCols + draggedBlockW <= GRID_COLS || isAlreadyInRow) {
         position = 'into';
       } else {
         position = y < rect.height / 2 ? 'before' : 'after';
@@ -191,8 +230,8 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
 
     // Only update if changed (avoids re-renders)
     const prev = dropTargetRef.current;
-    if (!prev || prev.rowIdx !== rowIdx || prev.position !== position) {
-      updateDropTarget({ rowIdx, position });
+    if (!prev || prev.rowIdx !== rowIdx || prev.position !== position || prev.hoverCol !== hoverCol) {
+      updateDropTarget({ rowIdx, position, hoverCol });
     }
   }, [updateDropTarget]);
 
