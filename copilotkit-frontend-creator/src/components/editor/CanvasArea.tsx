@@ -18,7 +18,17 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
   const [showGrid, setShowGrid] = useState(false);
   const [newBlockId, setNewBlockId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ rowIdx: number; position: 'before' | 'after' | 'into' } | null>(null);
-  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
+
+  // Use refs for drag state so it's always current in event handlers (no stale closures)
+  const draggedBlockIdRef = useRef<string | null>(null);
+  const dropTargetRef = useRef<typeof dropTarget>(null);
+  const [dragActive, setDragActive] = useState(false);
+
+  // Keep ref in sync with state
+  const updateDropTarget = useCallback((dt: typeof dropTarget) => {
+    dropTargetRef.current = dt;
+    setDropTarget(dt);
+  }, []);
 
   // Track newly added blocks for entrance animation
   const blockCount = workspace.blocks.length;
@@ -38,6 +48,11 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
 
   // Group blocks into visual rows based on y coordinate
   const rows = useMemo(() => computeVisualRows(workspace.blocks), [workspace.blocks]);
+  const rowsRef = useRef(rows);
+  rowsRef.current = rows;
+
+  const blocksRef = useRef(workspace.blocks);
+  blocksRef.current = workspace.blocks;
 
   const handleRemove = useCallback((id: string) => {
     removeBlock(id);
@@ -53,7 +68,6 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
     }
   }, [selectBlock, clearSelection, onSelectBlock]);
 
-  // Click on canvas background to deselect
   const handleCanvasClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget || (e.target as HTMLElement).dataset.canvasBg !== undefined) {
       clearSelection();
@@ -61,126 +75,160 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
     }
   }, [clearSelection, onSelectBlock]);
 
-  // Handle drop from palette (simple drop zone)
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
+  // ─── Drag from palette (new block) ───
+  const handlePaletteDrop = useCallback((e: React.DragEvent) => {
     const blockType = e.dataTransfer.getData('application/block-type');
     if (blockType) {
+      e.preventDefault();
+      e.stopPropagation();
       addBlock(blockType as BlockType);
     }
-    setDropTarget(null);
   }, [addBlock]);
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
+  const handleCanvasDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
+    // Allow both palette drops and block reorder drops
+    if (draggedBlockIdRef.current) {
+      e.dataTransfer.dropEffect = 'move';
+    } else {
+      e.dataTransfer.dropEffect = 'copy';
+    }
   }, []);
 
-  // Internal block drag handlers
+  // ─── Internal block drag ───
   const handleBlockDragStart = useCallback((blockId: string) => {
-    setDraggedBlockId(blockId);
+    draggedBlockIdRef.current = blockId;
+    setDragActive(true);
   }, []);
 
-  // Commit the drag: compute all new positions in one batch update
+  const handleBlockDragEnd = useCallback(() => {
+    draggedBlockIdRef.current = null;
+    dropTargetRef.current = null;
+    setDragActive(false);
+    setDropTarget(null);
+  }, []);
+
+  // Commit the drag using refs (always current, no stale closure issues)
   const commitDrag = useCallback(() => {
-    if (!draggedBlockId || !dropTarget) return;
-    const block = workspace.blocks.find(b => b.id === draggedBlockId);
+    const dragId = draggedBlockIdRef.current;
+    const dt = dropTargetRef.current;
+    if (!dragId || !dt) return;
+
+    const blocks = blocksRef.current;
+    const currentRows = rowsRef.current;
+    const block = blocks.find(b => b.id === dragId);
     if (!block) return;
 
-    const targetRow = rows[dropTarget.rowIdx];
+    const targetRow = currentRows[dt.rowIdx];
 
-    if (dropTarget.position === 'into' && targetRow) {
-      // Merge into existing row
+    if (dt.position === 'into' && targetRow) {
       const rowY = targetRow[0].y;
       const usedCols = targetRow.filter(b => b.id !== block.id).reduce((sum, b) => sum + b.w, 0);
       const remainingCols = GRID_COLS - usedCols;
       if (remainingCols <= 0) return;
       const newW = Math.min(block.w, Math.max(2, remainingCols));
       const newX = usedCols;
-      // Batch: update all blocks at once
-      const newBlocks = workspace.blocks.map(b => {
+      const newBlocks = blocks.map(b => {
         if (b.id === block.id) return { ...b, x: newX, y: rowY, w: newW };
         return b;
       });
       updateWorkspace({ blocks: normalizeBlockPositions(newBlocks) });
-    } else if (dropTarget.position === 'before' || dropTarget.position === 'after') {
-      // Move block to a new row before or after the target row
-      const targetRowY = dropTarget.position === 'before'
-        ? (rows[dropTarget.rowIdx]?.[0]?.y ?? 0)
-        : (rows[dropTarget.rowIdx]?.[0]?.y ?? 0) + 1;
+    } else if (dt.position === 'before' || dt.position === 'after') {
+      const targetRowY = dt.position === 'before'
+        ? (currentRows[dt.rowIdx]?.[0]?.y ?? 0)
+        : (currentRows[dt.rowIdx]?.[0]?.y ?? 0) + 1;
 
-      // Batch: shift all blocks at or after targetRowY down, then place the dragged block
-      const newBlocks = workspace.blocks.map(b => {
+      const newBlocks = blocks.map(b => {
         if (b.id === block.id) return { ...b, x: 0, y: targetRowY };
         if (b.y >= targetRowY) return { ...b, y: b.y + block.h };
         return b;
       });
       updateWorkspace({ blocks: normalizeBlockPositions(newBlocks) });
     }
-  }, [draggedBlockId, dropTarget, workspace.blocks, rows, updateWorkspace]);
+  }, [updateWorkspace]);
 
-  // Called on drop events from drop zones
+  // The actual drop handler for block reordering
   const handleBlockDrop = useCallback((e: React.DragEvent) => {
+    // Only handle block reorder drops, not palette drops
+    const blockId = e.dataTransfer.getData('application/block-id');
+    if (!blockId) return;
     e.preventDefault();
     e.stopPropagation();
     commitDrag();
-    setDraggedBlockId(null);
+    draggedBlockIdRef.current = null;
+    dropTargetRef.current = null;
+    setDragActive(false);
     setDropTarget(null);
   }, [commitDrag]);
 
-  // Called when native drag ends (fires on the dragged element regardless of drop success)
-  const handleBlockDragEnd = useCallback(() => {
-    // Only clear state — actual move is handled by handleBlockDrop
-    setDraggedBlockId(null);
-    setDropTarget(null);
-  }, []);
-
-  // Row-level drop zone handlers — detect before/after/into based on cursor Y within the row
-  const handleRowDragOver = useCallback((e: React.DragEvent, rowIdx: number, position: 'before' | 'after' | 'into') => {
+  // Row-level drag over — detects before/after/into based on cursor Y position
+  const handleRowDragOver = useCallback((e: React.DragEvent, rowIdx: number) => {
+    // Only respond to internal block drags
+    if (!draggedBlockIdRef.current) return;
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    // For explicit before/after zones, use as-is
-    if (position !== 'into') {
-      setDropTarget({ rowIdx, position });
-      return;
-    }
-    // For the row body: detect top/bottom edge vs center
+
     const rect = e.currentTarget.getBoundingClientRect();
     const y = e.clientY - rect.top;
-    const edgeZone = Math.max(18, rect.height * 0.2);
+    const edgeZone = Math.max(20, rect.height * 0.22);
+
+    let position: 'before' | 'after' | 'into';
     if (y < edgeZone) {
-      setDropTarget({ rowIdx, position: 'before' });
+      position = 'before';
     } else if (y > rect.height - edgeZone) {
-      setDropTarget({ rowIdx, position: 'after' });
+      position = 'after';
     } else {
-      const rowBlocks = rows[rowIdx] || [];
-      const usedCols = rowBlocks.filter(b => b.id !== draggedBlockId).reduce((sum, b) => sum + b.w, 0);
+      const currentRows = rowsRef.current;
+      const rowBlocks = currentRows[rowIdx] || [];
+      const usedCols = rowBlocks.filter(b => b.id !== draggedBlockIdRef.current).reduce((sum, b) => sum + b.w, 0);
       if (usedCols < GRID_COLS) {
-        setDropTarget({ rowIdx, position: 'into' });
+        position = 'into';
       } else {
-        // Row is full — default to before/after based on which half
-        setDropTarget({ rowIdx, position: y < rect.height / 2 ? 'before' : 'after' });
+        position = y < rect.height / 2 ? 'before' : 'after';
       }
     }
-  }, [rows, draggedBlockId]);
 
-  const handleRowDragLeave = useCallback(() => {
-    setDropTarget(null);
-  }, []);
+    // Only update if changed (avoids re-renders)
+    const prev = dropTargetRef.current;
+    if (!prev || prev.rowIdx !== rowIdx || prev.position !== position) {
+      updateDropTarget({ rowIdx, position });
+    }
+  }, [updateDropTarget]);
+
+  // Explicit before/after zone drag over
+  const handleZoneDragOver = useCallback((e: React.DragEvent, rowIdx: number, position: 'before' | 'after') => {
+    if (!draggedBlockIdRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    const prev = dropTargetRef.current;
+    if (!prev || prev.rowIdx !== rowIdx || prev.position !== position) {
+      updateDropTarget({ rowIdx, position });
+    }
+  }, [updateDropTarget]);
+
+  // Only clear drop target when leaving the entire canvas rows area
+  const handleCanvasDragLeave = useCallback((e: React.DragEvent) => {
+    // Only clear if we're actually leaving the container (not entering a child)
+    const related = e.relatedTarget as HTMLElement | null;
+    if (!related || !e.currentTarget.contains(related)) {
+      updateDropTarget(null);
+    }
+  }, [updateDropTarget]);
 
   // Row usage info
   const rowInfo = useMemo(() => computeRows(workspace.blocks), [workspace.blocks]);
 
   if (workspace.blocks.length === 0) {
-    return <EmptyCanvas isOver={!!isOverCanvas} onDrop={handleDrop} onDragOver={handleDragOver} />;
+    return <EmptyCanvas isOver={!!isOverCanvas} onDrop={handlePaletteDrop} onDragOver={handleCanvasDragOver} />;
   }
 
   return (
     <div
       onClick={handleCanvasClick}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
+      onDrop={handlePaletteDrop}
+      onDragOver={handleCanvasDragOver}
       className={`flex-1 bg-surface overflow-y-auto p-4 sm:p-6 relative canvas-grid transition-colors
         ${isOverCanvas ? 'canvas-drop-active' : ''}`}
     >
@@ -246,7 +294,11 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
       </div>
 
       {/* Grid rows container */}
-      <div className="max-w-5xl mx-auto space-y-2" data-canvas-bg>
+      <div
+        className="max-w-5xl mx-auto space-y-0"
+        data-canvas-bg
+        onDragLeave={handleCanvasDragLeave}
+      >
         {/* 12-column grid overlay */}
         {showGrid && (
           <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none max-w-5xl mx-auto px-4 sm:px-6" style={{ zIndex: 0 }}>
@@ -268,17 +320,21 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
           const isDropAfter = dropTarget?.rowIdx === rowIdx && dropTarget.position === 'after';
 
           return (
-            <div key={rowBlocks.map(b => b.id).join('-')} className="relative">
-              {/* Drop indicator: before this row */}
+            <div key={`row-${rowIdx}`} className="relative">
+              {/* Drop zone: before this row */}
               <div
-                className={`rounded-full mx-2 transition-all duration-150 ${
-                  isDropBefore ? 'h-1.5 bg-accent/60 my-1' : 'h-0'
+                className={`transition-all duration-150 ${
+                  isDropBefore
+                    ? 'h-3 my-1'
+                    : dragActive ? 'h-3' : 'h-1'
                 }`}
-                onDragOver={(e) => handleRowDragOver(e, rowIdx, 'before')}
-                onDragLeave={handleRowDragLeave}
+                onDragOver={(e) => handleZoneDragOver(e, rowIdx, 'before')}
                 onDrop={handleBlockDrop}
-                style={{ minHeight: draggedBlockId ? '14px' : '4px' }}
-              />
+              >
+                <div className={`h-full rounded-full mx-4 transition-all duration-150 ${
+                  isDropBefore ? 'bg-accent/60' : 'bg-transparent'
+                }`} />
+              </div>
 
               {/* Row container with CSS Grid */}
               <div
@@ -286,10 +342,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
                   isDropInto ? 'ring-2 ring-accent/40 ring-offset-2 ring-offset-surface rounded-xl' : ''
                 }`}
                 style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}
-                onDragOver={(e) => {
-                  if (draggedBlockId) handleRowDragOver(e, rowIdx, 'into');
-                }}
-                onDragLeave={handleRowDragLeave}
+                onDragOver={(e) => handleRowDragOver(e, rowIdx)}
                 onDrop={handleBlockDrop}
               >
                 {rowBlocks.map((block) => (
@@ -309,18 +362,10 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
                 {/* Empty space indicator in row */}
                 {canFitMore && (
                   <div
-                    className="rounded-xl border-2 border-dashed border-border/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-default"
+                    className={`rounded-xl border-2 border-dashed border-border/30 flex items-center justify-center transition-opacity cursor-default ${
+                      dragActive ? 'opacity-60' : 'opacity-0 hover:opacity-100'
+                    }`}
                     style={{ gridColumn: `span ${GRID_COLS - rowUsed}` }}
-                    onDragOver={(e) => handleRowDragOver(e, rowIdx, 'into')}
-                    onDragLeave={handleRowDragLeave}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const blockType = e.dataTransfer.getData('application/block-type');
-                      if (blockType) {
-                        addBlock(blockType as BlockType);
-                      }
-                      handleBlockDragEnd();
-                    }}
                   >
                     <span className="text-2xs text-txt-ghost flex items-center gap-1">
                       <Columns size={10} /> {GRID_COLS - rowUsed} cols free
@@ -329,16 +374,20 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
                 )}
               </div>
 
-              {/* Drop indicator: after this row (shown for every row) */}
+              {/* Drop zone: after this row */}
               <div
-                className={`rounded-full mx-2 transition-all duration-150 ${
-                  isDropAfter ? 'h-1.5 bg-accent/60 my-1' : 'h-0'
+                className={`transition-all duration-150 ${
+                  isDropAfter
+                    ? 'h-3 my-1'
+                    : dragActive ? 'h-3' : 'h-1'
                 }`}
-                onDragOver={(e) => handleRowDragOver(e, rowIdx, 'after')}
-                onDragLeave={handleRowDragLeave}
+                onDragOver={(e) => handleZoneDragOver(e, rowIdx, 'after')}
                 onDrop={handleBlockDrop}
-                style={{ minHeight: draggedBlockId ? '14px' : '4px' }}
-              />
+              >
+                <div className={`h-full rounded-full mx-4 transition-all duration-150 ${
+                  isDropAfter ? 'bg-accent/60' : 'bg-transparent'
+                }`} />
+              </div>
             </div>
           );
         })}
@@ -371,13 +420,12 @@ function computeVisualRows(blocks: BlockConfig[]): BlockConfig[][] {
       rowMap.set(block.y, [block]);
     }
   }
-  // Sort rows by y, then sort blocks within each row by x
   return Array.from(rowMap.entries())
     .sort(([a], [b]) => a - b)
     .map(([, blocks]) => blocks.sort((a, b) => a.x - b.x));
 }
 
-// ─── Normalize y-coordinates to be sequential (0, 1, 2, ...) to prevent gaps ───
+// ─── Normalize y-coordinates to sequential (0, 1, 2, ...) to prevent gaps ───
 function normalizeBlockPositions(blocks: BlockConfig[]): BlockConfig[] {
   const rows = computeVisualRows(blocks);
   const yMap = new Map<number, number>();

@@ -59,6 +59,10 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSel
   const handleNativeDragStart = (e: React.DragEvent) => {
     e.dataTransfer.setData('application/block-id', block.id);
     e.dataTransfer.effectAllowed = 'move';
+    // Set a small drag image offset so the cursor stays near the block
+    if (e.currentTarget instanceof HTMLElement) {
+      e.dataTransfer.setDragImage(e.currentTarget, 20, 20);
+    }
     setIsDragging(true);
     onDragStart?.();
   };
@@ -66,6 +70,15 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSel
   const handleNativeDragEnd = () => {
     setIsDragging(false);
     onDragEnd?.();
+  };
+
+  // Allow drag events to pass through this block to the row container
+  const handleDragOver = (e: React.DragEvent) => {
+    // Don't handle if this block is the one being dragged
+    if (isDragging) return;
+    // Let the event bubble up to the row container
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   };
 
   const gridCol = `span ${block.w}`;
@@ -89,6 +102,7 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSel
       draggable
       onDragStart={handleNativeDragStart}
       onDragEnd={handleNativeDragEnd}
+      onDragOver={handleDragOver}
     >
       {/* Header bar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
