@@ -449,9 +449,11 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
 // ─── Group blocks into visual rows by y coordinate ───
 function computeVisualRows(blocks: BlockConfig[]): BlockConfig[][] {
   if (blocks.length === 0) return [];
-  const sorted = [...blocks].sort((a, b) => a.y - b.y || a.x - b.x);
+  // Use original array index as a stable tiebreaker when y and x are equal
+  const tagged = blocks.map((b, i) => ({ block: b, idx: i }));
+  tagged.sort((a, b) => a.block.y - b.block.y || a.block.x - b.block.x || a.idx - b.idx);
   const rowMap = new Map<number, BlockConfig[]>();
-  for (const block of sorted) {
+  for (const { block } of tagged) {
     const existing = rowMap.get(block.y);
     if (existing) {
       existing.push(block);
@@ -461,7 +463,7 @@ function computeVisualRows(blocks: BlockConfig[]): BlockConfig[][] {
   }
   return Array.from(rowMap.entries())
     .sort(([a], [b]) => a - b)
-    .map(([, blocks]) => blocks.sort((a, b) => a.x - b.x));
+    .map(([, rowBlocks]) => rowBlocks);
 }
 
 // ─── Normalize y-coordinates to sequential (0, 1, 2, ...) to prevent gaps ───

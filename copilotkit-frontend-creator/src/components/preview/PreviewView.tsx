@@ -29,7 +29,7 @@ export const PreviewView: React.FC = () => {
   useMockPreview();
 
   const activeConn = connections.find((c) => c.id === activeConnectionId);
-  const visibleBlocks = workspace.blocks.filter((b) => b.visible).sort((a, b) => a.y - b.y || a.x - b.x);
+  const visibleBlocks = workspace.blocks.filter((b) => b.visible);
   const theme = workspace.customTheme || DEFAULT_THEME;
   const themeStyle = buildThemeStyle(theme);
 
@@ -133,21 +133,34 @@ import type { BlockConfig } from '@/types/blocks';
 
 /**
  * Groups blocks into visual rows that mirror the editor canvas.
- * Blocks are first sorted by y then x. Within each y-group, blocks are
- * packed left-to-right into 12-column rows; when a block doesn't fit it
- * starts a new visual row. This ensures the preview matches the editor
- * even when blocks with the same y-value overflow past 12 columns.
+ *
+ * The editor's computeVisualRows groups by y, sorts by x within each group,
+ * then renders each group as a CSS grid row (repeat(12, 1fr)).  When blocks
+ * in the same y-group exceed 12 columns, CSS grid wraps them to a new line
+ * in DOM order.
+ *
+ * We replicate that exact behaviour here:
+ *  1. Preserve the original array index as a stable tiebreaker (the editor
+ *     renders blocks in array order when y and x are equal).
+ *  2. Group by y, sort within each group by x then by original index.
+ *  3. Pack each group into 12-column visual rows so overflow blocks start
+ *     a new row — matching the CSS grid wrapping the editor relies on.
  */
 function buildVisualRows(blocks: BlockConfig[]): BlockConfig[][] {
   if (blocks.length === 0) return [];
 
-  // 1. Group by y, sort groups by y, sort blocks within group by x
-  const sorted = [...blocks].sort((a, b) => a.y - b.y || a.x - b.x);
+  // Tag each block with its original array position
+  const tagged = blocks.map((b, i) => ({ block: b, idx: i }));
+
+  // Sort by y, then x, then original index (stable tiebreaker)
+  tagged.sort((a, b) => a.block.y - b.block.y || a.block.x - b.block.x || a.idx - b.idx);
+
+  // Group by y
   const yGroups = new Map<number, BlockConfig[]>();
-  for (const b of sorted) {
-    const arr = yGroups.get(b.y);
-    if (arr) arr.push(b);
-    else yGroups.set(b.y, [b]);
+  for (const { block } of tagged) {
+    const arr = yGroups.get(block.y);
+    if (arr) arr.push(block);
+    else yGroups.set(block.y, [block]);
   }
 
   const rows: BlockConfig[][] = [];
@@ -155,7 +168,7 @@ function buildVisualRows(blocks: BlockConfig[]): BlockConfig[][] {
 
   for (const y of yKeys) {
     const group = yGroups.get(y)!;
-    // Pack into 12-col rows
+    // Pack into 12-col visual rows (mirrors CSS grid wrapping)
     let currentRow: BlockConfig[] = [];
     let usedCols = 0;
     for (const block of group) {
