@@ -29,7 +29,7 @@ export const PreviewView: React.FC = () => {
   useMockPreview();
 
   const activeConn = connections.find((c) => c.id === activeConnectionId);
-  const visibleBlocks = workspace.blocks.filter((b) => b.visible);
+  const visibleBlocks = workspace.blocks.filter((b) => b.visible).sort((a, b) => a.y - b.y || a.x - b.x);
   const theme = workspace.customTheme || DEFAULT_THEME;
   const themeStyle = buildThemeStyle(theme);
 
