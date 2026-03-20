@@ -121,8 +121,8 @@ graph = create_react_agent("openai:gpt-4o-mini", tools=[...])
 \`\`\`
 copilotkit>=0.1.81
 ag-ui-langgraph[fastapi]>=0.0.27
-langgraph>=0.3.25,<1.1.0
-langchain>=1.2.0
+langgraph>=1.0.10
+langchain>=1.2.10
 langchain-core>=1.2.20
 langchain-openai>=1.1.11
 deepagents>=0.4.11
@@ -131,10 +131,11 @@ deepagents>=0.4.11
 ### Frontend React Setup
 \`\`\`tsx
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-ui/v2/styles.css";
 
-<CopilotKit runtimeUrl="http://localhost:8000/copilotkit" agent="agent">
-  <CopilotChat />
+<CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
+  <CopilotSidebar />
 </CopilotKit>
 \`\`\``,
     fetchedAt: new Date().toISOString(),

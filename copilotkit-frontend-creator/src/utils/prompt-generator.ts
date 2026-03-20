@@ -222,17 +222,18 @@ export function generatePrompt(options: PromptOptions): string {
 
   // Integration notes
   lines.push('## CopilotKit Integration');
-  lines.push('- Wrap the entire app in `<CopilotKit runtimeUrl="http://localhost:8000/copilotkit" agent="agent">` pointing to the agent backend.');
-  lines.push('- The `agent="agent"` prop MUST match the agent name registered on the backend.');
-  lines.push('- Import `CopilotKit` from `@copilotkit/react-core` and `CopilotChat` from `@copilotkit/react-ui`.');
-  lines.push('- Import CopilotKit styles: `import "@copilotkit/react-ui/styles.css"`.');
+  lines.push('- Wrap the entire app in `<CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">` pointing to the agent backend.');
+  lines.push('- The `agent="sample_agent"` prop MUST match the agent name registered on the backend.');
+  lines.push('- Import `CopilotKit` from `@copilotkit/react-core` and `CopilotSidebar` from `@copilotkit/react-core/v2`.');
+  lines.push('- Import CopilotKit v2 styles: `import "@copilotkit/react-ui/v2/styles.css"`.');
   lines.push('- Use @copilotkit/react-core v1.54.0+ and @copilotkit/react-ui v1.54.0+.');
-  lines.push('- The chat block should use `<CopilotChat />` for real-time streaming with the agent.');
+  lines.push('- The chat block should use `<CopilotSidebar />` from `@copilotkit/react-core/v2` for real-time streaming with the agent.');
   lines.push('- Use `useCopilotReadable` to expose frontend state to the agent.');
   lines.push('- Use `useCopilotAction` to let the agent trigger UI updates (results, table data, chart data, etc.).');
   lines.push('- Tool activity, results, and status blocks should subscribe to CopilotKit\'s action state.');
   lines.push('- All blocks must handle loading, empty, and error states gracefully.');
   lines.push('- Use `useCopilotChat` hook for programmatic chat control if needed.');
+  lines.push('- Use `useDefaultRenderTool` from `@copilotkit/react-core/v2` to render tool calls (render callback receives { name, status, parameters, result } — NOT args).');
   lines.push('');
 
   // Accessibility notes

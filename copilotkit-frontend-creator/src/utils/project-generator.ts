@@ -21,20 +21,29 @@ interface GeneratedFile {
 // ─── Block component code templates ───
 
 const BLOCK_TEMPLATES: Record<BlockType, (block: BlockConfig) => string> = {
-  chat: (b) => `import { CopilotChat } from '@copilotkit/react-ui';
-import '@copilotkit/react-ui/styles.css';
+  chat: (b) => `import { CopilotSidebar } from '@copilotkit/react-core/v2';
+import { useDefaultRenderTool } from '@copilotkit/react-core/v2';
+import '@copilotkit/react-ui/v2/styles.css';
 
 export function ChatBlock() {
+  useDefaultRenderTool({
+    render: ({ name, status, parameters, result }) => (
+      <details>
+        <summary>{status === "complete" ? \`Called \${name}\` : \`Calling \${name}...\`}</summary>
+        <p>Status: {status}</p>
+        <p>Parameters: {JSON.stringify(parameters)}</p>
+        <p>Result: {JSON.stringify(result)}</p>
+      </details>
+    ),
+  });
+
   return (
     <div className="flex flex-col h-full rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
       <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
         ${b.label}
       </div>
       <div className="flex-1 overflow-hidden">
-        <CopilotChat
-          labels={{ title: "${b.label}", initial: "Send a message to start" }}
-          className="h-full"
-        />
+        <CopilotSidebar />
       </div>
     </div>
   );
@@ -1022,7 +1031,7 @@ function genAppTsx(
 
   const runtimeUrl = connection
     ? `'${connection.baseUrl.replace(/\/+$/, '')}/copilotkit'`
-    : `import.meta.env.VITE_RUNTIME_URL || 'http://localhost:8000/copilotkit'`;
+    : `import.meta.env.VITE_RUNTIME_URL || 'http://localhost:8123/copilotkit'`;
 
   const blockElements = visible.map((b) => {
     const comp = blockComponentName(b.type);
@@ -1035,7 +1044,7 @@ function genAppTsx(
 
   return `import React, { Component } from 'react';
 import { CopilotKit } from '@copilotkit/react-core';
-import '@copilotkit/react-ui/styles.css';
+import '@copilotkit/react-ui/v2/styles.css';
 ${imports}
 
 class ErrorBoundary extends Component<
@@ -1098,7 +1107,7 @@ ${blockElements}
 }
 
 function genEnvExample(connection?: ConnectionProfile | null): string {
-  const base = connection?.baseUrl || 'http://localhost:8000';
+  const base = connection?.baseUrl || 'http://localhost:8123';
 
   return `# Agent Runtime
 VITE_RUNTIME_URL=${base.replace(/\/+$/, '')}/copilotkit
@@ -1121,7 +1130,7 @@ npm run dev
 Set your agent runtime URL in \`.env\`:
 
 \`\`\`
-VITE_RUNTIME_URL=http://localhost:8000/copilotkit
+VITE_RUNTIME_URL=http://localhost:8123/copilotkit
 \`\`\`
 
 ## Deploy
@@ -1372,8 +1381,8 @@ function genAgentRequirements(code: string): string {
   const versionMap: Record<string, string> = {
     'copilotkit': 'copilotkit>=0.1.81',
     'ag-ui-langgraph': 'ag-ui-langgraph[fastapi]>=0.0.27',
-    'langgraph': 'langgraph>=0.3.25,<1.1.0',
-    'langchain': 'langchain>=1.2.0',
+    'langgraph': 'langgraph>=1.0.10',
+    'langchain': 'langchain>=1.2.10',
     'langchain-openai': 'langchain-openai>=1.1.11',
     'langchain-anthropic': 'langchain-anthropic>=1.4.0',
     'langchain-google-genai': 'langchain-google-genai>=2.0.0',
@@ -1407,7 +1416,7 @@ pip install -r requirements.txt
 python agent_server.py
 \`\`\`
 
-The agent will start on http://localhost:8000. The frontend expects the CopilotKit endpoint at http://localhost:8000/copilotkit.
+The agent will start on http://localhost:8123. The frontend expects the CopilotKit endpoint at http://localhost:8123/copilotkit.
 
 ## Environment Variables
 
@@ -1452,13 +1461,13 @@ npm install
 npm run dev
 \`\`\`
 
-The frontend connects to the agent at \`http://localhost:8000/copilotkit\` by default. You can change this in \`.env\`.
+The frontend connects to the agent at \`http://localhost:8123/copilotkit\` by default. You can change this in \`.env\`.
 
 ## Troubleshooting
 
 - If you get "thread_id required" errors, make sure your agent graph does NOT have a checkpointer compiled in. The ag-ui-langgraph adapter manages state externally.
 - If you get "dict_repr" errors, upgrade: \`pip install --upgrade copilotkit ag-ui-langgraph\`
-- If the frontend can't connect, check CORS settings and ensure the agent is running on port 8000.
+- If the frontend can't connect, check CORS settings and ensure the agent is running on port 8123.
 
 ## Deploy
 
@@ -1511,8 +1520,8 @@ COPY agent/ /app/agent/
 RUN echo 'server { \\
   listen 80; \\
   location / { root /usr/share/nginx/html; try_files $uri /index.html; } \\
-  location /copilotkit { proxy_pass http://127.0.0.1:8000/copilotkit; } \\
-  location /health { proxy_pass http://127.0.0.1:8000/health; } \\
+  location /copilotkit { proxy_pass http://127.0.0.1:8123/copilotkit; } \\
+  location /health { proxy_pass http://127.0.0.1:8123/health; } \\
 }' > /etc/nginx/conf.d/default.conf
 
 # Start script
@@ -1538,7 +1547,7 @@ services:
       - ./src:/app/src
       - ./public:/app/public
     environment:
-      - VITE_RUNTIME_URL=http://localhost:8000/copilotkit
+      - VITE_RUNTIME_URL=http://localhost:8123/copilotkit
 
   agent:
     build:
@@ -1546,7 +1555,7 @@ services:
       target: agent
     command: python agent_server.py
     ports:
-      - "8000:8000"
+      - "8123:8123"
     volumes:
       - ./agent:/app/agent
     env_file:
