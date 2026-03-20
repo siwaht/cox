@@ -131,21 +131,50 @@ export const PreviewView: React.FC = () => {
 
 import type { BlockConfig } from '@/types/blocks';
 
-const BlockGrid: React.FC<{ blocks: BlockConfig[] }> = ({ blocks }) => {
-  // Group blocks into rows by y-coordinate so the preview matches the editor layout order
-  const rows: BlockConfig[][] = [];
-  const rowMap = new Map<number, BlockConfig[]>();
-  for (const block of blocks) {
-    const existing = rowMap.get(block.y);
-    if (existing) {
-      existing.push(block);
-    } else {
-      rowMap.set(block.y, [block]);
-    }
+/**
+ * Groups blocks into visual rows that mirror the editor canvas.
+ * Blocks are first sorted by y then x. Within each y-group, blocks are
+ * packed left-to-right into 12-column rows; when a block doesn't fit it
+ * starts a new visual row. This ensures the preview matches the editor
+ * even when blocks with the same y-value overflow past 12 columns.
+ */
+function buildVisualRows(blocks: BlockConfig[]): BlockConfig[][] {
+  if (blocks.length === 0) return [];
+
+  // 1. Group by y, sort groups by y, sort blocks within group by x
+  const sorted = [...blocks].sort((a, b) => a.y - b.y || a.x - b.x);
+  const yGroups = new Map<number, BlockConfig[]>();
+  for (const b of sorted) {
+    const arr = yGroups.get(b.y);
+    if (arr) arr.push(b);
+    else yGroups.set(b.y, [b]);
   }
-  Array.from(rowMap.entries())
-    .sort(([a], [b]) => a - b)
-    .forEach(([, rowBlocks]) => rows.push(rowBlocks.sort((a, b) => a.x - b.x)));
+
+  const rows: BlockConfig[][] = [];
+  const yKeys = Array.from(yGroups.keys()).sort((a, b) => a - b);
+
+  for (const y of yKeys) {
+    const group = yGroups.get(y)!;
+    // Pack into 12-col rows
+    let currentRow: BlockConfig[] = [];
+    let usedCols = 0;
+    for (const block of group) {
+      if (usedCols + block.w > 12 && currentRow.length > 0) {
+        rows.push(currentRow);
+        currentRow = [];
+        usedCols = 0;
+      }
+      currentRow.push(block);
+      usedCols += block.w;
+    }
+    if (currentRow.length > 0) rows.push(currentRow);
+  }
+
+  return rows;
+}
+
+const BlockGrid: React.FC<{ blocks: BlockConfig[] }> = ({ blocks }) => {
+  const rows = buildVisualRows(blocks);
 
   return (
     <div className="p-3 sm:p-6">
