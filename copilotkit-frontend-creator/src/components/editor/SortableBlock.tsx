@@ -85,18 +85,27 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSel
   const minH = collapsed ? 'auto' : `${block.h * 40}px`;
 
   const cls = [
-    'relative rounded-xl border-2 transition-all group cursor-pointer',
+    'relative rounded-2xl border transition-all group cursor-pointer',
     isDragging ? 'z-10 opacity-40 drag-overlay' : '',
     isNew ? 'animate-block-in' : '',
     isSelected
-      ? 'border-accent bg-accent/5 shadow-lg shadow-accent/5'
-      : 'border-border/60 bg-surface-raised hover:border-txt-faint',
+      ? 'border-accent/60 shadow-lg shadow-accent/10'
+      : 'border-border/50 hover:border-border hover:shadow-md',
     !block.visible ? 'opacity-40' : '',
   ].filter(Boolean).join(' ');
 
+  const blockStyle: React.CSSProperties = {
+    gridColumn: gridCol,
+    opacity: isDragging ? 0.4 : 1,
+    background: isSelected
+      ? 'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-raised) 100%, transparent) 0%, color-mix(in srgb, var(--color-surface) 100%, transparent) 100%)'
+      : 'var(--color-surface-raised)',
+    boxShadow: isSelected ? undefined : 'var(--shadow-card)',
+  };
+
   return (
     <div
-      style={{ gridColumn: gridCol, opacity: isDragging ? 0.4 : 1 }}
+      style={blockStyle}
       onClick={onSelect}
       className={cls}
       draggable
@@ -105,7 +114,7 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSel
       onDragOver={handleDragOver}
     >
       {/* Header bar */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border/30">
         <div className="flex items-center gap-2 min-w-0">
           <div
             className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded text-txt-faint hover:text-txt-secondary hover:bg-surface-overlay touch-manipulation"

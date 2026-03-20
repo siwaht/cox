@@ -3,3 +3,4 @@ node_modules/
 *.local
 agent.py
 __pycache__/
+copilotkit-frontend-creator/dist/

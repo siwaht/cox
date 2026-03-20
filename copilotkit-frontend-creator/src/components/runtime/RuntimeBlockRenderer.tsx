@@ -55,7 +55,7 @@ export const RuntimeBlockRenderer: React.FC<{ block: BlockConfig }> = ({ block }
   return (
     <div
       style={{ gridColumn: `span ${block.w}`, minHeight: `${block.h * 50}px` }}
-      className="rounded-xl border border-border bg-surface-raised overflow-hidden flex flex-col"
+      className="rounded-2xl border border-border/50 bg-surface-raised overflow-hidden flex flex-col transition-shadow duration-200 hover:shadow-md"
     >
       <BlockErrorBoundary blockLabel={block.label}>
         <Component block={block} />

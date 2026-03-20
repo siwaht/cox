@@ -47,10 +47,10 @@ export const ConnectionModal: React.FC<Props> = ({ onClose }) => {
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-surface-raised border border-border rounded-t-2xl sm:rounded-2xl
-                      w-full sm:w-[520px] max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
+      <div className="border border-border/50 rounded-t-3xl sm:rounded-3xl
+                      w-full sm:w-[520px] max-h-[85vh] overflow-hidden flex flex-col animate-slide-up" style={{ background: 'color-mix(in srgb, var(--color-surface-raised) 96%, transparent)', backdropFilter: 'blur(24px) saturate(1.3)', WebkitBackdropFilter: 'blur(24px) saturate(1.3)', boxShadow: 'var(--shadow-elevated)' }}>
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
           <div className="flex items-center gap-2.5">
             <Plug size={16} className="text-accent" />
             <h2 className="text-sm font-semibold text-zinc-200">Connect Your Agent</h2>
@@ -83,10 +83,10 @@ export const ConnectionModal: React.FC<Props> = ({ onClose }) => {
           {connections.map((conn) => (
             <div
               key={conn.id}
-              className={`border rounded-xl p-3.5 transition-all animate-fade-in ${
+              className={`border rounded-2xl p-3.5 transition-all animate-fade-in ${
                 activeConnectionId === conn.id
-                  ? 'border-accent/50 bg-accent/5'
-                  : 'border-border hover:border-zinc-600'
+                  ? 'border-accent/40 bg-accent/5 shadow-lg shadow-accent/5'
+                  : 'border-border/50 hover:border-border'
               }`}
             >
               <div className="flex items-start justify-between gap-2">

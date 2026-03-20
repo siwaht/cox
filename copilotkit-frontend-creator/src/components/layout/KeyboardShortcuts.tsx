@@ -41,8 +41,8 @@ export const KeyboardShortcuts: React.FC<Props> = ({ onClose }) => (
     aria-modal="true"
     aria-label="Keyboard shortcuts"
   >
-    <div className="bg-surface-raised border border-border rounded-2xl w-96 overflow-hidden animate-scale-in shadow-2xl">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div className="border border-border/50 rounded-3xl w-96 overflow-hidden animate-scale-in" style={{ background: 'color-mix(in srgb, var(--color-surface-raised) 95%, transparent)', backdropFilter: 'blur(24px) saturate(1.3)', WebkitBackdropFilter: 'blur(24px) saturate(1.3)', boxShadow: 'var(--shadow-elevated)' }}>
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-border/40">
         <div className="flex items-center gap-2">
           <Keyboard size={14} className="text-accent" />
           <span className="text-xs font-semibold text-txt-secondary">Keyboard Shortcuts</span>
@@ -61,7 +61,7 @@ export const KeyboardShortcuts: React.FC<Props> = ({ onClose }) => (
                   <span className="text-xs text-txt-secondary">{s.action}</span>
                   <div className="flex items-center gap-1">
                     {s.keys.map((k) => (
-                      <kbd key={k} className="px-1.5 py-0.5 text-2xs font-mono bg-surface border border-border rounded text-txt-secondary min-w-[20px] text-center">
+                      <kbd key={k} className="px-2 py-0.5 text-2xs font-mono bg-surface border border-border/60 rounded-lg text-txt-secondary min-w-[22px] text-center shadow-sm">
                         {k}
                       </kbd>
                     ))}

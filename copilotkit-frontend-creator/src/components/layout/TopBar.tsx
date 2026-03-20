@@ -67,7 +67,7 @@ export const TopBar: React.FC = () => {
 
   return (
     <>
-      <header className="fixed top-0 w-full z-50 flex items-center justify-between px-3 sm:px-5 bg-surface-raised/80 backdrop-blur-md border-b border-border/50 h-14 shrink-0 transition-colors duration-300">
+      <header className="fixed top-0 w-full z-50 flex items-center justify-between px-3 sm:px-5 h-14 shrink-0 transition-colors duration-300 border-b border-border/40" style={{ background: 'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-raised) 90%, transparent) 0%, color-mix(in srgb, var(--color-surface-raised) 75%, transparent) 100%)', backdropFilter: 'blur(20px) saturate(1.3)', WebkitBackdropFilter: 'blur(20px) saturate(1.3)' }}>
         {/* Logo + workspace name */}
         <div className="flex items-center gap-2 min-w-0 group">
           <Zap size={18} className="text-accent shrink-0" />
@@ -145,8 +145,8 @@ export const TopBar: React.FC = () => {
           </div>
 
           <button onClick={() => setShowExportModal(true)}
-            className="flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-lg bg-accent
-                       hover:bg-accent-hover text-white transition-all font-medium active:scale-95 shadow-lg shadow-accent/20 hover:shadow-accent/40">
+            className="flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-xl bg-accent
+                       hover:bg-accent-hover text-white transition-all font-medium active:scale-[0.97] shadow-lg shadow-accent/20 hover:shadow-accent/30 hover:shadow-xl">
             <Download size={13} /> Download Project
           </button>
 
@@ -223,7 +223,7 @@ const ModeToggle: React.FC<{
   mode: 'editor' | 'preview' | 'published' | 'codegen';
   setMode: (m: 'editor' | 'preview' | 'published' | 'codegen') => void;
 }> = ({ mode, setMode }) => (
-  <div className="flex bg-surface-overlay/50 rounded-lg p-1 gap-1 w-full md:w-auto backdrop-blur-sm border border-border/30">
+  <div className="flex rounded-xl p-1 gap-0.5 w-full md:w-auto border border-border/40" style={{ background: 'var(--color-surface)' }}>
     {([
       { key: 'editor' as const, label: 'Edit', tip: 'Drag-and-drop block editor' },
       { key: 'preview' as const, label: 'Preview', tip: 'Live preview with agent connection' },
@@ -233,10 +233,10 @@ const ModeToggle: React.FC<{
         key={m.key}
         onClick={() => setMode(m.key)}
         title={m.tip}
-        className={`flex-1 md:flex-none px-3 py-1.5 text-xs rounded-md transition-all duration-200 ease-out font-medium active:scale-95 ${
+        className={`flex-1 md:flex-none px-3.5 py-1.5 text-xs rounded-lg transition-all duration-200 ease-out font-medium active:scale-[0.97] ${
           mode === m.key
-            ? 'bg-accent text-white shadow-md shadow-accent/30'
-            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-raised hover:shadow-sm'
+            ? 'bg-accent text-white shadow-lg shadow-accent/25'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-overlay'
         }`}
       >
         {m.label}
@@ -254,8 +254,8 @@ const WorkspaceDropdown: React.FC<{
 }> = ({ savedWorkspaces, currentId, onLoad, onDelete, onClose }) => (
   <>
     <div className="fixed inset-0 z-30" onClick={onClose} />
-    <div className="absolute right-0 top-full mt-2 z-40 w-56 bg-surface-raised/95 backdrop-blur-xl border border-border/50
-                    rounded-xl shadow-2xl overflow-hidden animate-scale-in">
+    <div className="absolute right-0 top-full mt-2 z-40 w-56 border border-border/50
+                    rounded-2xl overflow-hidden animate-scale-in" style={{ background: 'color-mix(in srgb, var(--color-surface-raised) 95%, transparent)', backdropFilter: 'blur(24px) saturate(1.3)', WebkitBackdropFilter: 'blur(24px) saturate(1.3)', boxShadow: 'var(--shadow-elevated)' }}>
       {savedWorkspaces.length === 0 ? (
         <p className="text-2xs text-txt-faint p-3 text-center">No saved workspaces yet</p>
       ) : (

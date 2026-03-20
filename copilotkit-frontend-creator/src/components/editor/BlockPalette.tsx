@@ -75,8 +75,8 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
   const isSearching = search.trim().length > 0;
 
   return (
-    <aside className="h-full bg-surface-raised border-r border-border flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <aside className="h-full border-r border-border/40 flex flex-col" style={{ background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, color-mix(in srgb, var(--color-surface-raised) 95%, var(--color-surface)) 100%)' }}>
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/40">
         <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">Blocks</h2>
         <div className="flex items-center gap-1">
           <button onClick={() => setViewMode(viewMode === 'list' ? 'grid' : 'list')}
@@ -207,12 +207,12 @@ const PaletteItem: React.FC<{
         draggable={!isIncompatible}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
-        className={`palette-draggable flex flex-col items-center gap-1.5 p-3 rounded-xl border transition-all group cursor-grab active:cursor-grabbing
+        className={`palette-draggable flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all group cursor-grab active:cursor-grabbing
                     ${isIncompatible
                       ? 'border-danger/20 opacity-50 hover:opacity-70 hover:border-danger/30'
                       : isCompatible
-                        ? 'border-success/20 hover:border-accent/50 hover:bg-accent-soft'
-                        : 'border-border hover:border-accent/50 hover:bg-accent-soft'}
+                        ? 'border-success/20 hover:border-accent/40 hover:bg-accent-soft hover:shadow-md'
+                        : 'border-border/50 hover:border-accent/40 hover:bg-accent-soft hover:shadow-md'}
                     ${isDragging ? 'opacity-40 scale-95' : ''}`}
         onClick={isIncompatible ? undefined : onAdd}
         title={isIncompatible ? 'Not compatible with your agent code' : undefined}
@@ -231,7 +231,7 @@ const PaletteItem: React.FC<{
       draggable={!isIncompatible}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      className={`palette-draggable flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-left transition-all group cursor-grab active:cursor-grabbing
+      className={`palette-draggable flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-left transition-all group cursor-grab active:cursor-grabbing
                   ${isIncompatible
                     ? 'opacity-50 hover:opacity-70'
                     : isCompatible

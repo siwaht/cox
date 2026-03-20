@@ -64,7 +64,7 @@ export const PreviewView: React.FC = () => {
   const previewContent = (
     <>
       {/* Top bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 bg-surface-raised border-b border-border text-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-surface-raised border-b border-border/40 text-xs">
         <div className="flex items-center gap-2">
           {isConnected ? (
             <>
@@ -208,7 +208,7 @@ const ViewportToggle: React.FC<{
   viewport: ViewportSize;
   setViewport: (v: ViewportSize) => void;
 }> = ({ viewport, setViewport }) => (
-  <div className="flex bg-surface rounded-md p-0.5 gap-0.5">
+  <div className="flex bg-surface rounded-lg p-0.5 gap-0.5 border border-border/40">
     {([
       { key: 'desktop' as const, icon: Monitor, label: 'Desktop' },
       { key: 'tablet' as const, icon: Tablet, label: 'Tablet' },
@@ -218,8 +218,8 @@ const ViewportToggle: React.FC<{
         key={key}
         onClick={() => setViewport(key)}
         title={label}
-        className={`p-1.5 rounded transition-all ${
-          viewport === key ? 'bg-accent text-white' : 'text-txt-muted hover:text-txt-secondary'
+        className={`p-1.5 rounded-md transition-all ${
+          viewport === key ? 'bg-accent text-white shadow-sm shadow-accent/20' : 'text-txt-muted hover:text-txt-secondary'
         }`}
       >
         <Icon size={12} />

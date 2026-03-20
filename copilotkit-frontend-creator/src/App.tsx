@@ -78,7 +78,7 @@ export const App: React.FC = () => {
   }, []);
 
   return (
-    <div data-theme={theme} className="flex flex-col h-screen w-screen overflow-hidden bg-surface text-txt-primary transition-colors duration-200">
+    <div data-theme={theme} className="flex flex-col h-screen w-screen overflow-hidden text-txt-primary transition-colors duration-300" style={{ background: 'var(--color-surface)' }}>
       <TopBar />
       <main className="flex-1 overflow-hidden transition-opacity duration-200 mt-14">
         {mode === 'editor' && <EditorView />}

@@ -9,9 +9,9 @@ const ICONS = {
 };
 
 const BG = {
-  success: 'border-success/30 bg-success-soft',
-  error: 'border-danger/30 bg-danger-soft',
-  info: 'border-accent/30 bg-accent-soft',
+  success: 'border-success/20 bg-success-soft',
+  error: 'border-danger/20 bg-danger-soft',
+  info: 'border-accent/20 bg-accent-soft',
 };
 
 const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({ toast, onRemove }) => {
@@ -32,9 +32,10 @@ const ToastItem: React.FC<{ toast: Toast; onRemove: () => void }> = ({ toast, on
 
   return (
     <div
-      className={`flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl border shadow-xl backdrop-blur-sm transition-all duration-150 ${BG[toast.type]} ${
+      className={`flex items-center gap-2.5 px-4 py-3 rounded-2xl border shadow-2xl transition-all duration-150 ${BG[toast.type]} ${
         exiting ? 'opacity-0 translate-x-4 scale-95' : 'animate-slide-up'
       }`}
+      style={{ backdropFilter: 'blur(16px) saturate(1.2)', WebkitBackdropFilter: 'blur(16px) saturate(1.2)' }}
       role="alert"
     >
       {ICONS[toast.type]}

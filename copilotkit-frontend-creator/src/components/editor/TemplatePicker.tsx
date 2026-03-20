@@ -36,10 +36,10 @@ export const TemplatePicker: React.FC = () => {
             <button
               key={t.id}
               onClick={() => handleApply(t)}
-              className={`flex items-start gap-3 p-3 rounded-xl border transition-all text-left group active:scale-[0.98] ${
+              className={`flex items-start gap-3 p-3.5 rounded-2xl border transition-all text-left group active:scale-[0.98] ${
                 isApplied
-                  ? 'border-success/50 bg-success-soft'
-                  : 'border-border hover:border-accent/50 hover:bg-accent-soft'
+                  ? 'border-success/40 bg-success-soft shadow-lg shadow-success/10'
+                  : 'border-border/50 hover:border-accent/40 hover:bg-accent-soft hover:shadow-md'
               }`}
               aria-label={`Apply ${t.name} template`}
             >

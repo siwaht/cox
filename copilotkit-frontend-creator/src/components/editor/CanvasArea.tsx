@@ -268,8 +268,9 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
       onClick={handleCanvasClick}
       onDrop={handlePaletteDrop}
       onDragOver={handleCanvasDragOver}
-      className={`flex-1 bg-surface overflow-y-auto p-4 sm:p-6 relative canvas-grid transition-colors
+      className={`flex-1 overflow-y-auto p-4 sm:p-6 relative canvas-grid transition-colors
         ${isOverCanvas ? 'canvas-drop-active' : ''}`}
+      style={{ background: 'var(--color-surface)' }}
     >
       {/* Toolbar */}
       <div className="max-w-5xl mx-auto flex items-center justify-between mb-3">
@@ -524,10 +525,10 @@ const EmptyCanvas: React.FC<{
   onDrop: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
 }> = ({ isOver, onDrop, onDragOver }) => (
-  <div onDrop={onDrop} onDragOver={onDragOver} className="flex-1 flex items-center justify-center bg-surface p-6">
+  <div onDrop={onDrop} onDragOver={onDragOver} className="flex-1 flex items-center justify-center p-6" style={{ background: 'var(--color-surface)' }}>
     <div className="w-full max-w-lg animate-fade-in">
-      <div className={`text-center mb-6 p-8 rounded-2xl border-2 border-dashed transition-all duration-200 empty-canvas-drop-target
-        ${isOver ? 'is-over border-accent bg-accent/5' : 'border-border/50'}`}>
+      <div className={`text-center mb-6 p-10 rounded-3xl border-2 border-dashed transition-all duration-200 empty-canvas-drop-target
+        ${isOver ? 'is-over border-accent bg-accent/5' : 'border-border/40'}`}>
         <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-all duration-200
           ${isOver ? 'bg-accent/20 scale-110' : 'bg-accent/10'}`}>
           <Layers size={28} className="text-accent" />

@@ -55,11 +55,11 @@ export const PromptModal: React.FC<Props> = ({ onClose }) => {
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="bg-surface-raised border border-border rounded-t-2xl sm:rounded-2xl
-                      w-full sm:w-[600px] max-h-[85vh] overflow-hidden flex flex-col animate-slide-up">
+      <div className="border border-border/50 rounded-t-3xl sm:rounded-3xl
+                      w-full sm:w-[600px] max-h-[85vh] overflow-hidden flex flex-col animate-slide-up" style={{ background: 'color-mix(in srgb, var(--color-surface-raised) 96%, transparent)', backdropFilter: 'blur(24px) saturate(1.3)', WebkitBackdropFilter: 'blur(24px) saturate(1.3)', boxShadow: 'var(--shadow-elevated)' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
           <div className="flex items-center gap-2.5">
             <Sparkles size={16} className="text-accent" />
             <h2 className="text-sm font-semibold text-txt-primary">Generate AI Prompt</h2>

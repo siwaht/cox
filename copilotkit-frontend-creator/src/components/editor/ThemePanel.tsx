@@ -46,8 +46,8 @@ export const ThemePanel: React.FC<Props> = ({ onClose }) => {
   };
 
   return (
-    <div className="h-full bg-surface-raised border-l border-border flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+    <div className="h-full border-l border-border/40 flex flex-col" style={{ background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, color-mix(in srgb, var(--color-surface-raised) 95%, var(--color-surface)) 100%)' }}>
+      <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/40">
         <div className="flex items-center gap-2">
           <Palette size={14} className="text-accent" />
           <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">Theme</h2>
