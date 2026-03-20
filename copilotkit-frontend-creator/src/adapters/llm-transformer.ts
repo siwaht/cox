@@ -35,7 +35,7 @@ You MUST automatically add whatever code is needed so that EVERY frontend block 
 5. AUTOMATICALLY ADD all missing capabilities for every frontend block. Never leave a block unsupported.
 6. EVERY function/class you USE must be IMPORTED. Check every symbol before outputting.
 7. Each import and statement MUST be on its own line. Never put multiple statements on one line.
-8. NEVER use \`from langchain.agents import create_agent\` or \`AgentExecutor\` — these are REMOVED.
+8. NEVER use \`AgentExecutor\` or \`create_tool_calling_agent\` — these are REMOVED.
 9. ALWAYS use \`from langgraph.prebuilt import create_react_agent\` for simple agents.
 10. ALWAYS use \`graph=\` (NOT \`agent=\`) as the parameter name in LangGraphAGUIAgent.
 11. ALWAYS use \`LangGraphAGUIAgent\` (NOT \`LangGraphAgent\`).
@@ -43,6 +43,9 @@ You MUST automatically add whatever code is needed so that EVERY frontend block 
 13. Ensure all string literals are properly closed. Check every f-string and triple-quote.
 14. Do NOT add \`if __name__ == "__main__"\` guard around import statements.
 15. Use \`uvicorn.run("agent_server:app", ...)\` NOT \`uvicorn.run(app, ...)\` for reload support.
+16. NEVER compile a checkpointer (MemorySaver, InMemorySaver) into the graph — ag-ui-langgraph manages state externally. Remove any checkpointer= parameter from .compile() calls.
+17. NEVER use \`CopilotKitRemoteEndpoint\` or \`CopilotKitSDK\` — these are deprecated and cause dict_repr errors.
+18. The agent name in LangGraphAGUIAgent MUST be "agent" to match the frontend \`<CopilotKit agent="agent">\` prop.
 
 ## Frontend Block → What YOU Must Add If Missing
 
@@ -82,25 +85,35 @@ def my_tool(query: str) -> str:
     \"\"\"Tool description.\"\"\"
     return "result"
 
+# Pass model as string — LangGraph handles initialization
 graph = create_react_agent("openai:gpt-4o-mini", tools=[my_tool])
+# Do NOT pass checkpointer when using with CopilotKit/ag-ui-langgraph
 \`\`\`
 
 \`\`\`python
 # Custom state graph (for complex workflows)
 from langgraph.graph import StateGraph, MessagesState, START, END
-from langgraph.checkpoint.memory import MemorySaver
 
 builder = StateGraph(MessagesState)
 builder.add_node("agent", agent_node)
 builder.add_edge(START, "agent")
 builder.add_edge("agent", END)
-graph = builder.compile(checkpointer=MemorySaver())
+# IMPORTANT: Do NOT pass checkpointer when using with CopilotKit
+# ag-ui-langgraph manages thread state externally
+graph = builder.compile()
 \`\`\`
 
+CRITICAL — CHECKPOINTER RULE:
+- NEVER compile a checkpointer (MemorySaver, InMemorySaver) into the graph when using ag-ui-langgraph
+- The AG-UI adapter manages thread state externally
+- Baking in a checkpointer causes "thread_id required" errors at runtime
+- If the user's code has \`checkpointer=MemorySaver()\` or \`checkpointer=InMemorySaver()\`, REMOVE IT
+
 DEPRECATED — NEVER USE:
-- \`from langchain.agents import create_agent\` — DOES NOT EXIST
 - \`from langchain.agents import AgentExecutor\` — REMOVED, use create_react_agent
 - \`from langchain.agents import create_tool_calling_agent\` — REMOVED
+- \`MemorySaver\` — renamed to \`InMemorySaver\` in latest langgraph (but don't use either with CopilotKit)
+- \`from copilotkit.integrations.fastapi import add_fastapi_endpoint\` — REMOVED
 
 ### CopilotKit Python SDK — CORRECT API (ag-ui-langgraph)
 \`\`\`python
@@ -117,12 +130,20 @@ add_langgraph_fastapi_endpoint(app=app, agent=agent, path="/copilotkit")
 
 NEVER USE:
 - \`CopilotKitSDK\` — removed
+- \`CopilotKitRemoteEndpoint\` — deprecated, causes dict_repr errors
 - \`LangGraphAgent\` — wrong class, use \`LangGraphAGUIAgent\`
 - \`from copilotkit.integrations.fastapi import add_fastapi_endpoint\` — use ag_ui_langgraph
 
 ### LangChain tools
 - \`from langchain_core.tools import tool\` (preferred)
 - OR \`from langchain.tools import tool\`
+
+### Required Package Versions (MUST be compatible)
+- copilotkit>=0.1.79
+- ag-ui-langgraph[fastapi]>=0.0.26
+- langgraph>=0.3.25,<1.1.0
+- langchain>=0.3.0
+- fastapi>=0.115.0,<1.0.0
 
 ## Required Output Structure (in this exact order)
 1. \`from dotenv import load_dotenv\` + \`load_dotenv()\` (ONCE, at very top)
@@ -570,7 +591,42 @@ function postProcessCode(code: string): string {
     }
   }
 
-  return cleaned.join('\n');
+  // 16. Strip checkpointer from graph compilation — ag-ui-langgraph manages state
+  // This prevents "thread_id required" errors at runtime
+  const cleanedWithCheckpointer: string[] = [];
+  for (const line of cleaned) {
+    // Remove checkpointer= parameter from compile() calls
+    if (/\.compile\(.*checkpointer\s*=/.test(line) && !/^#/.test(line.trim())) {
+      const fixed = line
+        .replace(/,\s*checkpointer\s*=\s*[^,)]+/, '')
+        .replace(/checkpointer\s*=\s*[^,)]+,?\s*/, '');
+      cleanedWithCheckpointer.push(fixed);
+    }
+    // Remove standalone MemorySaver/InMemorySaver instantiation lines
+    else if (/^\s*(memory|checkpointer|saver)\s*=\s*(MemorySaver|InMemorySaver)\(\)/.test(line)) {
+      cleanedWithCheckpointer.push(`# ${line.trim()}  # Removed: ag-ui-langgraph manages state`);
+    }
+    // Comment out MemorySaver/InMemorySaver imports (don't remove — might confuse)
+    else if (/from\s+langgraph\.checkpoint\.memory\s+import\s+(MemorySaver|InMemorySaver)/.test(line) && !/^#/.test(line.trim())) {
+      cleanedWithCheckpointer.push(`# ${line.trim()}  # Not needed with ag-ui-langgraph`);
+    }
+    else {
+      cleanedWithCheckpointer.push(line);
+    }
+  }
+
+  // 17. Fix MemorySaver references to InMemorySaver (for any remaining standalone usage)
+  const finalLines = cleanedWithCheckpointer.map((l) => {
+    if (/\bMemorySaver\b/.test(l) && !/InMemorySaver/.test(l) && !/^#/.test(l.trim())) {
+      return l.replace(/\bMemorySaver\b/g, 'InMemorySaver');
+    }
+    return l;
+  });
+
+  // 18. Fix: ensure CopilotKitRemoteEndpoint references are removed
+  const withoutRemoteEndpoint = finalLines.filter((l) => !/CopilotKitRemoteEndpoint/.test(l) || /^#/.test(l.trim()));
+
+  return withoutRemoteEndpoint.join('\n');
 }
 function parseResponse(raw: string): LLMTransformResult {
   // Strip markdown fences if present
@@ -625,7 +681,7 @@ function parseResponse(raw: string): LLMTransformResult {
     code: code + '\n',
     runtime: (meta.runtime as string) || 'langchain',
     warnings: allWarnings,
-    deps: (meta.deps as string[]) || ['fastapi', 'uvicorn[standard]', 'copilotkit', 'ag-ui-langgraph', 'python-dotenv', 'langchain', 'langchain-openai', 'langgraph'],
+    deps: (meta.deps as string[]) || ['fastapi>=0.115.0', 'uvicorn[standard]>=0.30.0', 'copilotkit>=0.1.79', 'ag-ui-langgraph[fastapi]>=0.0.26', 'python-dotenv>=1.0.0', 'langchain>=0.3.0', 'langchain-openai>=0.3.0', 'langgraph>=0.3.25,<1.1.0'],
     runCommand: (meta.runCommand as string) || 'uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload',
     explanation: (meta.explanation as string) || '',
   };

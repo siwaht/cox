@@ -97,13 +97,14 @@ add_langgraph_fastapi_endpoint(app=app, agent=agent, path="/copilotkit")
 \`\`\`
 
 ### IMPORTANT: Checkpointer Handling
-Do NOT compile a checkpointer (MemorySaver) into the graph when using
+Do NOT compile a checkpointer (MemorySaver / InMemorySaver) into the graph when using
 ag-ui-langgraph. The AG-UI adapter manages thread state externally.
 Baking in a checkpointer causes "thread_id required" errors.
 
 \`\`\`python
 # WRONG — causes errors with ag-ui-langgraph
-graph = create_react_agent("openai:gpt-4o-mini", tools=[...], checkpointer=MemorySaver())
+from langgraph.checkpoint.memory import InMemorySaver
+graph = create_react_agent("openai:gpt-4o-mini", tools=[...], checkpointer=InMemorySaver())
 
 # CORRECT — let ag-ui-langgraph handle state
 graph = create_react_agent("openai:gpt-4o-mini", tools=[...])
@@ -113,6 +114,16 @@ graph = create_react_agent("openai:gpt-4o-mini", tools=[...])
 - \`CopilotKitSDK\` — removed from SDK
 - \`CopilotKitRemoteEndpoint\` — deprecated, use add_langgraph_fastapi_endpoint
 - \`LangGraphAgent\` — use LangGraphAGUIAgent instead
+- \`from copilotkit.integrations.fastapi import add_fastapi_endpoint\` — use ag_ui_langgraph
+- \`MemorySaver\` — renamed to \`InMemorySaver\` in latest langgraph
+
+### Version Requirements
+\`\`\`
+copilotkit>=0.1.79
+ag-ui-langgraph[fastapi]>=0.0.26
+langgraph>=0.3.25,<1.1.0
+langchain>=0.3.0
+\`\`\`
 
 ### Frontend React Setup
 \`\`\`tsx
@@ -231,6 +242,12 @@ compiled = graph.compile(checkpointer=memory)
 When serving via ag-ui-langgraph (CopilotKit), do NOT compile a
 checkpointer into the graph. The AG-UI adapter manages thread state.
 Only use checkpointer for standalone LangGraph usage or human-in-the-loop.
+
+### Version Requirements
+\`\`\`
+langgraph>=0.3.25,<1.1.0
+langchain-openai>=0.3.0
+\`\`\`
 
 ### With CopilotKit
 \`\`\`python
