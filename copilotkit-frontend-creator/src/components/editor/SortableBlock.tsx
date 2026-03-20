@@ -1,52 +1,209 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import type { BlockConfig } from '@/types/blocks';
 import { getBlockDefinition } from '@/registry/block-registry';
-import { GripVertical, X, Eye, EyeOff, ChevronLeft, ChevronRight, Copy, MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText, Activity, FileInput, Table, BarChart3, LayoutDashboard, Layers, PanelTop, FileText, GitBranch, ThumbsUp, Database, ClipboardList, Brain, Network, Gauge } from 'lucide-react';
+import {
+  GripVertical, X, Eye, EyeOff, ChevronLeft, ChevronRight, ChevronDown, ChevronUp,
+  Copy, Minimize2, Maximize2,
+  MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText, Activity,
+  FileInput, Table, BarChart3, LayoutDashboard, Layers, PanelTop, FileText,
+  GitBranch, ThumbsUp, Database, ClipboardList, Brain, Network, Gauge,
+} from 'lucide-react';
 
-const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = { MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText, Activity, FileInput, Table, BarChart3, LayoutDashboard, Layers, PanelTop, FileText, GitBranch, ThumbsUp, Database, ClipboardList, Brain, Network, Gauge };
+const ICON_MAP: Record<string, React.FC<{ size?: number; className?: string }>> = {
+  MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText, Activity,
+  FileInput, Table, BarChart3, LayoutDashboard, Layers, PanelTop, FileText,
+  GitBranch, ThumbsUp, Database, ClipboardList, Brain, Network, Gauge,
+};
 
-interface Props { block: BlockConfig; isSelected: boolean; isMultiSelected?: boolean; isNew?: boolean; onSelect: (e?: React.MouseEvent) => void; onRemove: () => void; }
+interface Props {
+  block: BlockConfig;
+  isSelected: boolean;
+  isMultiSelected?: boolean;
+  isNew?: boolean;
+  onSelect: (e?: React.MouseEvent) => void;
+  onRemove: () => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
+}
 
-export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSelect, onRemove }) => {
+export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSelect, onRemove, onDragStart, onDragEnd }) => {
   const { updateBlock, resizeBlock, duplicateBlock } = useWorkspaceStore();
   const def = getBlockDefinition(block.type);
   const Icon = def ? ICON_MAP[def.icon] || FileText : FileText;
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(block.label);
+  const [isDragging, setIsDragging] = useState(false);
   const renameRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (isRenaming && renameRef.current) { renameRef.current.focus(); renameRef.current.select(); } }, [isRenaming]);
-  const commitRename = () => { const t = renameValue.trim(); if (t && t !== block.label) updateBlock(block.id, { label: t }); else setRenameValue(block.label); setIsRenaming(false); };
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: block.id });
+  const collapsed = block.collapsed ?? false;
+
+  useEffect(() => {
+    if (isRenaming && renameRef.current) {
+      renameRef.current.focus();
+      renameRef.current.select();
+    }
+  }, [isRenaming]);
+
+  const commitRename = () => {
+    const t = renameValue.trim();
+    if (t && t !== block.label) updateBlock(block.id, { label: t });
+    else setRenameValue(block.label);
+    setIsRenaming(false);
+  };
+
+  const toggleCollapse = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateBlock(block.id, { collapsed: !collapsed });
+  };
+
+  const handleNativeDragStart = (e: React.DragEvent) => {
+    e.dataTransfer.setData('application/block-id', block.id);
+    e.dataTransfer.effectAllowed = 'move';
+    setIsDragging(true);
+    onDragStart?.();
+  };
+
+  const handleNativeDragEnd = () => {
+    setIsDragging(false);
+    onDragEnd?.();
+  };
+
   const gridCol = `span ${block.w}`;
-  const minH = `${block.h * 40}px`;
-  const cls = ['relative rounded-xl border-2 transition-all group cursor-pointer', isDragging ? 'z-10 drag-overlay' : '', isNew ? 'animate-block-in' : '', isSelected ? 'border-accent bg-accent/5 shadow-lg shadow-accent/5' : 'border-border/60 bg-surface-raised hover:border-txt-faint', !block.visible ? 'opacity-40' : ''].filter(Boolean).join(' ');
+  const minH = collapsed ? 'auto' : `${block.h * 40}px`;
+
+  const cls = [
+    'relative rounded-xl border-2 transition-all group cursor-pointer',
+    isDragging ? 'z-10 opacity-40 drag-overlay' : '',
+    isNew ? 'animate-block-in' : '',
+    isSelected
+      ? 'border-accent bg-accent/5 shadow-lg shadow-accent/5'
+      : 'border-border/60 bg-surface-raised hover:border-txt-faint',
+    !block.visible ? 'opacity-40' : '',
+  ].filter(Boolean).join(' ');
 
   return (
-    <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, gridColumn: gridCol, opacity: isDragging ? 0.4 : 1 }} onClick={onSelect} className={cls}>
+    <div
+      style={{ gridColumn: gridCol, opacity: isDragging ? 0.4 : 1 }}
+      onClick={onSelect}
+      className={cls}
+      draggable
+      onDragStart={handleNativeDragStart}
+      onDragEnd={handleNativeDragEnd}
+    >
+      {/* Header bar */}
       <div className="flex items-center justify-between px-3 py-2 border-b border-border/40">
         <div className="flex items-center gap-2 min-w-0">
-          <button {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded text-txt-faint hover:text-txt-secondary hover:bg-surface-overlay touch-manipulation" aria-label="Drag to reorder"><GripVertical size={14} /></button>
+          <div
+            className="cursor-grab active:cursor-grabbing p-1 -ml-1 rounded text-txt-faint hover:text-txt-secondary hover:bg-surface-overlay touch-manipulation"
+            aria-label="Drag to reorder"
+          >
+            <GripVertical size={14} />
+          </div>
           <Icon size={14} className="text-accent shrink-0" />
           {isRenaming ? (
-            <input ref={renameRef} value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onBlur={commitRename} onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setRenameValue(block.label); setIsRenaming(false); } }} onClick={(e) => e.stopPropagation()} className="text-xs font-medium text-txt-primary bg-transparent border-b border-accent outline-none px-0 py-0 w-24" />
+            <input
+              ref={renameRef}
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename();
+                if (e.key === 'Escape') { setRenameValue(block.label); setIsRenaming(false); }
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-medium text-txt-primary bg-transparent border-b border-accent outline-none px-0 py-0 w-24"
+            />
           ) : (
-            <span className="text-xs font-medium text-txt-secondary truncate cursor-text" onDoubleClick={(e) => { e.stopPropagation(); setRenameValue(block.label); setIsRenaming(true); }} title="Double-click to rename">{block.label}</span>
+            <span
+              className="text-xs font-medium text-txt-secondary truncate cursor-text"
+              onDoubleClick={(e) => { e.stopPropagation(); setRenameValue(block.label); setIsRenaming(true); }}
+              title="Double-click to rename"
+            >
+              {block.label}
+            </span>
           )}
+          <span className="text-2xs text-txt-ghost tabular-nums shrink-0">{block.w}/12</span>
         </div>
         <div className="flex items-center gap-0.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-          <button onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.max(2, block.w - 1), block.h); }} className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay" title="Narrower"><ChevronLeft size={12} /></button>
-          <span className="text-2xs text-txt-faint text-center tabular-nums whitespace-nowrap">{block.w}<span className="text-txt-ghost">/12</span></span>
-          <button onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.min(12, block.w + 1), block.h); }} className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay" title="Wider"><ChevronRight size={12} /></button>
+          {/* Collapse/Expand toggle */}
+          <button
+            onClick={toggleCollapse}
+            className="p-1 text-txt-faint hover:text-accent rounded hover:bg-accent-soft transition-colors"
+            title={collapsed ? 'Expand block' : 'Collapse block'}
+            aria-label={collapsed ? 'Expand block' : 'Collapse block'}
+          >
+            {collapsed ? <Maximize2 size={12} /> : <Minimize2 size={12} />}
+          </button>
           <div className="w-px h-3 bg-border/50 mx-0.5" />
-          <button onClick={(e) => { e.stopPropagation(); duplicateBlock(block.id); }} className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay" title="Duplicate"><Copy size={12} /></button>
-          <button onClick={(e) => { e.stopPropagation(); updateBlock(block.id, { visible: !block.visible }); }} className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay" title={block.visible ? 'Hide' : 'Show'}>{block.visible ? <Eye size={12} /> : <EyeOff size={12} />}</button>
-          <button onClick={(e) => { e.stopPropagation(); onRemove(); }} className="p-1 text-txt-faint hover:text-danger rounded hover:bg-danger-soft" title="Remove"><X size={12} /></button>
+          {/* Width controls */}
+          <button
+            onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.max(2, block.w - 1), block.h); }}
+            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
+            title="Narrower"
+          >
+            <ChevronLeft size={12} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, Math.min(12, block.w + 1), block.h); }}
+            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
+            title="Wider"
+          >
+            <ChevronRight size={12} />
+          </button>
+          <div className="w-px h-3 bg-border/50 mx-0.5" />
+          {/* Height controls (only when not collapsed) */}
+          {!collapsed && (
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, block.w, Math.max(1, block.h - 1)); }}
+                className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
+                title="Shorter"
+              >
+                <ChevronUp size={12} />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); resizeBlock(block.id, block.w, Math.min(8, block.h + 1)); }}
+                className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
+                title="Taller"
+              >
+                <ChevronDown size={12} />
+              </button>
+              <div className="w-px h-3 bg-border/50 mx-0.5" />
+            </>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); duplicateBlock(block.id); }}
+            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
+            title="Duplicate"
+          >
+            <Copy size={12} />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); updateBlock(block.id, { visible: !block.visible }); }}
+            className="p-1 text-txt-faint hover:text-txt-secondary rounded hover:bg-surface-overlay"
+            title={block.visible ? 'Hide' : 'Show'}
+          >
+            {block.visible ? <Eye size={12} /> : <EyeOff size={12} />}
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="p-1 text-txt-faint hover:text-danger rounded hover:bg-danger-soft"
+            title="Remove"
+          >
+            <X size={12} />
+          </button>
         </div>
       </div>
-      <div className="px-3 py-3 flex flex-col items-center justify-center" style={{ minHeight: minH }}><BlockMiniPreview type={block.type} /></div>
+
+      {/* Content area - collapsible */}
+      {!collapsed && (
+        <div
+          className="px-3 py-3 flex flex-col items-center justify-center transition-all duration-200"
+          style={{ minHeight: minH }}
+        >
+          <BlockMiniPreview type={block.type} />
+        </div>
+      )}
     </div>
   );
 };

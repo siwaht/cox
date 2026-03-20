@@ -275,6 +275,20 @@ const BlockProperties: React.FC<{
         </label>
       </Field>
 
+      <Field label="Collapsed">
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          <div onClick={() => onUpdate(block.id, { collapsed: !block.collapsed })}
+            className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${
+              block.collapsed ? 'bg-accent' : 'bg-txt-ghost'
+            }`}>
+            <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+              block.collapsed ? 'translate-x-4' : 'translate-x-0'
+            }`} />
+          </div>
+          <span className="text-xs text-txt-secondary">{block.collapsed ? 'Collapsed' : 'Expanded'}</span>
+        </label>
+      </Field>
+
       {/* Friendly block-specific settings */}
       <FriendlyBlockProps block={block} onUpdate={onUpdate} />
 

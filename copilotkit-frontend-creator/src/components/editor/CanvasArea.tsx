@@ -2,12 +2,10 @@ import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react'
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { SortableBlock } from './SortableBlock';
 import { TemplatePicker } from './TemplatePicker';
-import { Layers, Undo2, Redo2, Plus, Plug, Eye, Grid3x3, Hash } from 'lucide-react';
+import { Layers, Undo2, Redo2, Plus, Plug, Eye, Grid3x3, Hash, Columns } from 'lucide-react';
 import type { BlockConfig, BlockType } from '@/types/blocks';
 
 const GRID_COLS = 12;
-const ROW_HEIGHT = 80; // px per grid row
-const GAP = 10; // px gap between cells
 
 interface Props {
   selectedBlockId: string | null;
@@ -16,27 +14,11 @@ interface Props {
 }
 
 export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, isOverCanvas }) => {
-  const { workspace, removeBlock, addBlock, undo, redo, canUndo, canRedo, selectedBlockIds, selectBlock, clearSelection } = useWorkspaceStore();
+  const { workspace, removeBlock, addBlock, undo, redo, canUndo, canRedo, selectedBlockIds, selectBlock, clearSelection, reorderBlocks, moveBlock, resizeBlock } = useWorkspaceStore();
   const [showGrid, setShowGrid] = useState(false);
   const [newBlockId, setNewBlockId] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(960);
-
-  // Measure container width for grid calculations
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        setContainerWidth(entry.contentRect.width);
-      }
-    });
-    observer.observe(el);
-    setContainerWidth(el.clientWidth);
-    return () => observer.disconnect();
-  }, []);
-
-  const colWidth = (containerWidth - (GRID_COLS - 1) * GAP) / GRID_COLS;
+  const [dropTarget, setDropTarget] = useState<{ rowIdx: number; position: 'before' | 'after' | 'into' } | null>(null);
+  const [draggedBlockId, setDraggedBlockId] = useState<string | null>(null);
 
   // Track newly added blocks for entrance animation
   const blockCount = workspace.blocks.length;
@@ -53,6 +35,9 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
     }
     prevCountRef.current = blockCount;
   }, [blockCount, workspace.blocks, onSelectBlock]);
+
+  // Group blocks into visual rows based on y coordinate
+  const rows = useMemo(() => computeVisualRows(workspace.blocks), [workspace.blocks]);
 
   const handleRemove = useCallback((id: string) => {
     removeBlock(id);
@@ -83,6 +68,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
     if (blockType) {
       addBlock(blockType as BlockType);
     }
+    setDropTarget(null);
   }, [addBlock]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
@@ -90,13 +76,53 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
     e.dataTransfer.dropEffect = 'copy';
   }, []);
 
-  // Compute total grid height from blocks
-  const totalRows = useMemo(() => {
-    if (workspace.blocks.length === 0) return 4;
-    return Math.max(4, ...workspace.blocks.map(b => b.y + b.h)) + 2; // +2 for breathing room
-  }, [workspace.blocks]);
+  // Internal block drag handlers
+  const handleBlockDragStart = useCallback((blockId: string) => {
+    setDraggedBlockId(blockId);
+  }, []);
 
-  const canvasHeight = totalRows * ROW_HEIGHT + (totalRows - 1) * GAP;
+  const handleBlockDragEnd = useCallback(() => {
+    if (draggedBlockId && dropTarget) {
+      const block = workspace.blocks.find(b => b.id === draggedBlockId);
+      if (block) {
+        const targetRow = rows[dropTarget.rowIdx];
+        if (dropTarget.position === 'into' && targetRow) {
+          // Merge into existing row: set y to match the row, find x position
+          const rowY = targetRow[0].y;
+          const usedCols = targetRow.reduce((sum, b) => sum + b.w, 0);
+          const remainingCols = GRID_COLS - usedCols;
+          const newW = Math.min(block.w, Math.max(2, remainingCols));
+          const newX = usedCols;
+          moveBlock(block.id, newX, rowY);
+          if (newW !== block.w) resizeBlock(block.id, newW, block.h);
+        } else if (dropTarget.position === 'before' || dropTarget.position === 'after') {
+          // Reorder: shift block to new row position
+          const targetRowY = dropTarget.position === 'before'
+            ? (rows[dropTarget.rowIdx]?.[0]?.y ?? 0)
+            : (rows[dropTarget.rowIdx]?.[0]?.y ?? 0) + 1;
+          
+          // Shift all blocks at or after targetRowY down by block.h to make room
+          const blocksToShift = workspace.blocks.filter(b => b.id !== block.id && b.y >= targetRowY);
+          blocksToShift.forEach(b => moveBlock(b.id, b.x, b.y + block.h));
+          moveBlock(block.id, 0, targetRowY);
+        }
+      }
+    }
+    setDraggedBlockId(null);
+    setDropTarget(null);
+  }, [draggedBlockId, dropTarget, workspace.blocks, rows, moveBlock, resizeBlock]);
+
+  // Row-level drop zone handlers
+  const handleRowDragOver = useCallback((e: React.DragEvent, rowIdx: number, position: 'before' | 'after' | 'into') => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTarget({ rowIdx, position });
+  }, []);
+
+  const handleRowDragLeave = useCallback(() => {
+    setDropTarget(null);
+  }, []);
 
   // Row usage info
   const rowInfo = useMemo(() => computeRows(workspace.blocks), [workspace.blocks]);
@@ -162,7 +188,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
           </button>
 
           <span className="text-2xs text-txt-ghost hidden sm:inline">
-            <Hash size={10} className="inline mr-0.5" />{workspace.blocks.length} blocks · {rowInfo.rows} row{rowInfo.rows !== 1 ? 's' : ''}
+            <Hash size={10} className="inline mr-0.5" />{workspace.blocks.length} blocks · {rows.length} row{rows.length !== 1 ? 's' : ''}
           </span>
 
           {selectedBlockIds.size > 1 && (
@@ -174,54 +200,105 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
         <RowUsageSummary rowInfo={rowInfo} />
       </div>
 
-      {/* Grid container */}
-      <div
-        ref={containerRef}
-        className="max-w-5xl mx-auto relative"
-        style={{ height: canvasHeight }}
-        data-canvas-bg
-      >
+      {/* Grid rows container */}
+      <div className="max-w-5xl mx-auto space-y-2" data-canvas-bg>
         {/* 12-column grid overlay */}
         {showGrid && (
-          <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 0 }}>
-            {Array.from({ length: GRID_COLS }).map((_, i) => {
-              const left = i * (colWidth + GAP);
-              return (
-                <div
-                  key={i}
-                  className="absolute top-0 bottom-0 bg-accent/[0.03] border-x border-accent/[0.06] rounded-sm"
-                  style={{ left, width: colWidth }}
-                >
+          <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none max-w-5xl mx-auto px-4 sm:px-6" style={{ zIndex: 0 }}>
+            <div className="grid grid-cols-12 gap-2.5 h-full">
+              {Array.from({ length: GRID_COLS }).map((_, i) => (
+                <div key={i} className="bg-accent/[0.03] border-x border-accent/[0.06] rounded-sm relative">
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 text-[9px] text-accent/20 font-mono">{i + 1}</span>
                 </div>
-              );
-            })}
-            {/* Row lines */}
-            {Array.from({ length: totalRows }).map((_, i) => {
-              const top = i * (ROW_HEIGHT + GAP);
-              return (
-                <div
-                  key={`row-${i}`}
-                  className="absolute left-0 right-0 border-t border-accent/[0.04]"
-                  style={{ top }}
-                />
-              );
-            })}
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Blocks */}
-        {workspace.blocks.map((block) => (
-          <SortableBlock
-            key={block.id}
-            block={block}
-            isSelected={selectedBlockId === block.id || selectedBlockIds.has(block.id)}
-            isMultiSelected={selectedBlockIds.has(block.id) && selectedBlockIds.size > 1}
-            isNew={newBlockId === block.id}
-            onSelect={(e?: React.MouseEvent) => handleBlockClick(block.id, e)}
-            onRemove={() => handleRemove(block.id)}
-          />
-        ))}
+        {rows.map((rowBlocks, rowIdx) => {
+          const rowUsed = rowBlocks.reduce((sum, b) => sum + b.w, 0);
+          const canFitMore = rowUsed < GRID_COLS;
+          const isDropBefore = dropTarget?.rowIdx === rowIdx && dropTarget.position === 'before';
+          const isDropInto = dropTarget?.rowIdx === rowIdx && dropTarget.position === 'into';
+          const isDropAfter = dropTarget?.rowIdx === rowIdx && dropTarget.position === 'after';
+
+          return (
+            <div key={rowBlocks.map(b => b.id).join('-')} className="relative">
+              {/* Drop indicator: before this row */}
+              <div
+                className={`h-1 rounded-full mx-2 mb-1 transition-all duration-150 ${
+                  isDropBefore ? 'bg-accent/60 scale-y-150' : 'bg-transparent'
+                }`}
+                onDragOver={(e) => handleRowDragOver(e, rowIdx, 'before')}
+                onDragLeave={handleRowDragLeave}
+                onDrop={handleBlockDragEnd}
+                style={{ minHeight: draggedBlockId ? '8px' : '2px' }}
+              />
+
+              {/* Row container with CSS Grid */}
+              <div
+                className={`grid gap-2.5 transition-all duration-150 ${
+                  isDropInto ? 'ring-2 ring-accent/40 ring-offset-2 ring-offset-surface rounded-xl' : ''
+                }`}
+                style={{ gridTemplateColumns: `repeat(${GRID_COLS}, 1fr)` }}
+                onDragOver={(e) => {
+                  if (canFitMore && draggedBlockId) handleRowDragOver(e, rowIdx, 'into');
+                }}
+                onDragLeave={handleRowDragLeave}
+                onDrop={handleBlockDragEnd}
+              >
+                {rowBlocks.map((block) => (
+                  <SortableBlock
+                    key={block.id}
+                    block={block}
+                    isSelected={selectedBlockId === block.id || selectedBlockIds.has(block.id)}
+                    isMultiSelected={selectedBlockIds.has(block.id) && selectedBlockIds.size > 1}
+                    isNew={newBlockId === block.id}
+                    onSelect={(e?: React.MouseEvent) => handleBlockClick(block.id, e)}
+                    onRemove={() => handleRemove(block.id)}
+                    onDragStart={() => handleBlockDragStart(block.id)}
+                    onDragEnd={handleBlockDragEnd}
+                  />
+                ))}
+
+                {/* Empty space indicator in row */}
+                {canFitMore && (
+                  <div
+                    className="rounded-xl border-2 border-dashed border-border/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity cursor-default"
+                    style={{ gridColumn: `span ${GRID_COLS - rowUsed}` }}
+                    onDragOver={(e) => handleRowDragOver(e, rowIdx, 'into')}
+                    onDragLeave={handleRowDragLeave}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const blockType = e.dataTransfer.getData('application/block-type');
+                      if (blockType) {
+                        addBlock(blockType as BlockType);
+                      }
+                      handleBlockDragEnd();
+                    }}
+                  >
+                    <span className="text-2xs text-txt-ghost flex items-center gap-1">
+                      <Columns size={10} /> {GRID_COLS - rowUsed} cols free
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Drop indicator: after this row */}
+              {rowIdx === rows.length - 1 && (
+                <div
+                  className={`h-1 rounded-full mx-2 mt-1 transition-all duration-150 ${
+                    isDropAfter ? 'bg-accent/60 scale-y-150' : 'bg-transparent'
+                  }`}
+                  onDragOver={(e) => handleRowDragOver(e, rowIdx, 'after')}
+                  onDragLeave={handleRowDragLeave}
+                  onDrop={handleBlockDragEnd}
+                  style={{ minHeight: draggedBlockId ? '8px' : '2px' }}
+                />
+              )}
+            </div>
+          );
+        })}
       </div>
 
       {/* Drop hint when dragging from palette */}
@@ -238,6 +315,25 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
 };
 
 
+// ─── Group blocks into visual rows by y coordinate ───
+function computeVisualRows(blocks: BlockConfig[]): BlockConfig[][] {
+  if (blocks.length === 0) return [];
+  const sorted = [...blocks].sort((a, b) => a.y - b.y || a.x - b.x);
+  const rowMap = new Map<number, BlockConfig[]>();
+  for (const block of sorted) {
+    const existing = rowMap.get(block.y);
+    if (existing) {
+      existing.push(block);
+    } else {
+      rowMap.set(block.y, [block]);
+    }
+  }
+  // Sort rows by y, then sort blocks within each row by x
+  return Array.from(rowMap.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, blocks]) => blocks.sort((a, b) => a.x - b.x));
+}
+
 // ─── Row computation ───
 interface RowInfo {
   rows: number;
@@ -247,20 +343,10 @@ interface RowInfo {
 
 function computeRows(blocks: BlockConfig[]): RowInfo {
   if (blocks.length === 0) return { rows: 0, totalUsed: 0, rowWidths: [] };
-  const maxRow = Math.max(...blocks.map(b => b.y + b.h));
+  const visualRows = computeVisualRows(blocks);
   const totalUsed = blocks.reduce((sum, b) => sum + b.w * b.h, 0);
-  // Compute how much of each row is used
-  const rowWidths: number[] = [];
-  for (let r = 0; r < maxRow; r++) {
-    let used = 0;
-    for (const b of blocks) {
-      if (r >= b.y && r < b.y + b.h) {
-        used += b.w;
-      }
-    }
-    rowWidths.push(Math.min(used, 12));
-  }
-  return { rows: maxRow, totalUsed, rowWidths };
+  const rowWidths = visualRows.map(row => Math.min(row.reduce((sum, b) => sum + b.w, 0), 12));
+  return { rows: visualRows.length, totalUsed, rowWidths };
 }
 
 const RowUsageSummary: React.FC<{ rowInfo: RowInfo }> = ({ rowInfo }) => {

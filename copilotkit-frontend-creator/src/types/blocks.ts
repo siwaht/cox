@@ -40,6 +40,8 @@ export interface BlockConfig {
   props: Record<string, unknown>;
   /** Whether this block is visible */
   visible: boolean;
+  /** Whether this block content is collapsed (header only) */
+  collapsed?: boolean;
 }
 
 export interface BlockDefinition {

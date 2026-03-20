@@ -242,6 +242,20 @@ select.ck-input {
   animation: blockSlideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* Block collapse/expand transition */
+.block-content-collapse {
+  overflow: hidden;
+  transition: max-height 0.2s ease, opacity 0.15s ease;
+}
+
+/* Row drop target highlight */
+.row-drop-target {
+  outline: 2px dashed rgba(139, 92, 246, 0.5);
+  outline-offset: 4px;
+  border-radius: 12px;
+  background: rgba(139, 92, 246, 0.03);
+}
+
 @keyframes blockSlideIn {
   from {
     opacity: 0;
