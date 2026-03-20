@@ -291,8 +291,10 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           },
         })),
 
-      moveBlock: (id, x, y) =>
-        set((s) => ({
+      moveBlock: (id, x, y) => {
+        const s = get();
+        set({
+          ...pushUndo(s),
           workspace: {
             ...s.workspace,
             blocks: s.workspace.blocks.map((b) =>
@@ -300,7 +302,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             ),
             updatedAt: new Date().toISOString(),
           },
-        })),
+        });
+      },
 
       resizeBlock: (id, w, h) => {
         const s = get();
@@ -341,14 +344,17 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           },
         })),
 
-      updateWorkspace: (patch) =>
-        set((s) => ({
+      updateWorkspace: (patch) => {
+        const s = get();
+        set({
+          ...pushUndo(s),
           workspace: {
             ...s.workspace,
             ...patch,
             updatedAt: new Date().toISOString(),
           },
-        })),
+        });
+      },
 
       resetWorkspace: () =>
         set({
