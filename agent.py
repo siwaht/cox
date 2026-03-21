@@ -4,6 +4,8 @@ to /copilotkit on startup.
 
 Uses deepagents.create_deep_agent with CopilotKitMiddleware so the
 agent speaks the AG-UI protocol that CopilotKit React SDK expects.
+
+Reference: https://docs.copilotkit.ai/integrations/langgraph/deep-agents
 """
 
 import os
@@ -15,6 +17,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from langchain_core.tools import tool
 from deepagents import create_deep_agent
 from copilotkit import CopilotKitMiddleware
+from langgraph.checkpoint.memory import MemorySaver
 
 
 @tool
@@ -26,7 +29,10 @@ def get_weather(city: str) -> str:
 @tool
 def search_web(query: str) -> str:
     """Search the web for information about a topic."""
-    return f"Search results for '{query}': This is a placeholder. Connect a real search API for production use."
+    return (
+        f"Search results for '{query}': This is a placeholder. "
+        "Connect a real search API for production use."
+    )
 
 
 MODEL = os.getenv("AGENT_MODEL", "openai:gpt-4o-mini")
@@ -38,14 +44,12 @@ _api_key = (
 )
 
 if not _api_key:
-    print("⚠ No LLM API key found. Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY in .env")
+    print(
+        "⚠ No LLM API key found. "
+        "Set OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_API_KEY in .env"
+    )
     graph = None
 else:
-    # create_deep_agent handles model initialization internally when given
-    # a "provider:model" string.  CopilotKitMiddleware lets the React SDK
-    # communicate with the agent over the AG-UI protocol.
-    # NOTE: Do NOT pass a checkpointer here — ag-ui-langgraph manages
-    # thread state externally and will conflict with a pre-compiled one.
     graph = create_deep_agent(
         model=MODEL,
         tools=[get_weather, search_web],
@@ -55,5 +59,6 @@ else:
             "questions accurately. Always explain your reasoning and provide "
             "clear, structured responses."
         ),
+        checkpointer=MemorySaver(),
     )
     print(f"✓ Agent graph created with model={MODEL}")

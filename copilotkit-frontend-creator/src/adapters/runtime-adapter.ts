@@ -48,7 +48,9 @@ export function buildRuntimeConfig(profile: ConnectionProfile): RuntimeConfig {
       headers,
       properties: {
         runtime: 'deepagents',
-        'agent-id': profile.agentId || 'default',
+        // Deep agents use the same AG-UI protocol as langgraph.
+        // The agent name must match what's registered on the backend.
+        'langgraph-agent-id': profile.agentId || 'agent',
         ...(profile.env || {}),
       },
     }),
