@@ -10,7 +10,8 @@ import { getCompatibleBlocks } from '@/adapters/runtime-adapter';
 import { useMockPreview } from '@/hooks/useMockPreview';
 import { DEFAULT_THEME } from '@/types/workspace';
 import type { ThemeConfig } from '@/types/workspace';
-import { AlertTriangle, Wifi, Loader2, Monitor, Tablet, Smartphone, Eye } from 'lucide-react';
+import { AlertTriangle, Wifi, Loader2, Monitor, Tablet, Smartphone, Eye, Plug } from 'lucide-react';
+import { AgentHub } from '@/components/connections/AgentHub';
 
 type ViewportSize = 'desktop' | 'tablet' | 'mobile';
 
@@ -24,6 +25,7 @@ export const PreviewView: React.FC = () => {
   const { workspace } = useWorkspaceStore();
   const { activeConnectionId, connections, validationResult, connectionStatus } = useConnectionStore();
   const [viewport, setViewport] = useState<ViewportSize>('desktop');
+  const [showAgentHub, setShowAgentHub] = useState(false);
 
   // Inject mock data when previewing without a connection
   useMockPreview();
@@ -78,7 +80,13 @@ export const PreviewView: React.FC = () => {
             <>
               <Eye size={12} className="text-accent" />
               <span className="text-accent font-medium">Preview with sample data</span>
-              <span className="text-txt-faint ml-1">— connect an agent for real responses</span>
+              <button
+                onClick={() => setShowAgentHub(true)}
+                className="ml-2 flex items-center gap-1 px-2.5 py-1 text-2xs bg-accent/10 text-accent
+                           rounded-lg hover:bg-accent/20 transition-colors font-medium"
+              >
+                <Plug size={10} /> Connect Agent
+              </button>
             </>
           )}
         </div>
@@ -125,6 +133,7 @@ export const PreviewView: React.FC = () => {
       ) : (
         previewContent
       )}
+      {showAgentHub && <AgentHub onClose={() => setShowAgentHub(false)} />}
     </div>
   );
 };

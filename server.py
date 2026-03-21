@@ -188,6 +188,100 @@ def mount_agent():
 mount_agent()
 
 
+# ─── Deploy Agent API (write agent.py from frontend) ─────────────────────────
+DEPLOY_ENABLED = os.environ.get("DEPLOY_AGENT_ENABLED", "true").lower() != "false"
+
+if DEPLOY_ENABLED:
+    from pydantic import BaseModel as PydanticBaseModel
+
+    class DeployAgentRequest(PydanticBaseModel):
+        code: str
+        deps: list[str] = []
+        env_vars: dict[str, str] = {}
+
+    @app.post("/api/deploy-agent")
+    async def deploy_agent(req: DeployAgentRequest):
+        """Write agent code to agent.py and reload the agent endpoint."""
+        import subprocess
+
+        agent_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent.py")
+
+        # 1. Write the code
+        try:
+            with open(agent_path, "w", encoding="utf-8") as f:
+                f.write(req.code)
+            logger.info("Wrote %d bytes to agent.py", len(req.code))
+        except Exception as e:
+            return JSONResponse({"error": f"Failed to write agent.py: {e}"}, status_code=500)
+
+        # 2. Write env vars to .env (append, don't overwrite existing)
+        if req.env_vars:
+            env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+            try:
+                existing = {}
+                if os.path.isfile(env_path):
+                    with open(env_path, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line = line.strip()
+                            if line and not line.startswith("#") and "=" in line:
+                                k, v = line.split("=", 1)
+                                existing[k.strip()] = v.strip()
+                # Merge — new values override
+                existing.update(req.env_vars)
+                with open(env_path, "w", encoding="utf-8") as f:
+                    for k, v in existing.items():
+                        f.write(f"{k}={v}\n")
+                # Reload env
+                load_dotenv(env_path, override=True)
+                logger.info("Updated .env with %d vars", len(req.env_vars))
+            except Exception as e:
+                logger.warning("Could not update .env: %s", e)
+
+        # 3. Install extra deps if any
+        if req.deps:
+            try:
+                filtered = [d for d in req.deps if d.strip() and d.strip() not in (
+                    "fastapi", "uvicorn", "copilotkit", "python-dotenv",
+                    "langchain", "langchain-openai", "langchain-core",
+                    "langgraph", "langgraph-checkpoint", "ag-ui-langgraph",
+                )]
+                if filtered:
+                    logger.info("Installing extra deps: %s", filtered)
+                    subprocess.run(
+                        [sys.executable, "-m", "pip", "install", "--quiet"] + filtered,
+                        timeout=120, check=False,
+                    )
+            except Exception as e:
+                logger.warning("Dep install issue: %s", e)
+
+        # 4. Reload the agent module
+        try:
+            # Remove old routes for /copilotkit
+            app.routes[:] = [
+                r for r in app.routes
+                if not (hasattr(r, "path") and "/copilotkit" in str(getattr(r, "path", "")))
+            ]
+            # Clear cached module
+            for mod_name in list(sys.modules.keys()):
+                if mod_name == "agent" or mod_name.startswith("agent."):
+                    del sys.modules[mod_name]
+            # Re-mount
+            mount_agent()
+            return {"status": "ok", "message": "Agent deployed and loaded"}
+        except Exception as e:
+            logger.error("Agent reload failed: %s", e, exc_info=True)
+            return JSONResponse({"error": f"Agent reload failed: {e}"}, status_code=500)
+
+    @app.get("/api/agent-code")
+    async def get_agent_code():
+        """Return the current agent.py source code."""
+        agent_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent.py")
+        if not os.path.isfile(agent_path):
+            return JSONResponse({"code": "", "exists": False})
+        with open(agent_path, "r", encoding="utf-8") as f:
+            return {"code": f.read(), "exists": True}
+
+
 # ─── Fallback /copilotkit if no agent was mounted ────────────────────────────
 _copilotkit_mounted = any(
     hasattr(r, "path") and "/copilotkit" in str(r.path)

@@ -5,7 +5,9 @@ import { ExportModal } from '@/components/publish/ExportModal';
 import { PromptModal } from '@/components/publish/PromptModal';
 import { encodeWorkspaceToUrl } from '@/utils/share-url';
 import { useThemeStore } from '@/store/theme-store';
-import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon, Sparkles, Undo2, Redo2 } from 'lucide-react';
+import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon, Sparkles, Undo2, Redo2, Plug } from 'lucide-react';
+import { AgentHub } from '@/components/connections/AgentHub';
+import { useConnectionStore } from '@/store/connection-store';
 
 export const TopBar: React.FC = () => {
   const { mode, setMode, workspace, updateWorkspace, savedWorkspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace, undo, redo, canUndo, canRedo } = useWorkspaceStore();
@@ -13,6 +15,7 @@ export const TopBar: React.FC = () => {
   const addToast = useToastStore((s) => s.addToast);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
+  const [showAgentHub, setShowAgentHub] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showWorkspaces, setShowWorkspaces] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
@@ -150,6 +153,8 @@ export const TopBar: React.FC = () => {
             <Download size={13} /> Download Project
           </button>
 
+          <AgentHubButton onClick={() => setShowAgentHub(true)} />
+
           <button onClick={() => setShowPromptModal(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-accent/50
                        hover:bg-accent-soft text-accent hover:text-accent transition-all font-medium active:scale-95"
@@ -194,6 +199,13 @@ export const TopBar: React.FC = () => {
             </button>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => { setShowAgentHub(true); setMobileMenuOpen(false); }}
+              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg
+                         border border-accent/50 text-accent hover:bg-accent-soft transition-all font-medium">
+              <Plug size={12} /> Connect Agent
+            </button>
+          </div>
+          <div className="flex gap-2">
             <button onClick={() => { handleSave(); setMobileMenuOpen(false); }}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg
                          border border-border text-txt-muted hover:text-accent hover:border-accent/50 transition-all">
@@ -215,7 +227,29 @@ export const TopBar: React.FC = () => {
 
       {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
       {showPromptModal && <PromptModal onClose={() => setShowPromptModal(false)} />}
+      {showAgentHub && <AgentHub onClose={() => setShowAgentHub(false)} />}
     </>
+  );
+};
+
+const AgentHubButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
+  const { activeConnectionId, connections, connectionStatus } = useConnectionStore();
+  const activeConn = connections.find((c) => c.id === activeConnectionId);
+  const isConnected = activeConn && connectionStatus === 'connected';
+
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-xl border transition-all font-medium active:scale-95 ${
+        isConnected
+          ? 'border-success/40 text-success hover:bg-success/10'
+          : 'border-accent/50 text-accent hover:bg-accent-soft'
+      }`}
+      title={isConnected ? `Connected: ${activeConn.name}` : 'Connect your AI agent'}
+    >
+      <Plug size={13} />
+      {isConnected ? 'Connected' : 'Connect Agent'}
+    </button>
   );
 };
 
