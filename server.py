@@ -115,6 +115,10 @@ async def ok():
     return {"status": "ok"}
 
 
+# ─── Agent registry (populated by mount_agent) ───────────────────────────────
+_mounted_agents: list[dict] = []
+
+
 # ─── Mount your agent ────────────────────────────────────────────────────────
 def mount_agent():
     """Import agent.py and wire the CopilotKit/AG-UI endpoint."""
@@ -163,6 +167,14 @@ def mount_agent():
             agent=ck_agent,
             path="/copilotkit",
         )
+
+        # Register for /copilotkit/info discovery endpoint
+        _mounted_agents.clear()
+        _mounted_agents.append({
+            "name": ck_agent.name,
+            "description": getattr(ck_agent, "description", "A helpful assistant."),
+        })
+
         logger.info("✓ Mounted agent at /copilotkit (ag-ui-langgraph)")
 
     except ImportError as e:
@@ -186,6 +198,20 @@ def mount_agent():
 
 
 mount_agent()
+
+
+# ─── CopilotKit info endpoint (agent discovery) ───────────────────────────────
+# The CopilotKit React SDK (v1.54+) calls POST /copilotkit/info before streaming.
+# ag_ui_langgraph doesn't expose this route, so we add it manually.
+@app.post("/copilotkit/info")
+@app.get("/copilotkit/info")
+async def copilotkit_info():
+    """Return registered agent metadata to the CopilotKit React SDK."""
+    return JSONResponse({
+        "agents": _mounted_agents,
+        "actions": [],
+        "sdkVersion": "0.1.83",
+    })
 
 
 # ─── Deploy Agent API (write agent.py from frontend) ─────────────────────────

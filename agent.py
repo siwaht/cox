@@ -17,7 +17,6 @@ load_dotenv(Path(__file__).parent / ".env")
 from langchain_core.tools import tool
 from deepagents import create_deep_agent
 from copilotkit import CopilotKitMiddleware
-from langgraph.checkpoint.memory import MemorySaver
 
 
 @tool
@@ -59,6 +58,5 @@ else:
             "questions accurately. Always explain your reasoning and provide "
             "clear, structured responses."
         ),
-        checkpointer=MemorySaver(),
     )
     print(f"✓ Agent graph created with model={MODEL}")
