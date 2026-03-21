@@ -12,7 +12,7 @@
       "name": "Local LangChain",
       "frontend": "copilotkit",
       "runtime": "langchain",
-      "baseUrl": "http://localhost:8000",
+      "baseUrl": "http://localhost:8123",
       "auth": { "mode": "none" }
     },
     {

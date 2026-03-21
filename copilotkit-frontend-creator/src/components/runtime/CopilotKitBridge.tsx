@@ -3,6 +3,7 @@ import { CopilotKit } from '@copilotkit/react-core';
 import { useConnectionStore } from '@/store/connection-store';
 import { buildRuntimeConfig } from '@/adapters/runtime-adapter';
 import { BlockErrorBoundary } from './BlockErrorBoundary';
+import { CopilotAgentEventsSync } from '@/hooks/useCopilotAgentEvents';
 
 // Context to let child components know they're inside a live CopilotKit provider
 const CopilotLiveContext = createContext(false);
@@ -21,9 +22,13 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
 
   useEffect(() => {
     if (activeConn) {
-      console.log('[CopilotKitBridge] status=%s, live=%s, url=%s', connectionStatus, isLive, activeConn.baseUrl);
+      console.log(
+        '[CopilotKitBridge] status=%s, live=%s, url=%s',
+        connectionStatus,
+        isLive,
+        activeConn.baseUrl,
+      );
     }
-    // Reset error when connection changes
     setBridgeError(null);
   }, [connectionStatus, isLive, activeConn]);
 
@@ -36,7 +41,8 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
       <>
         <div className="px-4 py-2 bg-danger-soft border-b border-danger/20 text-xs text-danger flex items-center gap-2">
           <span className="line-clamp-2">
-            CopilotKit connection error: {bridgeError.length > 200 ? bridgeError.slice(0, 200) + '…' : bridgeError}
+            CopilotKit connection error:{' '}
+            {bridgeError.length > 200 ? bridgeError.slice(0, 200) + '…' : bridgeError}
           </span>
           <button
             onClick={() => setBridgeError(null)}
@@ -52,15 +58,21 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
 
   const config = buildRuntimeConfig(activeConn);
 
+  // The `agent` prop tells CopilotKit which agent to route to.
+  // For deep agents using AG-UI protocol, this must match the agent name
+  // registered on the backend (e.g. "agent" or "sample_agent").
+  const agentName = activeConn.agentId || 'agent';
+
   return (
     <BlockErrorBoundary blockLabel="CopilotKit Bridge">
       <CopilotKit
         runtimeUrl={config.runtimeUrl}
         headers={config.headers}
         properties={config.properties}
-        agent={activeConn.agentId || 'agent'}
+        agent={agentName}
         showDevConsole={false}
       >
+        <CopilotAgentEventsSync />
         <CopilotLiveContext.Provider value={true}>
           {children}
         </CopilotLiveContext.Provider>

@@ -18,16 +18,21 @@ const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
   const [sending, setSending] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Convert CopilotKit messages to our display format
   const messages: DisplayMessage[] = (visibleMessages || [])
     .filter((m: any) => m.role === 'user' || m.role === 'assistant')
     .map((m: any) => ({
       role: m.role as 'user' | 'assistant',
-      content: typeof m.content === 'string' ? m.content : (m.content?.text || String(m.content || '')),
+      content:
+        typeof m.content === 'string'
+          ? m.content
+          : m.content?.text || String(m.content || ''),
     }));
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [messages.length]);
 
   const handleSend = useCallback(async () => {
@@ -36,7 +41,9 @@ const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
     setInput('');
     setSending(true);
     try {
-      const { TextMessage, MessageRole } = await import('@copilotkit/runtime-client-gql');
+      const { TextMessage, MessageRole } = await import(
+        '@copilotkit/runtime-client-gql'
+      );
       await appendMessage(
         new TextMessage({ content: text, role: MessageRole.User }),
       );
@@ -55,6 +62,7 @@ const LiveChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
       input={input}
       setInput={setInput}
       onSend={handleSend}
+      scrollRef={scrollRef}
     />
   );
 };
@@ -66,7 +74,10 @@ const PreviewChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
 
   const displayMessages: DisplayMessage[] = messages
     .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+    .map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }));
 
   const handleSend = () => {
     if (!input.trim() || isStreaming) return;
@@ -86,6 +97,7 @@ const PreviewChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
   );
 };
 
+
 // ─── Shared Chat UI ───
 const ChatUI: React.FC<{
   block: BlockConfig;
@@ -94,11 +106,16 @@ const ChatUI: React.FC<{
   input: string;
   setInput: (v: string) => void;
   onSend: () => void;
-}> = ({ block, messages, isStreaming, input, setInput, onSend }) => {
-  const scrollRef = useRef<HTMLDivElement>(null);
+  scrollRef?: React.RefObject<HTMLDivElement | null>;
+}> = ({ block, messages, isStreaming, input, setInput, onSend, scrollRef: externalRef }) => {
+  const internalRef = useRef<HTMLDivElement>(null);
+  const scrollRef = externalRef || internalRef;
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: 'smooth',
+    });
   }, [messages.length]);
 
   return (
@@ -109,7 +126,7 @@ const ChatUI: React.FC<{
           <div className="space-y-3 opacity-60">
             {[
               { role: 'user' as const, content: 'Analyze the Q4 sales data and find the top performing regions.' },
-              { role: 'assistant' as const, content: 'I\'ll analyze the Q4 sales data now. Let me pull the regional breakdown and identify the top performers.' },
+              { role: 'assistant' as const, content: "I'll analyze the Q4 sales data now. Let me pull the regional breakdown and identify the top performers." },
               { role: 'user' as const, content: 'Also compare it with Q3 numbers.' },
             ].map((msg, i) => (
               <div key={i} className={`flex gap-2.5 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -192,7 +209,10 @@ export const ChatBlock: React.FC<{ block: BlockConfig }> = ({ block }) => {
 };
 
 export const BlockHeader: React.FC<{ label: string }> = ({ label }) => (
-  <div className="px-3.5 py-2.5 border-b border-border/30 text-xs font-medium text-txt-muted uppercase tracking-wider" style={{ background: 'linear-gradient(180deg, var(--color-surface-overlay), transparent)' }}>
+  <div
+    className="px-3.5 py-2.5 border-b border-border/30 text-xs font-medium text-txt-muted uppercase tracking-wider"
+    style={{ background: 'linear-gradient(180deg, var(--color-surface-overlay), transparent)' }}
+  >
     {label}
   </div>
 );

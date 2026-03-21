@@ -139,10 +139,11 @@ NEVER USE:
 - OR \`from langchain.tools import tool\`
 
 ### Required Package Versions (MUST be compatible)
-- copilotkit>=0.1.79
-- ag-ui-langgraph[fastapi]>=0.0.26
+- copilotkit>=0.1.81
+- ag-ui-langgraph[fastapi]>=0.0.27
 - langgraph>=0.3.25,<1.1.0
-- langchain>=0.3.0
+- langchain>=1.2.0
+- langchain-core>=1.2.20
 - fastapi>=0.115.0,<1.0.0
 
 ## Required Output Structure (in this exact order)
@@ -157,7 +158,7 @@ NEVER USE:
 9. Agent wrapping: \`ck_agent = LangGraphAGUIAgent(name="agent", description="...", graph=<user_graph_var>)\`
 10. Endpoint: \`add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")\`
 11. Health check: \`@app.get("/health")\\ndef health(): return {"status": "ok"}\`
-12. Entrypoint: \`if __name__ == "__main__":\\n    import uvicorn\\n    uvicorn.run("agent_server:app", host="0.0.0.0", port=8000, reload=True)\`
+12. Entrypoint: \`if __name__ == "__main__":\\n    import uvicorn\\n    uvicorn.run("agent_server:app", host="0.0.0.0", port=8123, reload=True)\`
 
 ## Response Format
 After the Python code, add a line "---META---" followed by a JSON object:
@@ -165,7 +166,7 @@ After the Python code, add a line "---META---" followed by a JSON object:
   "runtime": "langchain" | "langgraph" | "langsmith" | "deepagents",
   "warnings": [],
   "deps": ["list", "of", "pip", "packages"],
-  "runCommand": "uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload",
+  "runCommand": "uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload",
   "explanation": "Brief 1-2 sentence summary of what was changed."
 }
 
@@ -681,8 +682,8 @@ function parseResponse(raw: string): LLMTransformResult {
     code: code + '\n',
     runtime: (meta.runtime as string) || 'langchain',
     warnings: allWarnings,
-    deps: (meta.deps as string[]) || ['fastapi>=0.115.0', 'uvicorn[standard]>=0.30.0', 'copilotkit>=0.1.79', 'ag-ui-langgraph[fastapi]>=0.0.26', 'python-dotenv>=1.0.0', 'langchain>=0.3.0', 'langchain-openai>=0.3.0', 'langgraph>=0.3.25,<1.1.0'],
-    runCommand: (meta.runCommand as string) || 'uvicorn agent_server:app --host 0.0.0.0 --port 8000 --reload',
+    deps: (meta.deps as string[]) || ['fastapi>=0.135.1', 'uvicorn[standard]>=0.42.0', 'copilotkit>=0.1.81', 'ag-ui-langgraph[fastapi]>=0.0.27', 'python-dotenv>=1.0.0', 'langchain>=1.2.10', 'langchain-openai>=1.1.11', 'langgraph>=1.0.10', 'deepagents>=0.4.11'],
+    runCommand: (meta.runCommand as string) || 'uvicorn agent_server:app --host 0.0.0.0 --port 8123 --reload',
     explanation: (meta.explanation as string) || '',
   };
 }

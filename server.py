@@ -155,7 +155,7 @@ def mount_agent():
             )
 
         # Mount using ag_ui_langgraph — this speaks the AG-UI protocol that
-        # CopilotKit React frontend (v1.8+) uses when the `agent` prop is set.
+        # CopilotKit React frontend (v1.54+) uses when the `agent` prop is set.
         from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
         add_langgraph_fastapi_endpoint(
@@ -167,7 +167,7 @@ def mount_agent():
 
     except ImportError as e:
         logger.error(
-            "Missing dependency: %s. Run: pip install copilotkit>=0.1.79 'ag-ui-langgraph[fastapi]>=0.0.26'",
+            "Missing dependency: %s. Run: pip install copilotkit>=0.1.81 'ag-ui-langgraph[fastapi]>=0.0.27'",
             e,
         )
     except Exception as e:

@@ -119,19 +119,23 @@ graph = create_react_agent("openai:gpt-4o-mini", tools=[...])
 
 ### Version Requirements
 \`\`\`
-copilotkit>=0.1.79
-ag-ui-langgraph[fastapi]>=0.0.26
-langgraph>=0.3.25,<1.1.0
-langchain>=0.3.0
+copilotkit>=0.1.81
+ag-ui-langgraph[fastapi]>=0.0.27
+langgraph>=1.0.10
+langchain>=1.2.10
+langchain-core>=1.2.20
+langchain-openai>=1.1.11
+deepagents>=0.4.11
 \`\`\`
 
 ### Frontend React Setup
 \`\`\`tsx
 import { CopilotKit } from "@copilotkit/react-core";
-import { CopilotChat } from "@copilotkit/react-ui";
+import { CopilotSidebar } from "@copilotkit/react-core/v2";
+import "@copilotkit/react-ui/v2/styles.css";
 
-<CopilotKit runtimeUrl="http://localhost:8000/copilotkit" agent="agent">
-  <CopilotChat />
+<CopilotKit runtimeUrl="/api/copilotkit" agent="sample_agent">
+  <CopilotSidebar />
 </CopilotKit>
 \`\`\``,
     fetchedAt: new Date().toISOString(),
@@ -139,7 +143,7 @@ import { CopilotChat } from "@copilotkit/react-ui";
 
   langchain: {
     source: 'langchain',
-    title: 'LangChain Python — Current API (2025+)',
+    title: 'LangChain Python — Current API (2026+)',
     content: `## LangChain Python — Agent Creation
 
 ### Installation
@@ -199,7 +203,7 @@ add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
 
   langgraph: {
     source: 'langgraph',
-    title: 'LangGraph — Current API (2025+)',
+    title: 'LangGraph — Current API (2026+)',
     content: `## LangGraph — Custom State Graphs
 
 ### Installation
@@ -243,10 +247,20 @@ When serving via ag-ui-langgraph (CopilotKit), do NOT compile a
 checkpointer into the graph. The AG-UI adapter manages thread state.
 Only use checkpointer for standalone LangGraph usage or human-in-the-loop.
 
+### Type-Safe Invoke (LangGraph 1.1+)
+\`\`\`python
+# v2 invoke returns GraphOutput with .value and .interrupts
+result = graph.invoke({"input": "hello"}, version="v2")
+result.value       # your output
+result.interrupts  # tuple of Interrupt objects
+\`\`\`
+Note: version="v2" requires langgraph>=1.1.0 which is not yet compatible
+with copilotkit SDK. Use default invoke for CopilotKit integrations.
+
 ### Version Requirements
 \`\`\`
 langgraph>=0.3.25,<1.1.0
-langchain-openai>=0.3.0
+langchain-openai>=1.1.11
 \`\`\`
 
 ### With CopilotKit
@@ -335,7 +349,7 @@ from ag_ui_langgraph import add_langgraph_fastapi_endpoint
 
   deepagents: {
     source: 'deepagents',
-    title: 'Deep Agents — Current API',
+    title: 'Deep Agents — Current API (v0.4+)',
     content: `## Deep Agents — Integration Pattern
 
 ### Installation
@@ -350,9 +364,16 @@ from deepagents import create_deep_agent
 agent = create_deep_agent(
     model="openai:gpt-4o",
     tools=[...],
-    reasoning_depth=3
 )
 \`\`\`
+
+### Key Features (v0.4+)
+- Planning tool (write_todos) for task breakdown
+- Filesystem tools (read_file, write_file, edit_file, ls, glob, grep)
+- Shell access (execute) with sandboxing
+- Sub-agents (task) for delegating work with isolated context
+- Auto-summarization when conversations get long
+- Defaults to Responses API for "openai:" model strings
 
 ### With CopilotKit
 Deep Agents work with CopilotKit via the same LangGraphAGUIAgent wrapper:
@@ -364,10 +385,16 @@ ck_agent = LangGraphAGUIAgent(name="agent", description="...", graph=agent)
 add_langgraph_fastapi_endpoint(app=app, agent=ck_agent, path="/copilotkit")
 \`\`\`
 
+### Version Requirements
+\`\`\`
+deepagents>=0.4.11
+\`\`\`
+
 ### Key Points
 - Deep Agents produce a compiled graph compatible with LangGraphAGUIAgent
 - Same CopilotKit integration pattern as LangChain and LangGraph
-- Supports tool calling, structured output, and streaming`,
+- Supports tool calling, structured output, and streaming
+- Auto-summarization triggers on ContextOverflowError`,
     fetchedAt: new Date().toISOString(),
   },
 };

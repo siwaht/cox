@@ -204,7 +204,7 @@ async function checkHealth(
     try {
       const result = await execCommand(
         sandboxId,
-        "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health",
+        "curl -s -o /dev/null -w '%{http_code}' http://localhost:8123/health",
         headers, onLog,
       );
       if (result.trim() === '200') return true;

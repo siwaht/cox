@@ -21,20 +21,29 @@ interface GeneratedFile {
 // ─── Block component code templates ───
 
 const BLOCK_TEMPLATES: Record<BlockType, (block: BlockConfig) => string> = {
-  chat: (b) => `import { CopilotChat } from '@copilotkit/react-ui';
-import '@copilotkit/react-ui/styles.css';
+  chat: (b) => `import { CopilotSidebar } from '@copilotkit/react-core/v2';
+import { useDefaultRenderTool } from '@copilotkit/react-core/v2';
+import '@copilotkit/react-ui/v2/styles.css';
 
 export function ChatBlock() {
+  useDefaultRenderTool({
+    render: ({ name, status, parameters, result }) => (
+      <details>
+        <summary>{status === "complete" ? \`Called \${name}\` : \`Calling \${name}...\`}</summary>
+        <p>Status: {status}</p>
+        <p>Parameters: {JSON.stringify(parameters)}</p>
+        <p>Result: {JSON.stringify(result)}</p>
+      </details>
+    ),
+  });
+
   return (
     <div className="flex flex-col h-full rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
       <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
         ${b.label}
       </div>
       <div className="flex-1 overflow-hidden">
-        <CopilotChat
-          labels={{ title: "${b.label}", initial: "Send a message to start" }}
-          className="h-full"
-        />
+        <CopilotSidebar />
       </div>
     </div>
   );
@@ -60,7 +69,7 @@ export function ResultsBlock() {
     parameters: [
       { name: "items", type: "object[]", description: "Array of result items with id, title, content, and optional type" },
     ],
-    handler: async ({ items }) => {
+    handler: async ({ items }: { items: any[] }) => {
       setResults(items as ResultItem[]);
     },
   });
@@ -117,7 +126,7 @@ export function ToolActivityBlock() {
       { name: "result", type: "string", description: "Result of the tool call", required: false },
       { name: "status", type: "string", description: "Status: running, done, or error" },
     ],
-    handler: async ({ toolName, args, result, status }) => {
+    handler: async ({ toolName, args, result, status }: { toolName: string; args: Record<string, any>; result?: string; status: string }) => {
       setCalls((prev) => {
         const existing = prev.find((c) => c.name === toolName && c.status === 'running');
         if (existing && status !== 'running') {
@@ -177,7 +186,7 @@ export function ApprovalsBlock() {
       { name: "action", type: "string", description: "The action requiring approval" },
       { name: "description", type: "string", description: "Description of what will happen" },
     ],
-    handler: async ({ action, description }) => {
+    handler: async ({ action, description }: { action: string; description: string }) => {
       const id = crypto.randomUUID();
       setRequests((prev) => [...prev, { id, action, description, status: 'pending' }]);
       return \`Approval request \${id} created for: \${action}\`;
@@ -253,7 +262,7 @@ export function LogsBlock() {
       { name: "level", type: "string", description: "Log level: info, warn, error, or debug" },
       { name: "message", type: "string", description: "Log message" },
     ],
-    handler: async ({ level, message }) => {
+    handler: async ({ level, message }: { level: string; message: string }) => {
       setLogs((prev) => [...prev.slice(-200), {
         id: crypto.randomUUID(),
         level: level as LogLevel,
@@ -321,7 +330,7 @@ export function FormBlock() {
     parameters: [
       { name: "fields", type: "object", description: "Key-value pairs to set as form field values" },
     ],
-    handler: async ({ fields: f }) => {
+    handler: async ({ fields: f }: { fields: Record<string, string> }) => {
       setFields((prev) => ({ ...prev, ...(f as Record<string, string>) }));
     },
   });
@@ -377,7 +386,7 @@ export function TableBlock() {
       { name: "columns", type: "string[]", description: "Column names" },
       { name: "rows", type: "object[]", description: "Array of row objects" },
     ],
-    handler: async ({ columns, rows }) => {
+    handler: async ({ columns, rows }: { columns: string[]; rows: Record<string, any>[] }) => {
       setData({ columns: columns as string[], rows: rows as Record<string, string | number>[] });
       setPage(0);
     },
@@ -468,7 +477,7 @@ export function ChartBlock() {
     parameters: [
       { name: "data", type: "object[]", description: "Array of { label, value, color? } data points" },
     ],
-    handler: async ({ data: d }) => {
+    handler: async ({ data: d }: { data: any[] }) => {
       setData(d as ChartDataPoint[]);
     },
   });
@@ -522,7 +531,7 @@ export function DashboardBlock() {
     parameters: [
       { name: "metrics", type: "object[]", description: "Array of { label, value, change?, trend? } metrics" },
     ],
-    handler: async ({ metrics: m }) => {
+    handler: async ({ metrics: m }: { metrics: any[] }) => {
       setMetrics(m as KPIMetric[]);
     },
   });
@@ -574,7 +583,7 @@ export function StatusBlock() {
       { name: "message", type: "string", description: "Status message to display" },
       { name: "progress", type: "number", description: "Progress percentage 0-100", required: false },
     ],
-    handler: async ({ status: s, message: m, progress: p }) => {
+    handler: async ({ status: s, message: m, progress: p }: { status: string; message: string; progress?: number }) => {
       setStatus(s as typeof status);
       setMessage(m);
       if (p !== undefined) setProgress(p as number);
@@ -906,7 +915,7 @@ function genPackageJson(name: string, _connection?: ConnectionProfile | null): s
       autoprefixer: '^10.4.19',
       postcss: '^8.4.38',
       tailwindcss: '^3.4.4',
-      typescript: '^5.5.0',
+      typescript: '^5.5.3',
       vite: '^5.4.0',
     },
   }, null, 2);
@@ -1022,7 +1031,7 @@ function genAppTsx(
 
   const runtimeUrl = connection
     ? `'${connection.baseUrl.replace(/\/+$/, '')}/copilotkit'`
-    : `import.meta.env.VITE_RUNTIME_URL || 'http://localhost:8000/copilotkit'`;
+    : `import.meta.env.VITE_RUNTIME_URL || 'http://localhost:8123/copilotkit'`;
 
   const blockElements = visible.map((b) => {
     const comp = blockComponentName(b.type);
@@ -1035,7 +1044,7 @@ function genAppTsx(
 
   return `import React, { Component } from 'react';
 import { CopilotKit } from '@copilotkit/react-core';
-import '@copilotkit/react-ui/styles.css';
+import '@copilotkit/react-ui/v2/styles.css';
 ${imports}
 
 class ErrorBoundary extends Component<
@@ -1098,7 +1107,7 @@ ${blockElements}
 }
 
 function genEnvExample(connection?: ConnectionProfile | null): string {
-  const base = connection?.baseUrl || 'http://localhost:8000';
+  const base = connection?.baseUrl || 'http://localhost:8123';
 
   return `# Agent Runtime
 VITE_RUNTIME_URL=${base.replace(/\/+$/, '')}/copilotkit
@@ -1121,7 +1130,7 @@ npm run dev
 Set your agent runtime URL in \`.env\`:
 
 \`\`\`
-VITE_RUNTIME_URL=http://localhost:8000/copilotkit
+VITE_RUNTIME_URL=http://localhost:8123/copilotkit
 \`\`\`
 
 ## Deploy
@@ -1363,6 +1372,7 @@ function detectAgentDeps(code: string): string[] {
   if (!deps.includes('uvicorn')) deps.push('uvicorn');
   if (!deps.includes('fastapi')) deps.push('fastapi');
   if (!deps.includes('python-dotenv')) deps.push('python-dotenv');
+  if (!deps.includes('deepagents')) deps.push('deepagents');
   return [...new Set(deps)];
 }
 
@@ -1370,20 +1380,21 @@ function genAgentRequirements(code: string): string {
   const deps = detectAgentDeps(code);
   // Pin versions to known-compatible combinations to avoid breakage
   const versionMap: Record<string, string> = {
-    'copilotkit': 'copilotkit>=0.1.79',
-    'ag-ui-langgraph': 'ag-ui-langgraph[fastapi]>=0.0.26',
-    'langgraph': 'langgraph>=0.3.25,<1.1.0',
-    'langchain': 'langchain>=0.3.0',
-    'langchain-openai': 'langchain-openai>=0.3.0',
-    'langchain-anthropic': 'langchain-anthropic>=0.3.0',
+    'copilotkit': 'copilotkit>=0.1.81',
+    'ag-ui-langgraph': 'ag-ui-langgraph[fastapi]>=0.0.27',
+    'langgraph': 'langgraph>=1.0.10',
+    'langchain': 'langchain>=1.2.10',
+    'langchain-openai': 'langchain-openai>=1.1.11',
+    'langchain-anthropic': 'langchain-anthropic>=1.4.0',
     'langchain-google-genai': 'langchain-google-genai>=2.0.0',
-    'langchain-community': 'langchain-community>=0.3.0',
-    'langchain-core': 'langchain-core>=0.3.0',
-    'langsmith': 'langsmith>=0.2.0',
-    'fastapi': 'fastapi>=0.115.0,<1.0.0',
-    'uvicorn': 'uvicorn[standard]>=0.30.0',
-    'python-dotenv': 'python-dotenv>=1.0.0',
+    'langchain-community': 'langchain-community>=1.0.0',
+    'langchain-core': 'langchain-core>=1.2.20',
+    'langsmith': 'langsmith>=0.3.45',
+    'fastapi': 'fastapi>=0.135.1',
+    'uvicorn': 'uvicorn[standard]>=0.42.0',
+    'python-dotenv': 'python-dotenv>=1.2.2',
     'pydantic': 'pydantic>=2.0.0',
+    'deepagents': 'deepagents>=0.4.11',
   };
   return deps.map((d) => versionMap[d] || d).join('\n') + '\n';
 }
@@ -1406,7 +1417,7 @@ pip install -r requirements.txt
 python agent_server.py
 \`\`\`
 
-The agent will start on http://localhost:8000. The frontend expects the CopilotKit endpoint at http://localhost:8000/copilotkit.
+The agent will start on http://localhost:8123. The frontend expects the CopilotKit endpoint at http://localhost:8123/copilotkit.
 
 ## Environment Variables
 
@@ -1451,13 +1462,13 @@ npm install
 npm run dev
 \`\`\`
 
-The frontend connects to the agent at \`http://localhost:8000/copilotkit\` by default. You can change this in \`.env\`.
+The frontend connects to the agent at \`http://localhost:8123/copilotkit\` by default. You can change this in \`.env\`.
 
 ## Troubleshooting
 
 - If you get "thread_id required" errors, make sure your agent graph does NOT have a checkpointer compiled in. The ag-ui-langgraph adapter manages state externally.
 - If you get "dict_repr" errors, upgrade: \`pip install --upgrade copilotkit ag-ui-langgraph\`
-- If the frontend can't connect, check CORS settings and ensure the agent is running on port 8000.
+- If the frontend can't connect, check CORS settings and ensure the agent is running on port 8123.
 
 ## Deploy
 
@@ -1510,8 +1521,8 @@ COPY agent/ /app/agent/
 RUN echo 'server { \\
   listen 80; \\
   location / { root /usr/share/nginx/html; try_files $uri /index.html; } \\
-  location /copilotkit { proxy_pass http://127.0.0.1:8000/copilotkit; } \\
-  location /health { proxy_pass http://127.0.0.1:8000/health; } \\
+  location /copilotkit { proxy_pass http://127.0.0.1:8123/copilotkit; } \\
+  location /health { proxy_pass http://127.0.0.1:8123/health; } \\
 }' > /etc/nginx/conf.d/default.conf
 
 # Start script
@@ -1537,7 +1548,7 @@ services:
       - ./src:/app/src
       - ./public:/app/public
     environment:
-      - VITE_RUNTIME_URL=http://localhost:8000/copilotkit
+      - VITE_RUNTIME_URL=http://localhost:8123/copilotkit
 
   agent:
     build:
@@ -1545,7 +1556,7 @@ services:
       target: agent
     command: python agent_server.py
     ports:
-      - "8000:8000"
+      - "8123:8123"
     volumes:
       - ./agent:/app/agent
     env_file:

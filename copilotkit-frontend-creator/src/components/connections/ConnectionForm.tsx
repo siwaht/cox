@@ -13,7 +13,7 @@ const PRESETS: Array<{
   label: string; runtime: RuntimeType; baseUrl: string; agentId: string; description: string;
 }> = [
   { label: 'CopilotKit + LangGraph', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Default LangGraph dev server' },
-  { label: 'CopilotKit + LangChain', runtime: 'langchain', baseUrl: 'http://localhost:8000', agentId: '', description: 'Default LangChain serve' },
+  { label: 'CopilotKit + LangChain', runtime: 'langchain', baseUrl: 'http://localhost:8123', agentId: '', description: 'Default LangChain serve' },
   { label: 'CopilotKit + Deep Agent', runtime: 'deepagents', baseUrl: 'http://localhost:3001', agentId: 'default', description: 'Local deep agent server' },
   { label: 'Custom Remote', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
 ];

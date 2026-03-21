@@ -292,6 +292,10 @@ function probeCapabilities(body: Record<string, unknown>, runtime: string): stri
   if (runtime === 'deepagents') {
     if (!caps.includes('subagents')) caps.push('subagents');
     if (!caps.includes('progress')) caps.push('progress');
+    if (!caps.includes('toolCalls')) caps.push('toolCalls');
+    if (!caps.includes('toolResults')) caps.push('toolResults');
+    if (!caps.includes('intermediateState')) caps.push('intermediateState');
+    if (!caps.includes('logs')) caps.push('logs');
   }
 
   return [...new Set(caps)];
