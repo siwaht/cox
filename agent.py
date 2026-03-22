@@ -17,6 +17,7 @@ load_dotenv(Path(__file__).parent / ".env")
 from langchain_core.tools import tool
 from deepagents import create_deep_agent
 from copilotkit import CopilotKitMiddleware
+from langgraph.checkpoint.memory import MemorySaver
 
 
 @tool
@@ -53,6 +54,7 @@ else:
         model=MODEL,
         tools=[get_weather, search_web],
         middleware=[CopilotKitMiddleware()],
+        checkpointer=MemorySaver(),
         system_prompt=(
             "You are a helpful assistant. Use your tools when needed to answer "
             "questions accurately. Always explain your reasoning and provide "

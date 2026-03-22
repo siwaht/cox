@@ -115,14 +115,20 @@ async def ok():
     return {"status": "ok"}
 
 
-# ─── Agent registry (populated by mount_agent) ───────────────────────────────
-_mounted_agents: list[dict] = []
-
-
 # ─── Mount your agent ────────────────────────────────────────────────────────
 def mount_agent():
-    """Import agent.py and wire the CopilotKit/AG-UI endpoint."""
-    # Ensure agent.py's directory is importable
+    """Import agent.py and wire the AG-UI endpoint.
+
+    Transport: single (useSingleEndpoint=true, the default in @copilotkit/react-core).
+
+    Single transport sends ALL requests to POST /copilotkit:
+      - Discovery:  { method: "info" }  → return agent registry (key must be "default")
+      - Agent run:  RunAgentInput body  → stream SSE events from ck_agent.run()
+
+    The agent key in the info response MUST be "default" because useCopilotChat
+    resolves resolvedAgentId = existingConfig?.agentId ?? DEFAULT_AGENT_ID = "default"
+    and useAgent({ agentId: "default" }) looks up that exact key in the registry.
+    """
     agent_dir = os.path.dirname(os.path.abspath(__file__))
     if agent_dir not in sys.path:
         sys.path.insert(0, agent_dir)
@@ -133,85 +139,94 @@ def mount_agent():
         return
 
     try:
-        # Clear cached module so changes are picked up
         if "agent" in sys.modules:
             del sys.modules["agent"]
 
         import agent as agent_module
 
-        # Look for the graph/agent object
         agent_obj = getattr(agent_module, "graph", None) or getattr(agent_module, "agent", None)
 
         if agent_obj is None:
             logger.warning("agent.py found but no `graph` or `agent` variable exported.")
             return
 
-        # Wrap in LangGraphAGUIAgent if it's a raw compiled graph
         from copilotkit import LangGraphAGUIAgent
+        from ag_ui.core.types import RunAgentInput
+        from ag_ui.encoder import EventEncoder
+        from fastapi.responses import StreamingResponse
 
-        if isinstance(agent_obj, LangGraphAGUIAgent):
-            ck_agent = agent_obj
-        else:
-            ck_agent = LangGraphAGUIAgent(
-                name="agent",
-                description="A helpful assistant.",
-                graph=agent_obj,
-            )
-
-        # Mount using ag_ui_langgraph — this speaks the AG-UI protocol that
-        # CopilotKit React frontend (v1.54+) uses when the `agent` prop is set.
-        from ag_ui_langgraph import add_langgraph_fastapi_endpoint
-
-        add_langgraph_fastapi_endpoint(
-            app=app,
-            agent=ck_agent,
-            path="/copilotkit",
+        ck_agent = LangGraphAGUIAgent(
+            name="agent",
+            description="A helpful assistant.",
+            graph=agent_obj,
         )
 
-        # Register for /copilotkit/info discovery endpoint
-        _mounted_agents.clear()
-        _mounted_agents.append({
-            "name": ck_agent.name,
-            "description": getattr(ck_agent, "description", "A helpful assistant."),
-        })
+        # Agent info response — key MUST be "default" to match DEFAULT_AGENT_ID
+        # used by useCopilotChat / useAgent in @copilotkit/react-core 1.54.x
+        _agent_info = {
+            "version": "1.0.0",
+            "agents": {
+                "default": {
+                    "description": "A helpful assistant.",
+                },
+            },
+            "actions": {},
+        }
 
-        logger.info("✓ Mounted agent at /copilotkit (ag-ui-langgraph)")
+        async def _copilotkit_handler(request: Request):
+            """Handle single-transport POST /copilotkit for both info and run requests."""
+            try:
+                body = await request.json()
+            except Exception:
+                return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
+
+            # Discovery request (single transport sends { method: "info" })
+            if isinstance(body, dict) and body.get("method") == "info":
+                return JSONResponse(_agent_info)
+
+            # Agent run request — parse as RunAgentInput and stream events
+            try:
+                input_data = RunAgentInput(**body)
+            except Exception as exc:
+                return JSONResponse(
+                    {"error": f"Invalid run input: {exc}"},
+                    status_code=422,
+                )
+
+            accept_header = request.headers.get("accept", "")
+            encoder = EventEncoder(accept=accept_header)
+
+            async def _event_generator():
+                async for event in ck_agent.run(input_data):
+                    yield encoder.encode(event)
+
+            return StreamingResponse(
+                _event_generator(),
+                media_type=encoder.get_content_type(),
+            )
+
+        # Also expose GET /copilotkit/info for rest transport (fallback)
+        async def _copilotkit_info(request: Request):
+            return JSONResponse(_agent_info)
+
+        async def _copilotkit_health():
+            return {"status": "ok", "agent": {"name": ck_agent.name}}
+
+        app.add_api_route("/copilotkit", _copilotkit_handler, methods=["POST"])
+        app.add_api_route("/copilotkit/info", _copilotkit_info, methods=["GET", "POST"])
+        app.add_api_route("/copilotkit/health", _copilotkit_health, methods=["GET"])
+
+        logger.info(
+            "✓ Mounted agent at POST /copilotkit (single transport: info + run)"
+        )
 
     except ImportError as e:
-        logger.error(
-            "Missing dependency: %s. Run: pip install copilotkit>=0.1.81 'ag-ui-langgraph[fastapi]>=0.0.27'",
-            e,
-        )
+        logger.error("Missing dependency: %s", e)
     except Exception as e:
         logger.error("Could not load agent.py: %s", e, exc_info=True)
-        # Check for common issues
-        err_str = str(e)
-        if "dict_repr" in err_str:
-            logger.error(
-                "HINT: dict_repr error — upgrade SDK: pip install --upgrade copilotkit ag-ui-langgraph"
-            )
-        elif "thread_id" in err_str:
-            logger.error(
-                "HINT: thread_id error — remove checkpointer from graph.compile(). "
-                "ag-ui-langgraph manages state externally."
-            )
 
 
 mount_agent()
-
-
-# ─── CopilotKit info endpoint (agent discovery) ───────────────────────────────
-# The CopilotKit React SDK (v1.54+) calls POST /copilotkit/info before streaming.
-# ag_ui_langgraph doesn't expose this route, so we add it manually.
-@app.post("/copilotkit/info")
-@app.get("/copilotkit/info")
-async def copilotkit_info():
-    """Return registered agent metadata to the CopilotKit React SDK."""
-    return JSONResponse({
-        "agents": _mounted_agents,
-        "actions": [],
-        "sdkVersion": "0.1.83",
-    })
 
 
 # ─── Deploy Agent API (write agent.py from frontend) ─────────────────────────
@@ -269,7 +284,7 @@ if DEPLOY_ENABLED:
                 filtered = [d for d in req.deps if d.strip() and d.strip() not in (
                     "fastapi", "uvicorn", "copilotkit", "python-dotenv",
                     "langchain", "langchain-openai", "langchain-core",
-                    "langgraph", "langgraph-checkpoint", "ag-ui-langgraph",
+                    "langgraph", "langgraph-checkpoint",
                 )]
                 if filtered:
                     logger.info("Installing extra deps: %s", filtered)
