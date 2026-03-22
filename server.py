@@ -117,17 +117,19 @@ async def ok():
 
 # ─── Mount your agent ────────────────────────────────────────────────────────
 def mount_agent():
-    """Import agent.py and wire the AG-UI endpoint.
+    """Import agent.py and wire the CopilotKit + AG-UI endpoints.
 
-    Transport: single (useSingleEndpoint=true, the default in @copilotkit/react-core).
+    Uses LangGraphAGUIAgent (the required subclass of LangGraphAgent in
+    copilotkit 0.1.83+) with CopilotKitRemoteEndpoint and add_fastapi_endpoint
+    for the old CopilotKit protocol at /copilotkit/{path:path}.
 
-    Single transport sends ALL requests to POST /copilotkit:
-      - Discovery:  { method: "info" }  → return agent registry (key must be "default")
-      - Agent run:  RunAgentInput body  → stream SSE events from ck_agent.run()
+    Also registers an exact POST /copilotkit handler for the React SDK's default
+    single-transport mode (useSingleEndpoint=true), which sends:
+      - Discovery: POST /copilotkit with body { method: "info" }
+      - Agent run: POST /copilotkit with RunAgentInput body → SSE stream
 
-    The agent key in the info response MUST be "default" because useCopilotChat
-    resolves resolvedAgentId = existingConfig?.agentId ?? DEFAULT_AGENT_ID = "default"
-    and useAgent({ agentId: "default" }) looks up that exact key in the registry.
+    The info response key is "default" to match DEFAULT_AGENT_ID used by
+    useCopilotChat's resolvedAgentId = existingConfig?.agentId ?? "default".
     """
     agent_dir = os.path.dirname(os.path.abspath(__file__))
     if agent_dir not in sys.path:
@@ -150,7 +152,11 @@ def mount_agent():
             logger.warning("agent.py found but no `graph` or `agent` variable exported.")
             return
 
-        from copilotkit import LangGraphAGUIAgent
+        # LangGraphAGUIAgent is the required type in copilotkit 0.1.83+.
+        # LangGraphAgent is blocked — CopilotKitRemoteEndpoint raises ValueError
+        # if you pass a bare LangGraphAgent, directing you to use LangGraphAGUIAgent.
+        from copilotkit import LangGraphAGUIAgent, CopilotKitRemoteEndpoint
+        from copilotkit.integrations.fastapi import add_fastapi_endpoint
         from ag_ui.core.types import RunAgentInput
         from ag_ui.encoder import EventEncoder
         from fastapi.responses import StreamingResponse
@@ -161,8 +167,11 @@ def mount_agent():
             graph=agent_obj,
         )
 
-        # Agent info response — key MUST be "default" to match DEFAULT_AGENT_ID
-        # used by useCopilotChat / useAgent in @copilotkit/react-core 1.54.x
+        sdk = CopilotKitRemoteEndpoint(agents=[ck_agent])
+
+        # AG-UI info response for the React SDK's single-transport discovery.
+        # Key MUST be "default" to match DEFAULT_AGENT_ID = "default" used by
+        # useCopilotChat → resolvedAgentId → useAgent({ agentId: "default" }).
         _agent_info = {
             "version": "1.0.0",
             "agents": {
@@ -173,18 +182,21 @@ def mount_agent():
             "actions": {},
         }
 
-        async def _copilotkit_handler(request: Request):
-            """Handle single-transport POST /copilotkit for both info and run requests."""
+        async def _copilotkit_single_handler(request: Request):
+            """Handle the React SDK's single-transport requests at POST /copilotkit.
+
+            The SDK (useSingleEndpoint=true, the default) sends all traffic here:
+              - { method: "info" }  → agent discovery
+              - RunAgentInput body  → run the agent, stream SSE events back
+            """
             try:
                 body = await request.json()
             except Exception:
                 return JSONResponse({"error": "Invalid JSON body"}, status_code=400)
 
-            # Discovery request (single transport sends { method: "info" })
             if isinstance(body, dict) and body.get("method") == "info":
                 return JSONResponse(_agent_info)
 
-            # Agent run request — parse as RunAgentInput and stream events
             try:
                 input_data = RunAgentInput(**body)
             except Exception as exc:
@@ -196,29 +208,30 @@ def mount_agent():
             accept_header = request.headers.get("accept", "")
             encoder = EventEncoder(accept=accept_header)
 
-            async def _event_generator():
+            async def _event_stream():
                 async for event in ck_agent.run(input_data):
                     yield encoder.encode(event)
 
             return StreamingResponse(
-                _event_generator(),
+                _event_stream(),
                 media_type=encoder.get_content_type(),
             )
 
-        # Also expose GET /copilotkit/info for rest transport (fallback)
-        async def _copilotkit_info(request: Request):
+        async def _copilotkit_info_handler(request: Request):
+            """GET /copilotkit/info — discovery for rest transport."""
             return JSONResponse(_agent_info)
 
-        async def _copilotkit_health():
-            return {"status": "ok", "agent": {"name": ck_agent.name}}
+        # Register exact-path routes BEFORE add_fastapi_endpoint so FastAPI
+        # matches them before the catch-all /copilotkit/{path:path} route.
+        app.add_api_route("/copilotkit", _copilotkit_single_handler, methods=["POST"])
+        app.add_api_route("/copilotkit/info", _copilotkit_info_handler, methods=["GET", "POST"])
 
-        app.add_api_route("/copilotkit", _copilotkit_handler, methods=["POST"])
-        app.add_api_route("/copilotkit/info", _copilotkit_info, methods=["GET", "POST"])
-        app.add_api_route("/copilotkit/health", _copilotkit_health, methods=["GET"])
+        # Mount old CopilotKit protocol at /copilotkit/{path:path}.
+        # Handles: GET/POST /copilotkit/ (info), POST /copilotkit/agent/{name},
+        #          POST /copilotkit/agent/{name}/state, POST /copilotkit/action/{name}.
+        add_fastapi_endpoint(fastapi_app=app, sdk=sdk, prefix="/copilotkit")
 
-        logger.info(
-            "✓ Mounted agent at POST /copilotkit (single transport: info + run)"
-        )
+        logger.info("✓ Mounted agent at /copilotkit (old protocol + single-transport handler)")
 
     except ImportError as e:
         logger.error("Missing dependency: %s", e)
