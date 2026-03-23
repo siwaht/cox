@@ -89,8 +89,8 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSel
     isDragging ? 'z-10 opacity-40 drag-overlay' : '',
     isNew ? 'animate-block-in' : '',
     isSelected
-      ? 'border-accent/60 shadow-lg shadow-accent/10'
-      : 'border-border/50 hover:border-border hover:shadow-md',
+      ? 'border-accent shadow-[0_8px_32px_rgba(139,92,246,0.2)] ring-1 ring-inset ring-accent/30 z-[5]'
+      : 'border-white/5 hover:border-accent/50 hover:shadow-[0_8px_24px_rgba(139,92,246,0.15)] shadow-[inset_0_1px_0_rgba(255,255,255,0.05),_0_2px_8px_rgba(0,0,0,0.4)]',
     !block.visible ? 'opacity-40' : '',
   ].filter(Boolean).join(' ');
 
@@ -99,8 +99,9 @@ export const SortableBlock: React.FC<Props> = ({ block, isSelected, isNew, onSel
     opacity: isDragging ? 0.4 : 1,
     background: isSelected
       ? 'linear-gradient(180deg, color-mix(in srgb, var(--color-surface-raised) 100%, transparent) 0%, color-mix(in srgb, var(--color-surface) 100%, transparent) 100%)'
-      : 'var(--color-surface-raised)',
-    boxShadow: isSelected ? undefined : 'var(--shadow-card)',
+      : 'linear-gradient(180deg, var(--color-surface-raised) 0%, color-mix(in srgb, var(--color-surface-raised) 80%, transparent) 100%)',
+    backdropFilter: 'blur(24px) saturate(1.2)',
+    WebkitBackdropFilter: 'blur(24px) saturate(1.2)',
   };
 
   return (

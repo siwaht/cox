@@ -29,7 +29,7 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
   };
 
   return (
-    <aside className="h-full border-l border-border/40 flex flex-col" style={{ background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, color-mix(in srgb, var(--color-surface-raised) 95%, var(--color-surface)) 100%)' }} role="complementary" aria-label="Block properties">
+    <aside className="h-full border-l border-white/5 flex flex-col relative z-10" style={{ background: 'linear-gradient(180deg, var(--color-surface-raised) 0%, color-mix(in srgb, var(--color-surface-raised) 80%, transparent) 100%)', backdropFilter: 'blur(24px) saturate(1.2)', WebkitBackdropFilter: 'blur(24px) saturate(1.2)' }} role="complementary" aria-label="Block properties">
       <div className="flex items-center justify-between px-4 py-3.5 border-b border-border/40">
         <h2 className="text-xs font-semibold text-txt-secondary uppercase tracking-wider">Properties</h2>
         <div className="flex items-center gap-1">
@@ -114,8 +114,8 @@ export const BlockInspector: React.FC<Props> = ({ selectedBlockId, onSelectBlock
                 {workspace.blocks.map((b) => (
                   <div key={b.id}
                     onClick={() => onSelectBlock(b.id)}
-                    className={`flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer text-2xs transition-colors ${
-                      b.id === selectedBlockId ? 'bg-accent-soft text-accent' : 'text-txt-muted hover:bg-surface-overlay hover:text-txt-secondary'
+                    className={`flex items-center justify-between px-2 py-1.5 rounded-lg cursor-pointer text-2xs transition-all ${
+                      b.id === selectedBlockId ? 'bg-accent/10 text-accent shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] ring-1 ring-inset ring-accent/20' : 'text-txt-muted hover:bg-accent/5 hover:text-txt-secondary hover:shadow-[0_2px_8px_rgba(139,92,246,0.05)]'
                     }`}>
                     <span className="truncate">{b.label}</span>
                     <span className="text-txt-ghost shrink-0 ml-2">{b.w}/12</span>

@@ -145,8 +145,8 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="border border-border/50 rounded-t-3xl sm:rounded-3xl
-                      w-full sm:w-[540px] max-h-[85vh] overflow-hidden flex flex-col animate-slide-up" style={{ background: 'color-mix(in srgb, var(--color-surface-raised) 96%, transparent)', backdropFilter: 'blur(24px) saturate(1.3)', WebkitBackdropFilter: 'blur(24px) saturate(1.3)', boxShadow: 'var(--shadow-elevated)' }}>
+      <div className="border border-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] rounded-t-3xl sm:rounded-3xl
+                      w-full sm:w-[540px] max-h-[85vh] overflow-hidden flex flex-col animate-slide-up" style={{ background: 'color-mix(in srgb, var(--color-surface-raised) 75%, transparent)', backdropFilter: 'blur(32px) saturate(1.5)', WebkitBackdropFilter: 'blur(32px) saturate(1.5)', boxShadow: '0 40px 100px -20px rgba(0,0,0,0.8), 0 20px 40px -10px rgba(0,0,0,0.6)' }}>
 
         <div className="flex items-center justify-between px-5 py-4 border-b border-border/40">
           <div className="flex items-center gap-2.5">

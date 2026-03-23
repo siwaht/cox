@@ -223,7 +223,7 @@ const ModeToggle: React.FC<{
   mode: 'editor' | 'preview' | 'published' | 'codegen';
   setMode: (m: 'editor' | 'preview' | 'published' | 'codegen') => void;
 }> = ({ mode, setMode }) => (
-  <div className="flex rounded-xl p-1 gap-0.5 w-full md:w-auto border border-border/40" style={{ background: 'var(--color-surface)' }}>
+  <div className="flex rounded-xl p-1 gap-0.5 w-full md:w-auto border border-white/5 shadow-inner" style={{ background: 'color-mix(in srgb, var(--color-surface-raised) 50%, transparent)', backdropFilter: 'blur(16px)' }}>
     {([
       { key: 'editor' as const, label: 'Edit', tip: 'Drag-and-drop block editor' },
       { key: 'preview' as const, label: 'Preview', tip: 'Live preview with agent connection' },
@@ -233,10 +233,10 @@ const ModeToggle: React.FC<{
         key={m.key}
         onClick={() => setMode(m.key)}
         title={m.tip}
-        className={`flex-1 md:flex-none px-3.5 py-1.5 text-xs rounded-lg transition-all duration-200 ease-out font-medium active:scale-[0.97] ${
+        className={`flex-1 md:flex-none px-4 py-1.5 text-xs rounded-lg transition-all duration-300 ease-out font-medium active:scale-[0.97] ${
           mode === m.key
-            ? 'bg-accent text-white shadow-lg shadow-accent/25'
-            : 'text-txt-muted hover:text-txt-primary hover:bg-surface-overlay'
+            ? 'bg-accent text-white shadow-[0_0_16px_rgba(139,92,246,0.4)] border border-accent-hover'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-white/5'
         }`}
       >
         {m.label}

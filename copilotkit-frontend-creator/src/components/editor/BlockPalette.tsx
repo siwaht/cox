@@ -208,11 +208,11 @@ const PaletteItem: React.FC<{
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
         className={`palette-draggable flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all group cursor-grab active:cursor-grabbing
-                    ${isIncompatible
-                      ? 'border-danger/20 opacity-50 hover:opacity-70 hover:border-danger/30'
-                      : isCompatible
-                        ? 'border-success/20 hover:border-accent/40 hover:bg-accent-soft hover:shadow-md'
-                        : 'border-border/50 hover:border-accent/40 hover:bg-accent-soft hover:shadow-md'}
+                  ${isIncompatible
+                    ? 'border-danger/20 opacity-50 hover:opacity-70 hover:border-danger/30'
+                    : isCompatible
+                      ? 'border-success/20 hover:border-accent/40 hover:bg-accent/[0.04] hover:shadow-[0_4px_24px_rgba(139,92,246,0.15)] shadow-sm'
+                      : 'border-white/5 hover:border-accent/40 hover:bg-accent/[0.04] hover:shadow-[0_4px_24px_rgba(139,92,246,0.15)] shadow-sm'}
                     ${isDragging ? 'opacity-40 scale-95' : ''}`}
         onClick={isIncompatible ? undefined : onAdd}
         title={isIncompatible ? 'Not compatible with your agent code' : undefined}
@@ -235,8 +235,8 @@ const PaletteItem: React.FC<{
                   ${isIncompatible
                     ? 'opacity-50 hover:opacity-70'
                     : isCompatible
-                      ? 'hover:bg-accent-soft ring-1 ring-inset ring-success/10'
-                      : 'hover:bg-accent-soft'}
+                      ? 'hover:bg-accent/[0.04] ring-1 ring-inset ring-success/10 hover:shadow-[0_2px_12px_rgba(139,92,246,0.1)] border border-transparent hover:border-accent/20'
+                      : 'hover:bg-accent/[0.04] hover:shadow-[0_2px_12px_rgba(139,92,246,0.1)] border border-transparent hover:border-accent/20'}
                   ${isDragging ? 'opacity-40 scale-95' : ''}`}
       onClick={isIncompatible ? undefined : onAdd}
       title={isIncompatible ? 'Not compatible with your agent code' : undefined}

@@ -268,9 +268,9 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
       onClick={handleCanvasClick}
       onDrop={handlePaletteDrop}
       onDragOver={handleCanvasDragOver}
-      className={`flex-1 overflow-y-auto p-4 sm:p-6 relative canvas-grid transition-colors
-        ${isOverCanvas ? 'canvas-drop-active' : ''}`}
-      style={{ background: 'var(--color-surface)' }}
+      className={`flex-1 overflow-y-auto p-4 sm:p-6 relative canvas-grid transition-all duration-300
+        ${isOverCanvas ? 'canvas-drop-active shadow-[inset_0_0_100px_rgba(139,92,246,0.12)] bg-accent/[0.02]' : ''}`}
+      style={{ background: isOverCanvas ? undefined : 'var(--color-surface)' }}
     >
       {/* Toolbar */}
       <div className="max-w-5xl mx-auto flex items-center justify-between mb-3">
@@ -525,12 +525,12 @@ const EmptyCanvas: React.FC<{
   onDrop: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
 }> = ({ isOver, onDrop, onDragOver }) => (
-  <div onDrop={onDrop} onDragOver={onDragOver} className="flex-1 flex items-center justify-center p-6" style={{ background: 'var(--color-surface)' }}>
-    <div className="w-full max-w-lg animate-fade-in">
-      <div className={`text-center mb-6 p-10 rounded-3xl border-2 border-dashed transition-all duration-200 empty-canvas-drop-target
-        ${isOver ? 'is-over border-accent bg-accent/5' : 'border-border/40'}`}>
-        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-all duration-200
-          ${isOver ? 'bg-accent/20 scale-110' : 'bg-accent/10'}`}>
+  <div onDrop={onDrop} onDragOver={onDragOver} className={`flex-1 flex items-center justify-center p-6 transition-colors duration-500 ${isOver ? 'bg-accent/5' : ''}`} style={{ background: isOver ? undefined : 'var(--color-surface)' }}>
+    <div className="w-full max-w-lg animate-fade-in relative z-10">
+      <div className={`text-center mb-6 p-10 rounded-3xl border-2 border-dashed transition-all duration-300 empty-canvas-drop-target
+        ${isOver ? 'is-over border-accent bg-accent/10 shadow-[0_0_60px_rgba(139,92,246,0.2)]' : 'border-border/40 hover:border-accent/40 hover:bg-accent/5 hover:shadow-[0_0_40px_rgba(139,92,246,0.08)]'}`}>
+        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 transition-all duration-300
+          ${isOver ? 'bg-accent/20 scale-110 shadow-[0_0_30px_rgba(139,92,246,0.4)]' : 'bg-accent/10'}`}>
           <Layers size={28} className="text-accent" />
         </div>
         <h2 className="text-lg font-semibold text-txt-primary mb-2">
