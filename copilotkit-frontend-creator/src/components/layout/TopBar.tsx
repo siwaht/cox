@@ -236,6 +236,7 @@ const AgentHubButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
   const { activeConnectionId, connections, connectionStatus } = useConnectionStore();
   const activeConn = connections.find((c) => c.id === activeConnectionId);
   const isConnected = activeConn && connectionStatus === 'connected';
+  const frontendLabel = activeConn?.frontend === 'tambo' ? 'Tambo' : 'CopilotKit';
 
   return (
     <button
@@ -245,10 +246,10 @@ const AgentHubButton: React.FC<{ onClick: () => void }> = ({ onClick }) => {
           ? 'border-success/40 text-success hover:bg-success/10'
           : 'border-accent/50 text-accent hover:bg-accent-soft'
       }`}
-      title={isConnected ? `Connected: ${activeConn.name}` : 'Connect your AI agent'}
+      title={isConnected ? `Connected: ${activeConn.name} (${frontendLabel})` : 'Connect your AI agent'}
     >
       <Plug size={13} />
-      {isConnected ? 'Connected' : 'Connect Agent'}
+      {isConnected ? `${frontendLabel}` : 'Connect Agent'}
     </button>
   );
 };

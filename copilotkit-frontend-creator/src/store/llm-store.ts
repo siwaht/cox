@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-export type LLMProvider = 'openai' | 'gemini' | 'anthropic' | 'mistral';
+export type LLMProvider = 'openai' | 'gemini' | 'anthropic' | 'mistral' | 'cloudflare';
 
 export interface LLMModel {
   id: string;
@@ -34,15 +34,24 @@ export const AVAILABLE_MODELS: LLMModel[] = [
   { id: 'mistral-small-latest', label: 'Mistral Small', provider: 'mistral' },
   { id: 'codestral-latest', label: 'Codestral', provider: 'mistral' },
   { id: 'open-mistral-nemo', label: 'Mistral Nemo', provider: 'mistral' },
+  // Cloudflare Workers AI
+  { id: '@cf/meta/llama-3.3-70b-instruct-fp8-fast', label: 'Llama 3.3 70B', provider: 'cloudflare' },
+  { id: '@cf/meta/llama-3.1-8b-instruct', label: 'Llama 3.1 8B', provider: 'cloudflare' },
+  { id: '@cf/mistral/mistral-7b-instruct-v0.2-lora', label: 'Mistral 7B (CF)', provider: 'cloudflare' },
+  { id: '@cf/deepseek-ai/deepseek-r1-distill-qwen-32b', label: 'DeepSeek R1 32B', provider: 'cloudflare' },
+  { id: '@cf/qwen/qwen2.5-coder-32b-instruct', label: 'Qwen 2.5 Coder 32B', provider: 'cloudflare' },
 ];
 
 interface LLMStore {
   provider: LLMProvider;
   modelId: string;
   apiKeys: Record<LLMProvider, string>;
+  /** Cloudflare account ID (required for Workers AI) */
+  cloudflareAccountId: string;
   setProvider: (p: LLMProvider) => void;
   setModelId: (id: string) => void;
   setApiKey: (provider: LLMProvider, key: string) => void;
+  setCloudflareAccountId: (id: string) => void;
   getActiveKey: () => string;
 }
 
@@ -51,7 +60,8 @@ export const useLLMStore = create<LLMStore>()(
     (set, get) => ({
       provider: 'openai',
       modelId: 'gpt-4.1',
-      apiKeys: { openai: '', gemini: '', anthropic: '', mistral: '' },
+      apiKeys: { openai: '', gemini: '', anthropic: '', mistral: '', cloudflare: '' },
+      cloudflareAccountId: '',
       setProvider: (provider) => {
         const firstModel = AVAILABLE_MODELS.find((m) => m.provider === provider);
         set({ provider, modelId: firstModel?.id || '' });
@@ -59,6 +69,7 @@ export const useLLMStore = create<LLMStore>()(
       setModelId: (modelId) => set({ modelId }),
       setApiKey: (provider, key) =>
         set((s) => ({ apiKeys: { ...s.apiKeys, [provider]: key } })),
+      setCloudflareAccountId: (id) => set({ cloudflareAccountId: id }),
       getActiveKey: () => {
         const s = get();
         return s.apiKeys[s.provider] || '';

@@ -344,6 +344,48 @@ async function callMistral(
   });
 }
 
+async function callCloudflareWorkersAI(
+  apiKey: string,
+  accountId: string,
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number,
+): Promise<string> {
+  if (!accountId) throw new Error('Cloudflare Account ID is required. Add it in the settings panel.');
+  return withRetry(async () => {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/run/${model}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.05,
+        }),
+      },
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(
+        err?.errors?.[0]?.message || err?.error?.message || `Cloudflare Workers AI error: ${res.status}`,
+      );
+    }
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.errors?.[0]?.message || 'Cloudflare Workers AI request failed');
+    }
+    return data.result?.response || '';
+  });
+}
+
 // ─── Main transform function ───
 
 export async function llmTransformCode(
@@ -352,6 +394,7 @@ export async function llmTransformCode(
   model: string,
   apiKey: string,
   frontendContext?: FrontendContext,
+  cloudflareAccountId?: string,
 ): Promise<LLMTransformResult> {
   if (!apiKey) throw new Error('API key is required. Add it in the settings panel.');
   if (!input.trim()) throw new Error('No code provided.');
@@ -412,6 +455,9 @@ For EACH block above, ensure the backend code has the required capabilities. Add
       break;
     case 'mistral':
       raw = await callMistral(apiKey, model, SYSTEM_PROMPT, userPrompt, maxTokens);
+      break;
+    case 'cloudflare':
+      raw = await callCloudflareWorkersAI(apiKey, cloudflareAccountId || '', model, SYSTEM_PROMPT, userPrompt, maxTokens);
       break;
     default:
       throw new Error(`Unknown provider: ${provider}`);

@@ -226,7 +226,7 @@ export const CodeTransformerView: React.FC = () => {
         runtime: 'langchain',
       };
       const llmResult: LLMTransformResult = await llmTransformCode(
-        input, llm.provider, llm.modelId, llm.getActiveKey(), frontendCtx,
+        input, llm.provider, llm.modelId, llm.getActiveKey(), frontendCtx, llm.cloudflareAccountId,
       );
       setResult({
         code: llmResult.code,
@@ -619,7 +619,7 @@ const FrontendCodePanel: React.FC<{ workspace: WorkspaceConfig }> = ({ workspace
 
 // ─── LLM Settings Panel ───
 const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
-  const { provider, modelId, apiKeys, setProvider, setModelId, setApiKey } = useLLMStore();
+  const { provider, modelId, apiKeys, cloudflareAccountId, setProvider, setModelId, setApiKey, setCloudflareAccountId } = useLLMStore();
   const [showKey, setShowKey] = useState(false);
 
   const modelsForProvider = AVAILABLE_MODELS.filter((m) => m.provider === provider);
@@ -630,6 +630,7 @@ const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     gemini: { label: 'Google Gemini', placeholder: 'AI...', hint: 'aistudio.google.com → API Keys' },
     anthropic: { label: 'Anthropic', placeholder: 'sk-ant-...', hint: 'console.anthropic.com → API Keys' },
     mistral: { label: 'Mistral', placeholder: 'M...', hint: 'console.mistral.ai → API Keys' },
+    cloudflare: { label: 'Cloudflare Workers AI', placeholder: 'Bearer token...', hint: 'dash.cloudflare.com → AI → Workers AI' },
   };
 
   const info = providerInfo[provider];
@@ -646,7 +647,7 @@ const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className={`grid ${provider === 'cloudflare' ? 'grid-cols-2' : 'grid-cols-3'} gap-3`}>
         <div className="space-y-1">
           <label className="text-2xs text-txt-secondary font-medium">Provider</label>
           <select value={provider} onChange={(e) => setProvider(e.target.value as LLMProvider)}
@@ -655,6 +656,7 @@ const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
             <option value="gemini">Google Gemini</option>
             <option value="anthropic">Anthropic</option>
             <option value="mistral">Mistral</option>
+            <option value="cloudflare">Cloudflare Workers AI</option>
           </select>
         </div>
 
@@ -668,24 +670,59 @@ const LLMSettingsPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
           </select>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-2xs text-txt-secondary font-medium">{info.label} API Key</label>
-          <div className="flex gap-1">
-            <input
-              type={showKey ? 'text' : 'password'}
-              value={currentKey}
-              onChange={(e) => setApiKey(provider, e.target.value)}
-              placeholder={info.placeholder}
-              className="ck-input text-xs font-mono py-1.5 flex-1"
-            />
-            <button onClick={() => setShowKey(!showKey)}
-              className="p-1.5 text-txt-faint hover:text-txt-secondary transition-colors" title="Toggle visibility">
-              {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
-            </button>
+        {provider !== 'cloudflare' && (
+          <div className="space-y-1">
+            <label className="text-2xs text-txt-secondary font-medium">{info.label} API Key</label>
+            <div className="flex gap-1">
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={currentKey}
+                onChange={(e) => setApiKey(provider, e.target.value)}
+                placeholder={info.placeholder}
+                className="ck-input text-xs font-mono py-1.5 flex-1"
+              />
+              <button onClick={() => setShowKey(!showKey)}
+                className="p-1.5 text-txt-faint hover:text-txt-secondary transition-colors" title="Toggle visibility">
+                {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
+              </button>
+            </div>
+            <p className="text-2xs text-txt-ghost">{info.hint}</p>
           </div>
-          <p className="text-2xs text-txt-ghost">{info.hint}</p>
-        </div>
+        )}
       </div>
+
+      {provider === 'cloudflare' && (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-2xs text-txt-secondary font-medium">Account ID</label>
+            <input
+              type="text"
+              value={cloudflareAccountId}
+              onChange={(e) => setCloudflareAccountId(e.target.value)}
+              placeholder="e.g. a1b2c3d4..."
+              className="ck-input text-xs font-mono py-1.5 w-full"
+            />
+            <p className="text-2xs text-txt-ghost">dash.cloudflare.com → Overview → Account ID</p>
+          </div>
+          <div className="space-y-1">
+            <label className="text-2xs text-txt-secondary font-medium">API Token</label>
+            <div className="flex gap-1">
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={currentKey}
+                onChange={(e) => setApiKey('cloudflare', e.target.value)}
+                placeholder="Bearer token..."
+                className="ck-input text-xs font-mono py-1.5 flex-1"
+              />
+              <button onClick={() => setShowKey(!showKey)}
+                className="p-1.5 text-txt-faint hover:text-txt-secondary transition-colors" title="Toggle visibility">
+                {showKey ? <EyeOff size={12} /> : <Eye size={12} />}
+              </button>
+            </div>
+            <p className="text-2xs text-txt-ghost">dash.cloudflare.com → AI → Workers AI → API Token</p>
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 text-2xs text-txt-ghost">
         <Key size={9} />

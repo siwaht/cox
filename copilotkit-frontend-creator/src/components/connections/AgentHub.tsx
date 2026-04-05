@@ -259,7 +259,7 @@ const PasteTab: React.FC<{ onDeploy: (code: string, runtime: string) => void }> 
         theme: workspace.theme || 'dark', frontend: 'copilotkit',
         runtime: analysis?.runtime !== 'unknown' ? analysis?.runtime : 'langgraph',
       };
-      const result = await llmTransformCode(code, llm.provider, llm.modelId, llm.getActiveKey()!, context);
+      const result = await llmTransformCode(code, llm.provider, llm.modelId, llm.getActiveKey()!, context, llm.cloudflareAccountId);
       setTransformedCode(result.code);
       setShowTransformed(true);
       const validation = validateForDeploy(result.code);

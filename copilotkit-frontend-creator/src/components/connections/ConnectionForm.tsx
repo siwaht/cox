@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { AuthMode, ConnectionProfile, RuntimeType } from '@/types/connections';
+import type { AuthMode, ConnectionProfile, RuntimeType, FrontendType } from '@/types/connections';
 import { Zap, Sparkles } from 'lucide-react';
 
 interface Props {
@@ -10,16 +10,18 @@ interface Props {
 }
 
 const PRESETS: Array<{
-  label: string; runtime: RuntimeType; baseUrl: string; agentId: string; description: string;
+  label: string; frontend: FrontendType; runtime: RuntimeType; baseUrl: string; agentId: string; description: string;
 }> = [
-  { label: 'CopilotKit + LangGraph', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Default LangGraph dev server' },
-  { label: 'CopilotKit + LangChain', runtime: 'langchain', baseUrl: 'http://localhost:8123', agentId: '', description: 'Default LangChain serve' },
-  { label: 'CopilotKit + Deep Agent', runtime: 'deepagents', baseUrl: 'http://localhost:3001', agentId: 'default', description: 'Local deep agent server' },
-  { label: 'Custom Remote', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
+  { label: 'CopilotKit + LangGraph', frontend: 'copilotkit', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Default LangGraph dev server' },
+  { label: 'CopilotKit + LangChain', frontend: 'copilotkit', runtime: 'langchain', baseUrl: 'http://localhost:8123', agentId: '', description: 'Default LangChain serve' },
+  { label: 'CopilotKit + Deep Agent', frontend: 'copilotkit', runtime: 'deepagents', baseUrl: 'http://localhost:3001', agentId: 'default', description: 'Local deep agent server' },
+  { label: 'Tambo Agent', frontend: 'tambo', runtime: 'langgraph', baseUrl: 'http://localhost:3000', agentId: '', description: 'Tambo-compatible agent' },
+  { label: 'Custom Remote', frontend: 'copilotkit', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
 ];
 
 export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialValues, submitLabel }) => {
   const [name, setName] = useState(initialValues?.name || '');
+  const [frontend, setFrontend] = useState<FrontendType>(initialValues?.frontend || 'copilotkit');
   const [runtime, setRuntime] = useState<RuntimeType>(initialValues?.runtime || 'langgraph');
   const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl || 'http://localhost:2024');
   const [agentId, setAgentId] = useState(initialValues?.agentId || 'agent');
@@ -31,7 +33,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
   const [urlError, setUrlError] = useState('');
 
   const applyPreset = (p: typeof PRESETS[0]) => {
-    setRuntime(p.runtime); setBaseUrl(p.baseUrl); setAgentId(p.agentId); setName(p.label); setUrlError('');
+    setFrontend(p.frontend); setRuntime(p.runtime); setBaseUrl(p.baseUrl); setAgentId(p.agentId); setName(p.label); setUrlError('');
   };
 
   const validateUrl = (url: string): boolean => {
@@ -44,7 +46,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
     e.preventDefault();
     if (!validateUrl(baseUrl)) return;
     onSubmit({
-      name: name || `copilotkit + ${runtime} agent`, frontend: 'copilotkit', runtime,
+      name: name || `${frontend} + ${runtime} agent`, frontend, runtime,
       baseUrl: baseUrl.replace(/\/+$/, ''),
       agentId: agentId || undefined,
       auth: {
@@ -73,7 +75,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
             {PRESETS.map((p) => (
               <button key={p.label} type="button" onClick={() => applyPreset(p)}
                 className={`text-left px-2.5 py-2 rounded-lg border transition-all text-2xs ${
-                  runtime === p.runtime && baseUrl === p.baseUrl
+                  frontend === p.frontend && runtime === p.runtime && baseUrl === p.baseUrl
                     ? 'border-accent/50 bg-accent-soft text-accent'
                     : 'border-border text-txt-secondary hover:border-txt-faint hover:text-txt-secondary'
                 }`}>
@@ -86,6 +88,26 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
       )}
 
       <div className="space-y-3">
+        <Row label="Frontend SDK" hint="Which client SDK to use">
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setFrontend('copilotkit')}
+              className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                frontend === 'copilotkit'
+                  ? 'border-accent/50 bg-accent-soft text-accent'
+                  : 'border-border text-txt-secondary hover:border-txt-faint'
+              }`}>
+              CopilotKit
+            </button>
+            <button type="button" onClick={() => setFrontend('tambo')}
+              className={`flex-1 px-3 py-2 rounded-lg border text-xs font-medium transition-all ${
+                frontend === 'tambo'
+                  ? 'border-accent/50 bg-accent-soft text-accent'
+                  : 'border-border text-txt-secondary hover:border-txt-faint'
+              }`}>
+              Tambo
+            </button>
+          </div>
+        </Row>
         <Row label="Connection Name">
           <input type="text" value={name} onChange={(e) => setName(e.target.value)}
                  placeholder="My Agent" className="ck-input text-xs" />

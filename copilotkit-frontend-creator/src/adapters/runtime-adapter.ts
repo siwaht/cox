@@ -1,7 +1,7 @@
-import type { ConnectionProfile, RuntimeType } from '@/types/connections';
+import type { ConnectionProfile, RuntimeType, FrontendType } from '@/types/connections';
 
 // ─── Runtime Adapter ───
-// Translates connection profiles into runtime configuration for CopilotKit.
+// Translates connection profiles into runtime configuration for CopilotKit or Tambo.
 
 export interface RuntimeConfig {
   runtimeUrl: string;
@@ -10,12 +10,26 @@ export interface RuntimeConfig {
 }
 
 /**
- * Build the backend runtime config. Used by CopilotKitBridge directly.
+ * Build the backend runtime config. Used by CopilotKitBridge and TamboBridge.
  */
 export function buildRuntimeConfig(profile: ConnectionProfile): RuntimeConfig {
   const base = profile.baseUrl.replace(/\/+$/, '');
   const headers = buildHeaders(profile);
 
+  // Tambo uses a different URL pattern
+  if (profile.frontend === 'tambo') {
+    return {
+      runtimeUrl: `${base}/api`,
+      headers,
+      properties: {
+        frontend: 'tambo',
+        runtime: profile.runtime,
+        ...(profile.env || {}),
+      },
+    };
+  }
+
+  // CopilotKit runtime builders
   const builders: Record<RuntimeType, () => RuntimeConfig> = {
     langchain: () => ({
       runtimeUrl: `${base}/copilotkit`,
@@ -48,8 +62,6 @@ export function buildRuntimeConfig(profile: ConnectionProfile): RuntimeConfig {
       headers,
       properties: {
         runtime: 'deepagents',
-        // Deep agents use the same AG-UI protocol as langgraph.
-        // The agent name must match what's registered on the backend.
         'langgraph-agent-id': profile.agentId || 'agent',
         ...(profile.env || {}),
       },
@@ -80,7 +92,8 @@ function buildHeaders(profile: ConnectionProfile): Record<string, string> {
 /** Determine which blocks are fully supported by the detected capabilities */
 export function getCompatibleBlocks(
   capabilities: string[],
-  requestedBlocks: string[]
+  requestedBlocks: string[],
+  frontend?: FrontendType,
 ): { supported: string[]; unsupported: string[]; fallback: string[] } {
   const capSet = new Set(capabilities);
 
@@ -98,12 +111,10 @@ export function getCompatibleBlocks(
     cards: ['structuredOutput'],
     panel: [],
     markdown: [],
-    // LangSmith blocks
     traceViewer: ['logs', 'toolCalls'],
     feedback: [],
     dataset: ['structuredOutput'],
     annotationQueue: ['approvals'],
-    // Deep Agent blocks
     reasoningChain: ['intermediateState'],
     subAgentTree: ['subagents'],
     depthIndicator: ['progress'],
@@ -121,7 +132,6 @@ export function getCompatibleBlocks(
     }
   }
 
-  // Fallback blocks always available
   const fallback = ['chat', 'status', 'logs'];
 
   return { supported, unsupported, fallback };

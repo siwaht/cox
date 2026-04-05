@@ -9,7 +9,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 4,
     defaultProps: { showTimestamps: true, showAvatars: true },
     requiredCapabilities: ['chat', 'streaming'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'results',
@@ -19,7 +19,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 3,
     defaultProps: { format: 'auto' },
     requiredCapabilities: ['structuredOutput'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'toolActivity',
@@ -29,7 +29,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 4, defaultH: 3,
     defaultProps: { showArgs: true, showResults: true },
     requiredCapabilities: ['toolCalls', 'toolResults'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'approvals',
@@ -39,7 +39,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 4, defaultH: 2,
     defaultProps: {},
     requiredCapabilities: ['approvals'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'logs',
@@ -49,7 +49,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 12, defaultH: 2,
     defaultProps: { level: 'info', autoScroll: true },
     requiredCapabilities: ['logs'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'status',
@@ -59,7 +59,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 3, defaultH: 1,
     defaultProps: {},
     requiredCapabilities: ['progress'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'form',
@@ -69,7 +69,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 4, defaultH: 3,
     defaultProps: { fields: [] },
     requiredCapabilities: [],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'table',
@@ -79,7 +79,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 3,
     defaultProps: { columns: [], pagination: true },
     requiredCapabilities: ['structuredOutput'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'chart',
@@ -89,7 +89,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 3,
     defaultProps: { chartType: 'bar' },
     requiredCapabilities: ['structuredOutput'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'dashboard',
@@ -99,7 +99,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 12, defaultH: 2,
     defaultProps: { metrics: [] },
     requiredCapabilities: ['structuredOutput'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'cards',
@@ -109,7 +109,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 3,
     defaultProps: {},
     requiredCapabilities: ['structuredOutput'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'panel',
@@ -119,7 +119,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 2,
     defaultProps: { title: 'Panel' },
     requiredCapabilities: [],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'markdown',
@@ -129,7 +129,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 3,
     defaultProps: { content: '' },
     requiredCapabilities: [],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   // ─── LangSmith-specific blocks ───
   {
@@ -150,7 +150,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 4, defaultH: 2,
     defaultProps: { feedbackType: 'thumbs', allowComment: true },
     requiredCapabilities: [],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'dataset',
@@ -181,7 +181,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 4,
     defaultProps: { showConfidence: true, collapsible: true },
     requiredCapabilities: ['intermediateState', 'streaming'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'subAgentTree',
@@ -191,7 +191,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 6, defaultH: 4,
     defaultProps: { showStatus: true, animated: true },
     requiredCapabilities: ['subagents', 'progress'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
   {
     type: 'depthIndicator',
@@ -201,7 +201,7 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     defaultW: 3, defaultH: 1,
     defaultProps: { maxDepth: 5, showLabel: true },
     requiredCapabilities: ['progress'],
-    frontend: 'copilotkit',
+    frontend: 'both',
   },
 ];
 
