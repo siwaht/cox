@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useConnectionStore } from '@/store/connection-store';
+import { useFrameworkStore } from '@/store/framework-store';
 import type { RuntimeType } from '@/types/connections';
 
 const LOCAL_AGENT_NAME = 'Local Agent';
@@ -47,7 +48,7 @@ export function useLocalAgent() {
 
       const id = store.addConnection({
         name: LOCAL_AGENT_NAME,
-        frontend: 'copilotkit',
+        frontend: useFrameworkStore.getState().framework,
         runtime,
         baseUrl: window.location.origin,
         agentId: 'agent',

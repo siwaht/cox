@@ -13,6 +13,7 @@ import { useWorkspaceStore } from '@/store/workspace-store';
 import { useLLMStore, AVAILABLE_MODELS } from '@/store/llm-store';
 import type { LLMProvider } from '@/store/llm-store';
 import { useToastStore } from '@/store/toast-store';
+import { useFrameworkStore } from '@/store/framework-store';
 import { llmTransformCode } from '@/adapters/llm-transformer';
 import type { LLMTransformResult, FrontendContext } from '@/adapters/llm-transformer';
 import { getDocsCacheStatus, clearDocsCache } from '@/adapters/docs-fetcher';
@@ -222,7 +223,7 @@ export const CodeTransformerView: React.FC = () => {
         blocks: workspace.blocks,
         workspaceName: workspace.name,
         theme: workspace.theme,
-        frontend: 'copilotkit',
+        frontend: useFrameworkStore.getState().framework,
         runtime: 'langchain',
       };
       const llmResult: LLMTransformResult = await llmTransformCode(
@@ -340,7 +341,7 @@ export const CodeTransformerView: React.FC = () => {
                          bg-accent hover:bg-accent-hover text-white transition-colors
                          disabled:opacity-40 disabled:cursor-not-allowed">
               {isTransforming ? <Loader2 size={13} className="animate-spin" /> : <Wand2 size={13} />}
-              {isTransforming ? 'Transforming...' : 'Add CopilotKit Compatibility'}
+              {isTransforming ? 'Transforming...' : 'Transform & Add Compatibility'}
             </button>
             {!hasApiKey && (
               <span className="text-2xs text-warning flex items-center gap-1">

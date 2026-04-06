@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { BLOCK_REGISTRY } from '@/registry/block-registry';
+import { BLOCK_REGISTRY, getBlocksForFramework } from '@/registry/block-registry';
 import { useWorkspaceStore } from '@/store/workspace-store';
+import { useFrameworkStore } from '@/store/framework-store';
 import type { BlockType } from '@/types/blocks';
 import {
   MessageSquare, LayoutList, Wrench, ShieldCheck, ScrollText,
@@ -35,16 +36,19 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set());
   const codeAnalysis = useCodeAnalysisStore((s) => s.analysis);
+  const { framework } = useFrameworkStore();
+
+  const frameworkBlocks = useMemo(() => getBlocksForFramework(framework), [framework]);
 
   // Determine which block types are compatible with current agent code
   const compatibilityMap = useMemo(() => {
     const map = new Map<string, 'compatible' | 'incompatible' | 'unknown'>();
     if (!codeAnalysis) {
       // No code analyzed — everything is unknown
-      BLOCK_REGISTRY.forEach((def) => map.set(def.type, 'unknown'));
+      frameworkBlocks.forEach((def) => map.set(def.type, 'unknown'));
       return map;
     }
-    for (const def of BLOCK_REGISTRY) {
+    for (const def of frameworkBlocks) {
       const required = def.requiredCapabilities;
       if (required.length === 0) {
         map.set(def.type, 'compatible');
@@ -54,15 +58,15 @@ export const BlockPalette: React.FC<Props> = ({ onClose }) => {
       map.set(def.type, allMet ? 'compatible' : 'incompatible');
     }
     return map;
-  }, [codeAnalysis]);
+  }, [codeAnalysis, frameworkBlocks]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return BLOCK_REGISTRY;
+    if (!search.trim()) return frameworkBlocks;
     const q = search.toLowerCase();
-    return BLOCK_REGISTRY.filter(
+    return frameworkBlocks.filter(
       (d) => d.label.toLowerCase().includes(q) || d.description.toLowerCase().includes(q)
     );
-  }, [search]);
+  }, [search, frameworkBlocks]);
 
   const toggleCategory = (id: string) => {
     setCollapsedCategories(prev => {

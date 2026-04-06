@@ -1,7 +1,7 @@
-import type { ConnectionProfile, RuntimeType } from '@/types/connections';
+import type { ConnectionProfile, FrontendType, RuntimeType } from '@/types/connections';
 
 // ─── Runtime Adapter ───
-// Translates connection profiles into runtime configuration for CopilotKit.
+// Translates connection profiles into runtime configuration for CopilotKit or Tambo.
 
 export interface RuntimeConfig {
   runtimeUrl: string;
@@ -15,6 +15,20 @@ export interface RuntimeConfig {
 export function buildRuntimeConfig(profile: ConnectionProfile): RuntimeConfig {
   const base = profile.baseUrl.replace(/\/+$/, '');
   const headers = buildHeaders(profile);
+
+  // Tambo uses a different URL pattern
+  if (profile.frontend === 'tambo') {
+    return {
+      runtimeUrl: `${base}/api/tambo`,
+      headers,
+      properties: {
+        runtime: profile.runtime,
+        frontend: 'tambo',
+        ...(profile.agentId ? { agentId: profile.agentId } : {}),
+        ...(profile.env || {}),
+      },
+    };
+  }
 
   const builders: Record<RuntimeType, () => RuntimeConfig> = {
     langchain: () => ({

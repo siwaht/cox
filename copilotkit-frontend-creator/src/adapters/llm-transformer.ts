@@ -20,8 +20,8 @@ export interface LLMTransformResult {
   explanation: string;
 }
 
-const SYSTEM_PROMPT = `You are an expert Python backend engineer specializing in AI agent frameworks (LangGraph, LangChain, CopilotKit).
-Your job: take user's agent code and produce a COMPLETE, RUNNABLE agent_server.py that integrates with CopilotKit.
+const SYSTEM_PROMPT = `You are an expert Python backend engineer specializing in AI agent frameworks (LangGraph, LangChain, CopilotKit, Tambo).
+Your job: take user's agent code and produce a COMPLETE, RUNNABLE agent_server.py that integrates with the selected frontend framework.
 You also receive the user's FRONTEND CONFIGURATION — the UI blocks they've set up.
 
 ## YOUR #1 PRIORITY: MAKE EVERY BLOCK WORK

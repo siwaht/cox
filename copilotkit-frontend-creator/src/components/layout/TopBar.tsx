@@ -6,6 +6,8 @@ import { PromptModal } from '@/components/publish/PromptModal';
 import { encodeWorkspaceToUrl } from '@/utils/share-url';
 import { useThemeStore } from '@/store/theme-store';
 import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon, Sparkles, Undo2, Redo2 } from 'lucide-react';
+import { useFrameworkStore } from '@/store/framework-store';
+import type { FrontendType } from '@/types/connections';
 
 export const TopBar: React.FC = () => {
   const { mode, setMode, workspace, updateWorkspace, savedWorkspaces, saveCurrentWorkspace, loadSavedWorkspace, deleteSavedWorkspace, undo, redo, canUndo, canRedo } = useWorkspaceStore();
@@ -99,6 +101,9 @@ export const TopBar: React.FC = () => {
         <div className="hidden md:flex items-center gap-2">
           <ModeToggle mode={mode} setMode={setMode} />
 
+          <FrameworkToggle />
+          <div className="w-px h-5 bg-border/40" />
+
           {/* Undo / Redo */}
           <div className="flex items-center gap-0.5">
             <button onClick={() => canUndo() && undo()}
@@ -181,6 +186,7 @@ export const TopBar: React.FC = () => {
       {mobileMenuOpen && (
         <div className="md:hidden bg-surface-raised border-b border-border px-4 py-3 space-y-3 animate-slide-up">
           <ModeToggle mode={mode} setMode={(m) => { setMode(m); setMobileMenuOpen(false); }} />
+          <FrameworkToggle />
           <div className="flex gap-2">
             <button onClick={() => { setShowExportModal(true); setMobileMenuOpen(false); }}
               className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs rounded-lg bg-accent
@@ -284,3 +290,38 @@ const WorkspaceDropdown: React.FC<{
     </div>
   </>
 );
+
+const FrameworkToggle: React.FC = () => {
+  const { framework, setFramework } = useFrameworkStore();
+  const addToast = useToastStore((s) => s.addToast);
+
+  const handleSwitch = (fw: FrontendType) => {
+    if (fw === framework) return;
+    setFramework(fw);
+    addToast(`Switched to ${fw === 'copilotkit' ? 'CopilotKit' : 'Tambo'}`, 'info', 2000);
+  };
+
+  return (
+    <div className="flex rounded-xl p-0.5 gap-0.5 border border-white/5 shadow-inner"
+      style={{ background: 'color-mix(in srgb, var(--color-surface-raised) 50%, transparent)', backdropFilter: 'blur(16px)' }}
+      role="radiogroup" aria-label="Frontend framework">
+      <button onClick={() => handleSwitch('copilotkit')} role="radio" aria-checked={framework === 'copilotkit'}
+        className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-300 ease-out font-medium active:scale-[0.97] flex items-center gap-1.5 ${
+          framework === 'copilotkit'
+            ? 'bg-accent text-white shadow-[0_0_16px_rgba(139,92,246,0.4)] border border-accent-hover'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-white/5'
+        }`}>
+        <Zap size={11} /> CopilotKit
+      </button>
+      <button onClick={() => handleSwitch('tambo')} role="radio" aria-checked={framework === 'tambo'}
+        className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-300 ease-out font-medium active:scale-[0.97] flex items-center gap-1.5 ${
+          framework === 'tambo'
+            ? 'bg-[#06b6d4] text-white shadow-[0_0_16px_rgba(6,182,212,0.4)] border border-[#0891b2]'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-white/5'
+        }`}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v12M6 12h12" /></svg>
+        Tambo
+      </button>
+    </div>
+  );
+};

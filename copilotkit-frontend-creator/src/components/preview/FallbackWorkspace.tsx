@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { RuntimeBlockRenderer } from '@/components/runtime/RuntimeBlockRenderer';
+import { useFrameworkStore } from '@/store/framework-store';
 import type { BlockConfig } from '@/types/blocks';
 
 const FALLBACK_BLOCKS: BlockConfig[] = [
@@ -10,17 +11,22 @@ const FALLBACK_BLOCKS: BlockConfig[] = [
   { id: 'fb-logs', type: 'logs', label: 'Logs', x: 0, y: 5, w: 12, h: 2, props: { level: 'info', autoScroll: true }, visible: true },
 ];
 
-export const FallbackWorkspace: React.FC = () => (
-  <div className="flex-1 overflow-y-auto p-3 sm:p-6">
-    <div className="max-w-6xl mx-auto">
-      <p className="text-xs text-txt-faint text-center mb-4">
-        Default workspace — add blocks in the editor or connect an agent
-      </p>
-      <div className="grid grid-cols-6 sm:grid-cols-12 gap-2.5 auto-rows-min">
-        {FALLBACK_BLOCKS.map((block) => (
-          <RuntimeBlockRenderer key={block.id} block={block} />
-        ))}
+export const FallbackWorkspace: React.FC = () => {
+  const { framework } = useFrameworkStore();
+  const frameworkLabel = framework === 'copilotkit' ? 'CopilotKit' : 'Tambo';
+
+  return (
+    <div className="flex-1 overflow-y-auto p-3 sm:p-6">
+      <div className="max-w-6xl mx-auto">
+        <p className="text-xs text-txt-faint text-center mb-4">
+          Default {frameworkLabel} workspace — add blocks in the editor or connect an agent
+        </p>
+        <div className="grid grid-cols-6 sm:grid-cols-12 gap-2.5 auto-rows-min">
+          {FALLBACK_BLOCKS.map((block) => (
+            <RuntimeBlockRenderer key={block.id} block={block} />
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};

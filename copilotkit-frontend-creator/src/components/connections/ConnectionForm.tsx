@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import type { AuthMode, ConnectionProfile, RuntimeType } from '@/types/connections';
+import type { AuthMode, ConnectionProfile, FrontendType, RuntimeType } from '@/types/connections';
+import { useFrameworkStore } from '@/store/framework-store';
 import { Zap, Sparkles } from 'lucide-react';
 
 interface Props {
@@ -9,7 +10,7 @@ interface Props {
   submitLabel?: string;
 }
 
-const PRESETS: Array<{
+const COPILOTKIT_PRESETS: Array<{
   label: string; runtime: RuntimeType; baseUrl: string; agentId: string; description: string;
 }> = [
   { label: 'CopilotKit + LangGraph', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Default LangGraph dev server' },
@@ -18,7 +19,18 @@ const PRESETS: Array<{
   { label: 'Custom Remote', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
 ];
 
+const TAMBO_PRESETS: Array<{
+  label: string; runtime: RuntimeType; baseUrl: string; agentId: string; description: string;
+}> = [
+  { label: 'Tambo + LangGraph', runtime: 'langgraph', baseUrl: 'http://localhost:2024', agentId: 'agent', description: 'Default LangGraph dev server' },
+  { label: 'Tambo + LangChain', runtime: 'langchain', baseUrl: 'http://localhost:8123', agentId: '', description: 'Default LangChain serve' },
+  { label: 'Tambo + Deep Agent', runtime: 'deepagents', baseUrl: 'http://localhost:3001', agentId: 'default', description: 'Local deep agent server' },
+  { label: 'Custom Remote', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
+];
+
 export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialValues, submitLabel }) => {
+  const { framework } = useFrameworkStore();
+  const PRESETS = framework === 'tambo' ? TAMBO_PRESETS : COPILOTKIT_PRESETS;
   const [name, setName] = useState(initialValues?.name || '');
   const [runtime, setRuntime] = useState<RuntimeType>(initialValues?.runtime || 'langgraph');
   const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl || 'http://localhost:2024');
@@ -44,7 +56,7 @@ export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialVal
     e.preventDefault();
     if (!validateUrl(baseUrl)) return;
     onSubmit({
-      name: name || `copilotkit + ${runtime} agent`, frontend: 'copilotkit', runtime,
+      name: name || `${framework} + ${runtime} agent`, frontend: framework, runtime,
       baseUrl: baseUrl.replace(/\/+$/, ''),
       agentId: agentId || undefined,
       auth: {

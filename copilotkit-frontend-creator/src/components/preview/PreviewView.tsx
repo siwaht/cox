@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { useWorkspaceStore } from '@/store/workspace-store';
 import { useConnectionStore } from '@/store/connection-store';
+import { useFrameworkStore } from '@/store/framework-store';
 import { RuntimeBlockRenderer } from '@/components/runtime/RuntimeBlockRenderer';
 import { CopilotKitBridge } from '@/components/runtime/CopilotKitBridge';
+import { TamboBridge } from '@/components/runtime/TamboBridge';
 import { FallbackWorkspace } from './FallbackWorkspace';
 import { DiagnosticsPanel } from '@/components/diagnostics/DiagnosticsPanel';
 import { LoadingSkeleton } from '@/components/runtime/LoadingSkeleton';
@@ -23,6 +25,7 @@ const VIEWPORT_WIDTHS: Record<ViewportSize, string> = {
 export const PreviewView: React.FC = () => {
   const { workspace } = useWorkspaceStore();
   const { activeConnectionId, connections, validationResult, connectionStatus } = useConnectionStore();
+  const { framework } = useFrameworkStore();
   const [viewport, setViewport] = useState<ViewportSize>('desktop');
 
   // Inject mock data when previewing without a connection
@@ -71,7 +74,7 @@ export const PreviewView: React.FC = () => {
               <Wifi size={12} className="text-success" />
               <span className="text-txt-secondary">
                 <span className="text-txt-primary font-medium">{activeConn.name}</span>
-                <span className="text-txt-faint ml-1.5">({activeConn.frontend} + {activeConn.runtime})</span>
+                <span className="text-txt-faint ml-1.5">({framework === 'copilotkit' ? 'CopilotKit' : 'Tambo'} + {activeConn.runtime})</span>
               </span>
             </>
           ) : (
@@ -121,7 +124,10 @@ export const PreviewView: React.FC = () => {
   return (
     <div className="h-full flex flex-col" style={themeStyle}>
       {isConnected ? (
-        <CopilotKitBridge>{previewContent}</CopilotKitBridge>
+        (() => {
+          const Bridge = framework === 'tambo' ? TamboBridge : CopilotKitBridge;
+          return <Bridge>{previewContent}</Bridge>;
+        })()
       ) : (
         previewContent
       )}

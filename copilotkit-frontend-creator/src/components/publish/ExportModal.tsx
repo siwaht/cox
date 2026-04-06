@@ -170,7 +170,7 @@ export const ExportModal: React.FC<Props> = ({ onClose }) => {
           {/* Download Full Project — primary CTA */}
           <Section title="Download Complete Project (.zip)" icon={<Package size={14} />}>
             <p className="text-2xs text-txt-muted mb-2">
-              Get a complete Vite + React + Tailwind + CopilotKit project with all your blocks{agentCode.trim() ? ' and your agent backend code' : ''}, ready to <code className="text-txt-secondary">npm install && npm run dev</code>.
+              Get a complete Vite + React + Tailwind project with all your blocks{agentCode.trim() ? ' and your agent backend code' : ''}, ready to <code className="text-txt-secondary">npm install && npm run dev</code>.
             </p>
             <div className="flex flex-wrap gap-2 mb-2">
               <button onClick={handleDownloadProject}
