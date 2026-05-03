@@ -9,8 +9,8 @@ pip install --quiet --upgrade \
   python-dotenv \
   "langchain>=1.2.0" \
   "langchain-openai>=1.1.11" \
-  "langchain-core>=1.2.20" \
-  "langgraph>=0.3.25,<1.1.0" \
+  "langchain-core>=1.2.0" \
+  "langgraph>=1.0.10" \
   "langgraph-checkpoint>=2.0.0" \
   "ag-ui-langgraph[fastapi]>=0.0.27" \
   "deepagents>=0.4.11"
