@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { CopilotKit } from '@copilotkit/react-core';
+import { HttpAgent } from '@ag-ui/client';
 import { useConnectionStore } from '@/store/connection-store';
 import { buildRuntimeConfig } from '@/adapters/runtime-adapter';
 import { BlockErrorBoundary } from './BlockErrorBoundary';
@@ -58,10 +59,23 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
 
   const config = buildRuntimeConfig(activeConn);
 
-  // The `agent` prop tells CopilotKit which agent to route to.
-  // For deep agents using AG-UI protocol, this must match the agent name
-  // registered on the backend (e.g. "agent" or "sample_agent").
-  const agentName = activeConn.agentId || 'agent';
+  // The backend mounts a single AG-UI endpoint at /copilotkit. CopilotKit's
+  // legacy useCopilotChat resolves agentId to "default" when no override is
+  // set, and the HttpAgent's agentId MUST equal its registration key. So we
+  // standardize on "default" end-to-end. activeConn.agentId is currently
+  // informational only; if/when the backend mounts multiple named agents,
+  // map activeConn.agentId → registration key and update the /copilotkit/info
+  // stub on the server to advertise them.
+  const headersKey = JSON.stringify(config.headers);
+  const agents = useMemo(() => {
+    const httpAgent = new HttpAgent({
+      agentId: 'default',
+      url: config.runtimeUrl,
+      headers: config.headers,
+    });
+    return { default: httpAgent };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config.runtimeUrl, headersKey]);
 
   return (
     <BlockErrorBoundary blockLabel="CopilotKit Bridge">
@@ -69,7 +83,8 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
         runtimeUrl={config.runtimeUrl}
         headers={config.headers}
         properties={config.properties}
-        agent={agentName}
+        agent="default"
+        agents__unsafe_dev_only={agents}
         showDevConsole={false}
       >
         <CopilotAgentEventsSync />

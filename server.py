@@ -163,6 +163,23 @@ def mount_agent():
             agent=ck_agent,
             path="/copilotkit",
         )
+
+        # Stub for CopilotKit's runtime-info probe. The React SDK pings
+        # /copilotkit/info on init to discover available agents/tools. We don't
+        # run the GraphQL runtime (frontend uses agents__unsafe_dev_only with
+        # HttpAgent direct mode), so just return a minimal payload to silence
+        # the 422s.
+        @app.api_route("/copilotkit/info", methods=["GET", "POST"])
+        async def copilotkit_info():
+            # Advertise "default" because the React frontend talks AG-UI direct
+            # via HttpAgent registered under the "default" key. Keep this in
+            # sync with CopilotKitBridge.tsx.
+            return {
+                "agents": [{"name": "default", "description": "A helpful assistant."}],
+                "actions": [],
+                "sdkVersion": "ag-ui-langgraph-direct",
+            }
+
         logger.info("✓ Mounted agent at /copilotkit (ag-ui-langgraph)")
 
     except ImportError as e:
