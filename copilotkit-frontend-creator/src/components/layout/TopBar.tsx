@@ -3,9 +3,11 @@ import { useWorkspaceStore } from '@/store/workspace-store';
 import { useToastStore } from '@/store/toast-store';
 import { ExportModal } from '@/components/publish/ExportModal';
 import { PromptModal } from '@/components/publish/PromptModal';
+import { ConnectionModal } from '@/components/connections/ConnectionModal';
 import { encodeWorkspaceToUrl } from '@/utils/share-url';
 import { useThemeStore } from '@/store/theme-store';
-import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon, Sparkles, Undo2, Redo2 } from 'lucide-react';
+import { useConnectionStore } from '@/store/connection-store';
+import { Zap, Download, Menu, X, Save, FolderOpen, Trash2, Share2, HelpCircle, Sun, Moon, Sparkles, Undo2, Redo2, Plug } from 'lucide-react';
 import { useFrameworkStore } from '@/store/framework-store';
 import type { FrontendType } from '@/types/connections';
 
@@ -15,7 +17,11 @@ export const TopBar: React.FC = () => {
   const addToast = useToastStore((s) => s.addToast);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showPromptModal, setShowPromptModal] = useState(false);
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const activeConnectionId = useConnectionStore((s) => s.activeConnectionId);
+  const connectionStatus = useConnectionStore((s) => s.connectionStatus);
+  const isConnected = Boolean(activeConnectionId && connectionStatus === 'connected');
   const [showWorkspaces, setShowWorkspaces] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(workspace.name);
@@ -149,6 +155,17 @@ export const TopBar: React.FC = () => {
             )}
           </div>
 
+          <button onClick={() => setShowConnectionModal(true)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all font-medium active:scale-95 ${
+              isConnected
+                ? 'border-success/50 bg-success/10 text-success hover:bg-success/15'
+                : 'border-border text-txt-muted hover:text-accent hover:border-accent/50 hover:bg-accent-soft'
+            }`}
+            title={isConnected ? 'Agent connected — click to manage' : 'Connect to an agent'}>
+            <Plug size={13} />
+            {isConnected ? 'Connected' : 'Connect'}
+          </button>
+
           <button onClick={() => setShowExportModal(true)}
             className="flex items-center gap-1.5 px-4 py-1.5 text-xs rounded-xl bg-accent
                        hover:bg-accent-hover text-white transition-all font-medium active:scale-[0.97] shadow-lg shadow-accent/20 hover:shadow-accent/30 hover:shadow-xl">
@@ -199,6 +216,14 @@ export const TopBar: React.FC = () => {
               <Sparkles size={13} /> AI Prompt
             </button>
           </div>
+          <button onClick={() => { setShowConnectionModal(true); setMobileMenuOpen(false); }}
+            className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg border transition-all font-medium ${
+              isConnected
+                ? 'border-success/50 bg-success/10 text-success'
+                : 'border-border text-txt-muted hover:text-accent hover:border-accent/50'
+            }`}>
+            <Plug size={12} /> {isConnected ? 'Connected' : 'Connect agent'}
+          </button>
           <div className="flex gap-2">
             <button onClick={() => { handleSave(); setMobileMenuOpen(false); }}
               className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs rounded-lg
@@ -221,6 +246,7 @@ export const TopBar: React.FC = () => {
 
       {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
       {showPromptModal && <PromptModal onClose={() => setShowPromptModal(false)} />}
+      {showConnectionModal && <ConnectionModal onClose={() => setShowConnectionModal(false)} />}
     </>
   );
 };
