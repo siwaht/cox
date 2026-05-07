@@ -103,11 +103,11 @@ async def health():
     return {
         "status": "ok",
         "agent_loaded": _copilotkit_mounted,
-        "tools": True,
-        "tool_calls": True,
-        "structured_output": True,
-        "logs": True,
-        "progress": True,
+        "tools": _copilotkit_mounted,
+        "tool_calls": _copilotkit_mounted,
+        "structured_output": _copilotkit_mounted,
+        "logs": _copilotkit_mounted,
+        "progress": _copilotkit_mounted,
     }
 
 

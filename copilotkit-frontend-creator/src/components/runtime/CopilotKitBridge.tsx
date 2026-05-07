@@ -68,14 +68,25 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
   // stub on the server to advertise them.
   const headersKey = JSON.stringify(config.headers);
   const agents = useMemo(() => {
-    const httpAgent = new HttpAgent({
-      agentId: 'default',
-      url: config.runtimeUrl,
-      headers: config.headers,
-    });
-    return { default: httpAgent };
+    try {
+      const httpAgent = new HttpAgent({
+        agentId: 'default',
+        url: config.runtimeUrl,
+        headers: config.headers,
+      });
+      return { default: httpAgent };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[CopilotKitBridge] Failed to create HttpAgent:', message);
+      setBridgeError(message);
+      return null;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.runtimeUrl, headersKey]);
+
+  if (!agents) {
+    return <>{children}</>;
+  }
 
   return (
     <BlockErrorBoundary blockLabel="CopilotKit Bridge">

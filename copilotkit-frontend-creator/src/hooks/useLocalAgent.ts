@@ -78,9 +78,19 @@ async function detectRuntime(baseUrl: string): Promise<RuntimeType> {
 
     if (res.ok) {
       const body = await res.json();
+
+      // Warn if the server is running but no agent is loaded
+      if (body.agent_loaded === false) {
+        console.warn(
+          '[useLocalAgent] Server is running but no agent is loaded. ' +
+          'Set OPENAI_API_KEY in .env and ensure agent.py exports a `graph` variable.',
+        );
+        return 'langgraph';
+      }
+
       // If the health endpoint reports sub_agents or subagents,
       // treat this as a deep agent backend
-      if (body.sub_agents || body.subagents) {
+      if (body.agent_loaded && (body.sub_agents || body.subagents)) {
         return 'deepagents';
       }
     }
