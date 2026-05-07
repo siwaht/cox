@@ -5,6 +5,7 @@ import { useFrameworkStore } from '@/store/framework-store';
 import { RuntimeBlockRenderer } from '@/components/runtime/RuntimeBlockRenderer';
 import { CopilotKitBridge } from '@/components/runtime/CopilotKitBridge';
 import { TamboBridge } from '@/components/runtime/TamboBridge';
+import { FastMCPBridge } from '@/components/runtime/FastMCPBridge';
 import { FallbackWorkspace } from './FallbackWorkspace';
 import { DiagnosticsPanel } from '@/components/diagnostics/DiagnosticsPanel';
 import { LoadingSkeleton } from '@/components/runtime/LoadingSkeleton';
@@ -74,7 +75,7 @@ export const PreviewView: React.FC = () => {
               <Wifi size={12} className="text-success" />
               <span className="text-txt-secondary">
                 <span className="text-txt-primary font-medium">{activeConn.name}</span>
-                <span className="text-txt-faint ml-1.5">({framework === 'copilotkit' ? 'CopilotKit' : 'Tambo'} + {activeConn.runtime})</span>
+                <span className="text-txt-faint ml-1.5">({framework === 'copilotkit' ? 'CopilotKit' : framework === 'fastmcp' ? 'FastMCP' : 'Tambo'} + {activeConn.runtime})</span>
               </span>
             </>
           ) : (
@@ -125,7 +126,8 @@ export const PreviewView: React.FC = () => {
     <div className="h-full flex flex-col" style={themeStyle}>
       {isConnected ? (
         (() => {
-          const Bridge = framework === 'tambo' ? TamboBridge : CopilotKitBridge;
+          const BRIDGE_MAP = { copilotkit: CopilotKitBridge, tambo: TamboBridge, fastmcp: FastMCPBridge };
+          const Bridge = BRIDGE_MAP[framework] || CopilotKitBridge;
           return <Bridge>{previewContent}</Bridge>;
         })()
       ) : (

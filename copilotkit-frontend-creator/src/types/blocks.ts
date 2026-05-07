@@ -25,7 +25,11 @@ export type BlockType =
   // Deep Agent-specific blocks
   | 'reasoningChain'
   | 'subAgentTree'
-  | 'depthIndicator';
+  | 'depthIndicator'
+  // FastMCP-specific blocks
+  | 'mcpTools'
+  | 'mcpResources'
+  | 'mcpPrompts';
 
 export interface BlockConfig {
   id: string;
@@ -55,7 +59,7 @@ export interface BlockDefinition {
   /** Which runtime features this block needs */
   requiredCapabilities: RuntimeCapability[];
   /** Which frontend SDK this block is designed for */
-  frontend: 'copilotkit' | 'tambo' | 'both';
+  frontend: 'copilotkit' | 'tambo' | 'fastmcp' | 'both';
 }
 
 export type RuntimeCapability =

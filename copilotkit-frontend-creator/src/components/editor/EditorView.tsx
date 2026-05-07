@@ -143,11 +143,28 @@ export const EditorView: React.FC = () => {
       )}
 
       {/* Center: Canvas */}
-      <CanvasArea
-        selectedBlockId={selectedBlockId}
-        onSelectBlock={setSelectedBlockId}
-        isOverCanvas={isOverCanvas}
-      />
+      <div
+        className="flex-1 min-w-0"
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('application/block-type')) {
+            e.preventDefault();
+            setIsOverCanvas(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          const related = e.relatedTarget as HTMLElement | null;
+          if (!related || !e.currentTarget.contains(related)) {
+            setIsOverCanvas(false);
+          }
+        }}
+        onDrop={() => setIsOverCanvas(false)}
+      >
+        <CanvasArea
+          selectedBlockId={selectedBlockId}
+          onSelectBlock={setSelectedBlockId}
+          isOverCanvas={isOverCanvas}
+        />
+      </div>
 
       {/* Right: Inspector */}
       <div className={`

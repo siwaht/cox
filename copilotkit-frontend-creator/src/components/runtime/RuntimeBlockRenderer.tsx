@@ -46,6 +46,10 @@ const BLOCK_COMPONENTS: Record<BlockType, React.FC<{ block: BlockConfig }>> = {
   reasoningChain: ReasoningChainBlock,
   subAgentTree: SubAgentTreeBlock,
   depthIndicator: DepthIndicatorBlock,
+  // FastMCP blocks
+  mcpTools: ToolActivityBlock,
+  mcpResources: DatasetBlock,
+  mcpPrompts: PanelBlock,
 };
 
 export const RuntimeBlockRenderer: React.FC<{ block: BlockConfig }> = ({ block }) => {
