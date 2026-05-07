@@ -12,6 +12,9 @@ interface Props {
 export const FastMCPBridge: React.FC<Props> = ({ children }) => {
   const { activeConnectionId, connections, connectionStatus } = useConnectionStore();
   const activeConn = connections.find((c) => c.id === activeConnectionId);
+  // bridgeError is reserved for future MCP protocol integration (e.g., handshake
+  // failures, transport errors). The pattern mirrors TamboBridge for consistent
+  // scaffolding so that wiring in a real MCP client later requires minimal changes.
   const [bridgeError, setBridgeError] = useState<string | null>(null);
 
   const isLive = !!activeConn && connectionStatus === 'connected' && activeConn.frontend === 'fastmcp';

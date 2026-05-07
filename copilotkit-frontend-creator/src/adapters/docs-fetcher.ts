@@ -670,14 +670,15 @@ function getNeededSources(frontend: FrontendType, runtime: RuntimeType): string[
 
   // Frontend SDK layer
   if (frontend === 'fastmcp') {
+    // FastMCP is a standalone MCP framework; runtime type is a UI placeholder
+    // and does not correspond to a real backend, so only fetch FastMCP docs.
     sources.push('fastmcp');
   } else {
     // CopilotKit is the SDK layer for copilotkit and tambo
     sources.push('copilotkit');
+    // Backend-specific docs are only relevant for CopilotKit/Tambo connections
+    sources.push(runtime); // 'langchain' | 'langgraph' | 'deepagents'
   }
-
-  // Backend-specific
-  sources.push(runtime); // 'langchain' | 'langgraph' | 'deepagents'
 
   return [...new Set(sources)];
 }
