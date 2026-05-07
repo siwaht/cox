@@ -67,15 +67,31 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
   // map activeConn.agentId → registration key and update the /copilotkit/info
   // stub on the server to advertise them.
   const headersKey = JSON.stringify(config.headers);
-  const agents = useMemo(() => {
-    const httpAgent = new HttpAgent({
-      agentId: 'default',
-      url: config.runtimeUrl,
-      headers: config.headers,
-    });
-    return { default: httpAgent };
+  const agentResult = useMemo(() => {
+    try {
+      const httpAgent = new HttpAgent({
+        agentId: 'default',
+        url: config.runtimeUrl,
+        headers: config.headers,
+      });
+      return { agents: { default: httpAgent }, error: null };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('[CopilotKitBridge] Failed to create HttpAgent:', message);
+      return { agents: null, error: message };
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config.runtimeUrl, headersKey]);
+
+  useEffect(() => {
+    if (agentResult.error) {
+      setBridgeError(agentResult.error);
+    }
+  }, [agentResult.error]);
+
+  if (!agentResult.agents) {
+    return <>{children}</>;
+  }
 
   return (
     <BlockErrorBoundary blockLabel="CopilotKit Bridge">
@@ -84,7 +100,7 @@ export const CopilotKitBridge: React.FC<Props> = ({ children }) => {
         headers={config.headers}
         properties={config.properties}
         agent="default"
-        agents__unsafe_dev_only={agents}
+        agents__unsafe_dev_only={agentResult.agents}
         showDevConsole={false}
       >
         <CopilotAgentEventsSync />

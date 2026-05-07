@@ -1,5 +1,4 @@
 node_modules/
 .DS_Store
 *.local
-agent.py
 __pycache__/
