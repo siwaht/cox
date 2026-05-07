@@ -321,10 +321,16 @@ const FrameworkToggle: React.FC = () => {
   const { framework, setFramework } = useFrameworkStore();
   const addToast = useToastStore((s) => s.addToast);
 
+  const DISPLAY_NAMES: Record<FrontendType, string> = {
+    copilotkit: 'CopilotKit',
+    tambo: 'Tambo',
+    fastmcp: 'FastMCP',
+  };
+
   const handleSwitch = (fw: FrontendType) => {
     if (fw === framework) return;
     setFramework(fw);
-    addToast(`Switched to ${fw === 'copilotkit' ? 'CopilotKit' : 'Tambo'}`, 'info', 2000);
+    addToast(`Switched to ${DISPLAY_NAMES[fw]}`, 'info', 2000);
   };
 
   return (
@@ -347,6 +353,15 @@ const FrameworkToggle: React.FC = () => {
         }`}>
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 6v12M6 12h12" /></svg>
         Tambo
+      </button>
+      <button onClick={() => handleSwitch('fastmcp')} role="radio" aria-checked={framework === 'fastmcp'}
+        className={`px-3 py-1.5 text-xs rounded-lg transition-all duration-300 ease-out font-medium active:scale-[0.97] flex items-center gap-1.5 ${
+          framework === 'fastmcp'
+            ? 'bg-[#f59e0b] text-white shadow-[0_0_16px_rgba(245,158,11,0.4)] border border-[#d97706]'
+            : 'text-txt-muted hover:text-txt-primary hover:bg-white/5'
+        }`}>
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" /></svg>
+        FastMCP
       </button>
     </div>
   );

@@ -54,6 +54,13 @@ const DOC_SOURCES: Record<string, { urls: string[]; label: string }> = {
       'https://docs.langchain.com/oss/python/deepagents/customization',
     ],
   },
+  fastmcp: {
+    label: 'FastMCP',
+    urls: [
+      'https://gofastmcp.com/getting-started/welcome',
+      'https://gofastmcp.com/servers/overview',
+    ],
+  },
 };
 
 const CACHE_KEY = 'copilotkit-docs-cache';
@@ -397,6 +404,76 @@ deepagents>=0.4.11
 - Auto-summarization triggers on ContextOverflowError`,
     fetchedAt: new Date().toISOString(),
   },
+
+  fastmcp: {
+    source: 'fastmcp',
+    title: 'FastMCP Python SDK - Current API (2025+)',
+    content: `## FastMCP Python SDK - MCP Server Framework
+
+### Installation
+\`\`\`bash
+pip install fastmcp
+\`\`\`
+
+### Basic Server Setup
+\`\`\`python
+from fastmcp import FastMCP
+
+mcp = FastMCP("My Server")
+
+@mcp.tool
+def add(a: int, b: int) -> int:
+    """Add two numbers."""
+    return a + b
+
+@mcp.resource("greeting://{name}")
+def get_greeting(name: str) -> str:
+    """Get a personalized greeting."""
+    return f"Hello, {name}!"
+
+@mcp.prompt
+def review_prompt(code: str) -> str:
+    """Generate a code review prompt."""
+    return f"Please review the following code:\\n\\n{code}"
+
+mcp.run()
+\`\`\`
+
+### Key Decorators
+- \`@mcp.tool\` - Expose a function as an MCP tool
+- \`@mcp.resource\` - Expose data as an MCP resource with URI template
+- \`@mcp.prompt\` - Expose a prompt template
+
+### Server Transports
+\`\`\`python
+# Stdio (default)
+mcp.run()
+
+# SSE (Server-Sent Events)
+mcp.run(transport="sse", host="0.0.0.0", port=8000)
+
+# Streamable HTTP
+mcp.run(transport="streamable-http", host="0.0.0.0", port=8000)
+\`\`\`
+
+### Client Usage
+\`\`\`python
+from fastmcp import Client
+
+client = Client("http://localhost:8000/sse")
+async with client:
+    tools = await client.list_tools()
+    result = await client.call_tool("add", {"a": 1, "b": 2})
+\`\`\`
+
+### Key Points
+- FastMCP is the high-level Python framework for building MCP servers
+- Supports tools, resources, and prompts as first-class primitives
+- Multiple transport options: stdio, SSE, streamable-http
+- Type-safe with automatic schema generation from Python type hints
+- Compatible with any MCP client (Claude Desktop, custom clients)`,
+    fetchedAt: new Date().toISOString(),
+  },
 };
 
 
@@ -591,8 +668,13 @@ export function getDocsCacheStatus(): {
 function getNeededSources(frontend: FrontendType, runtime: RuntimeType): string[] {
   const sources: string[] = [];
 
-  // Always need CopilotKit (it's the SDK layer for all backends)
-  sources.push('copilotkit');
+  // Frontend SDK layer
+  if (frontend === 'fastmcp') {
+    sources.push('fastmcp');
+  } else {
+    // CopilotKit is the SDK layer for copilotkit and tambo
+    sources.push('copilotkit');
+  }
 
   // Backend-specific
   sources.push(runtime); // 'langchain' | 'langgraph' | 'deepagents'

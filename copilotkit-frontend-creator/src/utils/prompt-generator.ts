@@ -37,6 +37,9 @@ const BLOCK_DESCRIPTIONS: Record<BlockType, string> = {
   reasoningChain: 'a reasoning chain visualizer showing the agent\'s multi-step thinking process with confidence scores',
   subAgentTree: 'a tree view showing sub-agent hierarchy, delegation flow, and individual agent status',
   depthIndicator: 'a compact depth/progress gauge showing how deep the agent is in its reasoning process',
+  mcpTools: 'a panel for browsing and invoking MCP server tools with arguments and results',
+  mcpResources: 'a panel for browsing MCP server resources and URI templates',
+  mcpPrompts: 'a panel for listing and executing MCP server prompt templates',
 };
 
 function describeGridPosition(block: BlockConfig): string {

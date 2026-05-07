@@ -872,6 +872,45 @@ export function ReasoningChainBlock() {
     </div>
   );
 }`,
+
+  mcpTools: (b) => `export function McpToolsBlock() {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        ${b.label}
+      </div>
+      <div className="flex-1 p-3 text-sm text-zinc-400">
+        <p>MCP server tools will appear here when connected.</p>
+      </div>
+    </div>
+  );
+}`,
+
+  mcpResources: (b) => `export function McpResourcesBlock() {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        ${b.label}
+      </div>
+      <div className="flex-1 p-3 text-sm text-zinc-400">
+        <p>MCP server resources will appear here when connected.</p>
+      </div>
+    </div>
+  );
+}`,
+
+  mcpPrompts: (b) => `export function McpPromptsBlock() {
+  return (
+    <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden h-full flex flex-col">
+      <div className="px-3.5 py-2.5 border-b border-zinc-800 text-xs font-medium text-zinc-500 uppercase tracking-wider">
+        ${b.label}
+      </div>
+      <div className="flex-1 p-3 text-sm text-zinc-400">
+        <p>MCP server prompts will appear here when connected.</p>
+      </div>
+    </div>
+  );
+}`,
 };
 
 // ─── Helpers ───

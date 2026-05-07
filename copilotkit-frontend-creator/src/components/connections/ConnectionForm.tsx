@@ -28,9 +28,18 @@ const TAMBO_PRESETS: Array<{
   { label: 'Custom Remote', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
 ];
 
+const FASTMCP_PRESETS: Array<{
+  label: string; runtime: RuntimeType; baseUrl: string; agentId: string; description: string;
+}> = [
+  { label: 'FastMCP + Local Server', runtime: 'langgraph', baseUrl: 'http://localhost:8000', agentId: '', description: 'Local FastMCP server' },
+  { label: 'FastMCP + SSE Transport', runtime: 'langchain', baseUrl: 'http://localhost:8000/sse', agentId: '', description: 'Server-Sent Events transport' },
+  { label: 'FastMCP + Stdio', runtime: 'deepagents', baseUrl: 'http://localhost:8000', agentId: 'default', description: 'Stdio transport via proxy' },
+  { label: 'Custom Remote', runtime: 'langgraph', baseUrl: 'https://', agentId: '', description: 'Connect to a remote agent' },
+];
+
 export const ConnectionForm: React.FC<Props> = ({ onSubmit, onCancel, initialValues, submitLabel }) => {
   const { framework } = useFrameworkStore();
-  const PRESETS = framework === 'tambo' ? TAMBO_PRESETS : COPILOTKIT_PRESETS;
+  const PRESETS = framework === 'tambo' ? TAMBO_PRESETS : framework === 'fastmcp' ? FASTMCP_PRESETS : COPILOTKIT_PRESETS;
   const [name, setName] = useState(initialValues?.name || '');
   const [runtime, setRuntime] = useState<RuntimeType>(initialValues?.runtime || 'langgraph');
   const [baseUrl, setBaseUrl] = useState(initialValues?.baseUrl || 'http://localhost:2024');

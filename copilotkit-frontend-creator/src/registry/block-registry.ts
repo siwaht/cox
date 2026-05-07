@@ -204,6 +204,37 @@ export const BLOCK_REGISTRY: BlockDefinition[] = [
     requiredCapabilities: ['progress'],
     frontend: 'copilotkit',
   },
+  // ─── FastMCP-specific blocks ───
+  {
+    type: 'mcpTools',
+    label: 'MCP Tools',
+    description: 'Browse and invoke MCP server tools',
+    icon: 'Wrench',
+    defaultW: 6, defaultH: 3,
+    defaultProps: {},
+    requiredCapabilities: ['toolCalls', 'toolResults'],
+    frontend: 'fastmcp',
+  },
+  {
+    type: 'mcpResources',
+    label: 'MCP Resources',
+    description: 'Browse MCP server resources and templates',
+    icon: 'Database',
+    defaultW: 6, defaultH: 3,
+    defaultProps: {},
+    requiredCapabilities: ['structuredOutput'],
+    frontend: 'fastmcp',
+  },
+  {
+    type: 'mcpPrompts',
+    label: 'MCP Prompts',
+    description: 'List and execute MCP server prompts',
+    icon: 'FileText',
+    defaultW: 6, defaultH: 2,
+    defaultProps: {},
+    requiredCapabilities: ['chat'],
+    frontend: 'fastmcp',
+  },
 ];
 
 export function getBlockDefinition(type: string): BlockDefinition | undefined {
