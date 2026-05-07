@@ -102,6 +102,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def health():
     return {
         "status": "ok",
+        "agent_loaded": _copilotkit_mounted,
         "tools": True,
         "tool_calls": True,
         "structured_output": True,
