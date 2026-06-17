@@ -12,7 +12,6 @@ export const EditorView: React.FC = () => {
   const [showInspector, setShowInspector] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
-  const [isOverCanvas, setIsOverCanvas] = useState(false);
 
   const { workspace, undo, redo, canUndo, canRedo,
           selectAll, clearSelection, removeSelected, duplicateSelected, selectedBlockIds } = useWorkspaceStore();
@@ -81,10 +80,15 @@ export const EditorView: React.FC = () => {
         const block = store.workspace.blocks.find(b => b.id === selectedBlockId);
         if (!block) return;
         let { x, y } = block;
+        // Lower bound for downward nudge: one row past the furthest occupied row,
+        // so blocks can't be pushed into unbounded empty space.
+        const maxY = store.workspace.blocks.reduce(
+          (m, b) => (b.id === block.id ? m : Math.max(m, b.y + 1)), 0
+        );
         if (e.key === 'ArrowLeft') x = Math.max(0, x - 1);
         if (e.key === 'ArrowRight') x = Math.min(12 - block.w, x + 1);
         if (e.key === 'ArrowUp') y = Math.max(0, y - 1);
-        if (e.key === 'ArrowDown') y = y + 1;
+        if (e.key === 'ArrowDown') y = Math.min(maxY, y + 1);
         store.moveBlock(block.id, x, y);
         return;
       }
@@ -146,7 +150,6 @@ export const EditorView: React.FC = () => {
       <CanvasArea
         selectedBlockId={selectedBlockId}
         onSelectBlock={setSelectedBlockId}
-        isOverCanvas={isOverCanvas}
       />
 
       {/* Right: Inspector */}

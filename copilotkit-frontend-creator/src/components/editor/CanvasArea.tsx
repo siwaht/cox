@@ -10,14 +10,20 @@ const GRID_COLS = 12;
 interface Props {
   selectedBlockId: string | null;
   onSelectBlock: (id: string | null) => void;
-  isOverCanvas?: boolean;
 }
 
-export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, isOverCanvas }) => {
+/** True while a new block is being dragged in from the palette (vs. reordering an existing block). */
+function isPaletteDrag(e: React.DragEvent): boolean {
+  return Array.from(e.dataTransfer.types).includes('application/block-type');
+}
+
+export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock }) => {
   const { workspace, removeBlock, addBlock, undo, redo, canUndo, canRedo, selectedBlockIds, selectBlock, clearSelection, updateWorkspace } = useWorkspaceStore();
   const [showGrid, setShowGrid] = useState(false);
   const [newBlockId, setNewBlockId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<{ rowIdx: number; position: 'before' | 'after' | 'into'; hoverCol?: number } | null>(null);
+  // True while a palette block is hovering over the canvas — drives the "Drop here" affordances.
+  const [isOverCanvas, setIsOverCanvas] = useState(false);
 
   // Use refs for drag state so it's always current in event handlers (no stale closures)
   const draggedBlockIdRef = useRef<string | null>(null);
@@ -77,6 +83,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
 
   // ─── Drag from palette (new block) ───
   const handlePaletteDrop = useCallback((e: React.DragEvent) => {
+    setIsOverCanvas(false);
     const blockType = e.dataTransfer.getData('application/block-type');
     if (blockType) {
       e.preventDefault();
@@ -92,6 +99,16 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
       e.dataTransfer.dropEffect = 'move';
     } else {
       e.dataTransfer.dropEffect = 'copy';
+      // Surface the "drop to add" affordance while a palette block hovers.
+      if (isPaletteDrag(e)) setIsOverCanvas(true);
+    }
+  }, []);
+
+  // Clear the palette affordance when the drag leaves the canvas entirely.
+  const handlePaletteDragLeave = useCallback((e: React.DragEvent) => {
+    const related = e.relatedTarget as Node | null;
+    if (!related || !e.currentTarget.contains(related)) {
+      setIsOverCanvas(false);
     }
   }, []);
 
@@ -260,7 +277,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
   const rowInfo = useMemo(() => computeRows(workspace.blocks), [workspace.blocks]);
 
   if (workspace.blocks.length === 0) {
-    return <EmptyCanvas isOver={!!isOverCanvas} onDrop={handlePaletteDrop} onDragOver={handleCanvasDragOver} />;
+    return <EmptyCanvas isOver={isOverCanvas} onDrop={handlePaletteDrop} onDragOver={handleCanvasDragOver} onDragLeave={handlePaletteDragLeave} />;
   }
 
   return (
@@ -268,6 +285,7 @@ export const CanvasArea: React.FC<Props> = ({ selectedBlockId, onSelectBlock, is
       onClick={handleCanvasClick}
       onDrop={handlePaletteDrop}
       onDragOver={handleCanvasDragOver}
+      onDragLeave={handlePaletteDragLeave}
       className={`flex-1 overflow-y-auto p-4 sm:p-6 relative canvas-grid transition-all duration-300
         ${isOverCanvas ? 'canvas-drop-active shadow-[inset_0_0_100px_rgba(139,92,246,0.12)] bg-accent/[0.02]' : ''}`}
       style={{ background: isOverCanvas ? undefined : 'var(--color-surface)' }}
@@ -524,8 +542,9 @@ const EmptyCanvas: React.FC<{
   isOver: boolean;
   onDrop: (e: React.DragEvent) => void;
   onDragOver: (e: React.DragEvent) => void;
-}> = ({ isOver, onDrop, onDragOver }) => (
-  <div onDrop={onDrop} onDragOver={onDragOver} className={`flex-1 flex items-center justify-center p-6 transition-colors duration-500 ${isOver ? 'bg-accent/5' : ''}`} style={{ background: isOver ? undefined : 'var(--color-surface)' }}>
+  onDragLeave: (e: React.DragEvent) => void;
+}> = ({ isOver, onDrop, onDragOver, onDragLeave }) => (
+  <div onDrop={onDrop} onDragOver={onDragOver} onDragLeave={onDragLeave} className={`flex-1 flex items-center justify-center p-6 transition-colors duration-500 ${isOver ? 'bg-accent/5' : ''}`} style={{ background: isOver ? undefined : 'var(--color-surface)' }}>
     <div className="w-full max-w-lg animate-fade-in relative z-10">
       <div className={`text-center mb-6 p-10 rounded-3xl border-2 border-dashed transition-all duration-300 empty-canvas-drop-target
         ${isOver ? 'is-over border-accent bg-accent/10 shadow-[0_0_60px_rgba(139,92,246,0.2)]' : 'border-border/40 hover:border-accent/40 hover:bg-accent/5 hover:shadow-[0_0_40px_rgba(139,92,246,0.08)]'}`}>
